@@ -45,6 +45,16 @@ def init_db():
             )
             """
         )
+        # Миграция: столбцы для фиксации согласий (152-ФЗ). Идемпотентно.
+        for ddl in (
+            "ALTER TABLE applications ADD COLUMN consent_pdn INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE applications ADD COLUMN consent_terms INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE applications ADD COLUMN consent_marketing INTEGER NOT NULL DEFAULT 0",
+        ):
+            try:
+                connection.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
         connection.commit()
 
 
@@ -222,13 +232,25 @@ class LeadersHandler(BaseHTTPRequestHandler):
         if error:
             return json_response(self, 400, {"error": error})
 
+        consent_pdn = bool(payload.get("consent_pdn"))
+        consent_terms = bool(payload.get("consent_terms"))
+        consent_marketing = bool(payload.get("consent_marketing"))
+        if not consent_pdn or not consent_terms:
+            return json_response(
+                self,
+                400,
+                {"error": "Необходимо согласие на обработку персональных данных и принятие пользовательского соглашения."},
+            )
+
         created_at = datetime.now().astimezone().isoformat(timespec="seconds")
         try:
             with db_connect() as connection:
                 cursor = connection.execute(
                     """
-                    INSERT INTO applications (full_name, email, phone, organization, created_at)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO applications
+                        (full_name, email, phone, organization, created_at,
+                         consent_pdn, consent_terms, consent_marketing)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         cleaned["full_name"],
@@ -236,6 +258,9 @@ class LeadersHandler(BaseHTTPRequestHandler):
                         cleaned["phone"],
                         cleaned["organization"],
                         created_at,
+                        int(consent_pdn),
+                        int(consent_terms),
+                        int(consent_marketing),
                     ),
                 )
                 connection.commit()

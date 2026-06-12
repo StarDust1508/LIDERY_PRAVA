@@ -2792,6 +2792,10 @@
             line-height: 1.6;
         }
 
+        .form-consent label + label {
+            margin-top: 0.7rem;
+        }
+
         .form-consent input[type="checkbox"] {
             width: 1.15rem;
             height: 1.15rem;
@@ -2815,6 +2819,75 @@
             color: #6b6b74;
             font-size: 0.88rem;
             line-height: 1.6;
+        }
+
+        /* Cookie consent banner */
+        .cookie-banner {
+            position: fixed;
+            left: 1rem;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 400;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 1.25rem 1.4rem;
+            border-radius: 1.25rem;
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid rgba(10, 10, 10, 0.1);
+            box-shadow: 0 18px 50px rgba(10, 10, 10, 0.18);
+            backdrop-filter: blur(12px);
+            display: none;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+        .cookie-banner.is-visible {
+            display: flex;
+            animation: cookieIn 0.4s ease;
+        }
+        @keyframes cookieIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .cookie-banner__text {
+            color: #2a2a30;
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+        .cookie-banner__text a {
+            color: var(--c-red);
+            font-weight: 700;
+            text-underline-offset: 0.18em;
+        }
+        .cookie-banner__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+        }
+        .cookie-btn {
+            flex: 1 1 auto;
+            min-width: 140px;
+            padding: 0.8rem 1.2rem;
+            border-radius: 999px;
+            font-family: var(--f-sans);
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+            border: 1.5px solid var(--c-red);
+            transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+        .cookie-btn:hover { transform: translateY(-2px); }
+        .cookie-btn--accept {
+            background: var(--c-red);
+            color: #fff;
+        }
+        .cookie-btn--accept:hover { background: #c90824; }
+        .cookie-btn--decline {
+            background: transparent;
+            color: var(--c-red);
+        }
+        .cookie-btn--decline:hover { background: rgba(234, 10, 42, 0.08); }
+        @media (max-width: 560px) {
+            .cookie-banner__actions { flex-direction: column; }
         }
 
         .form-group input {
@@ -5397,11 +5470,19 @@
                         <input type="text" name="organization" placeholder="ВУЗ / Место работы" required="" vid="110">
                     </div>
                     <div class="form-consent animate-on-scroll stagger-2">
-                        <label for="privacyConsent">
-                            <input id="privacyConsent" type="checkbox" name="privacy_consent" required>
-                            <span>Я принимаю <a href="./terms.html" target="_blank" rel="noopener noreferrer">пользовательское соглашение</a>, ознакомлен(а) с <a href="./privacy.html" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a> и <a href="./cookies.html" target="_blank" rel="noopener noreferrer">политикой использования cookie-файлов</a>, а также даю согласие на обработку персональных данных для рассмотрения заявки на участие в конкурсе.</span>
+                        <label class="consent-item" for="consentPdn">
+                            <input id="consentPdn" type="checkbox" name="consent_pdn" required>
+                            <span>Я даю <a href="./soglasie.html" target="_blank" rel="noopener noreferrer">согласие на обработку персональных данных</a> и ознакомлен(а) с <a href="./privacy.html" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>.</span>
                         </label>
-                        <p class="form-note">Мы используем ваши данные только для связи по заявке, организации участия в конкурсе и работы сервисов сайта.</p>
+                        <label class="consent-item" for="consentTerms">
+                            <input id="consentTerms" type="checkbox" name="consent_terms" required>
+                            <span>Я принимаю <a href="./terms.html" target="_blank" rel="noopener noreferrer">пользовательское соглашение</a> и ознакомлен(а) с <a href="./cookies.html" target="_blank" rel="noopener noreferrer">политикой использования cookie-файлов</a>.</span>
+                        </label>
+                        <label class="consent-item" for="consentMarketing">
+                            <input id="consentMarketing" type="checkbox" name="consent_marketing">
+                            <span>Согласен(на) получать информационные и новостные сообщения о конкурсе и мероприятиях по email (необязательно).</span>
+                        </label>
+                        <p class="form-note">Мы используем ваши данные только для связи по заявке, организации участия в конкурсе и работы сервисов сайта. Согласие можно отозвать письмом на <a href="mailto:lideryprava@mail.ru">lideryprava@mail.ru</a>.</p>
                     </div>
                     <button type="submit" class="form-submit" vid="111">Принять вызов</button>
                     <p id="applicationFormMessage" style="margin: 4px 0 0; color: rgba(255,255,255,0.88); font-size: 0.95rem; line-height: 1.5;"></p>
@@ -5596,6 +5677,7 @@
                             <a href="./terms.html" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
                             <a href="./cookies.html" target="_blank" rel="noopener noreferrer">Политика cookie</a>
                             <a href="./privacy.html" target="_blank" rel="noopener noreferrer">Политика конфиденциальности</a>
+                            <a href="./soglasie.html" target="_blank" rel="noopener noreferrer">Согласие на обработку ПДн</a>
                         </div>
                     </div>
                     <a class="footer-back-link" href="javascript:void(0)" onclick="scrollToSection('home')">Наверх</a>
@@ -5907,7 +5989,10 @@
                     full_name: String(formData.get('full_name') || '').trim(),
                     email: String(formData.get('email') || '').trim(),
                     phone: String(formData.get('phone') || '').trim(),
-                    organization: String(formData.get('organization') || '').trim()
+                    organization: String(formData.get('organization') || '').trim(),
+                    consent_pdn: formData.get('consent_pdn') !== null,
+                    consent_terms: formData.get('consent_terms') !== null,
+                    consent_marketing: formData.get('consent_marketing') !== null
                 };
 
                 isSubmitting = true;
@@ -5954,5 +6039,64 @@
                 }
             });
         });
+    </script>
+
+    <!-- Cookie consent banner (152-ФЗ) -->
+    <div class="cookie-banner" id="cookieBanner" role="dialog" aria-live="polite" aria-label="Уведомление об использовании cookie">
+        <div class="cookie-banner__text">
+            Мы используем cookie-файлы для корректной работы сайта, а с вашего согласия — для аналитики.
+            Технически необходимые cookie применяются всегда. Подробнее — в
+            <a href="./cookies.html" target="_blank" rel="noopener noreferrer">Политике cookie</a> и
+            <a href="./privacy.html" target="_blank" rel="noopener noreferrer">Политике конфиденциальности</a>.
+        </div>
+        <div class="cookie-banner__actions">
+            <button type="button" class="cookie-btn cookie-btn--accept" id="cookieAccept">Принять</button>
+            <button type="button" class="cookie-btn cookie-btn--decline" id="cookieDecline">Отклонить</button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var STORAGE_KEY = 'cookie_consent_v1';
+            var banner = document.getElementById('cookieBanner');
+            if (!banner) return;
+
+            function getConsent() {
+                try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+                catch (e) { return null; }
+            }
+            function setConsent(status) {
+                var record = { status: status, ts: new Date().toISOString() };
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(record)); } catch (e) {}
+                if (status === 'accepted') loadOptionalServices();
+            }
+
+            // Optional, non-essential trackers load ONLY after explicit "Принять".
+            // Until consent is given, nothing here runs (РКН-compliant gating).
+            function loadOptionalServices() {
+                if (window.__optionalServicesLoaded) return;
+                window.__optionalServicesLoaded = true;
+                // Пример: подключение Яндекс.Метрики добавлять ТОЛЬКО здесь.
+                // (function(m,e,t,r,i,k,a){ ...ym(XXXXXX, "init", {...}); })(...);
+            }
+
+            var existing = getConsent();
+            if (existing && existing.status === 'accepted') {
+                loadOptionalServices();
+            } else if (!existing) {
+                banner.classList.add('is-visible');
+            }
+
+            var acceptBtn = document.getElementById('cookieAccept');
+            var declineBtn = document.getElementById('cookieDecline');
+            if (acceptBtn) acceptBtn.addEventListener('click', function () {
+                setConsent('accepted');
+                banner.classList.remove('is-visible');
+            });
+            if (declineBtn) declineBtn.addEventListener('click', function () {
+                setConsent('declined');
+                banner.classList.remove('is-visible');
+            });
+        })();
     </script>
 </body></html>

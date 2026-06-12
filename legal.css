@@ -248,3 +248,37 @@ li + li {
         grid-template-columns: 1fr;
     }
 }
+
+/* Cookie table (added for 152-ФЗ cookie policy) */
+.table-wrap {
+    overflow-x: auto;
+    margin-top: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+}
+.cookie-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    min-width: 560px;
+}
+.cookie-table th,
+.cookie-table td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    line-height: 1.5;
+}
+.cookie-table thead th {
+    background: rgba(21, 21, 21, 0.04);
+    font-weight: 700;
+    white-space: nowrap;
+}
+.cookie-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.cookie-table td em {
+    color: #6b6b74;
+    font-style: italic;
+}
