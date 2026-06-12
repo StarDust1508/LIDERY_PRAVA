@@ -1,0 +1,15 @@
+[Unit]
+Description=LideryPrava Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/lideryprava
+ExecStart=/usr/bin/python3 /var/www/lideryprava/server.py
+Environment="PORT=8000"
+Environment="ADMIN_PASSWORD=change-me-please"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
