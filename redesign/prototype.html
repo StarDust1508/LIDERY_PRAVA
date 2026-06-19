@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Лидеры Права — прототип редизайна v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap&subset=cyrillic,latin" rel="stylesheet">
+<style>
+    /* ============================================================
+       FILE: redesign/prototype.html  (v2)
+       PURPOSE: Брутал-минимализм для «Лидеры Права» — БЕЗ чёрного.
+       PALETTE: paper #F5F1E9 / sand #ECE6DA / ink(espresso) #2C2722 / red #E5231C
+       TYPE: Inter (display) + JetBrains Mono (тех-подписи)
+       GRAPHICS: дуотон-обработка реальных фото timeline-*.jpg
+       ============================================================ */
+    :root {
+        --paper: #F5F1E9;
+        --sand:  #ECE6DA;
+        --ink:   #2C2722;
+        --ink-60: rgba(44, 39, 34, 0.6);
+        --ink-35: rgba(44, 39, 34, 0.35);
+        --red:   #E5231C;
+        --red-deep: #B81A14;
+        --line:  rgba(44, 39, 34, 0.16);
+        --gutter: clamp(1.1rem, 4vw, 3.5rem);
+        --maxw: 1600px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body { background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; }
+    html.lenis, html.lenis body { height: auto; }
+    .lenis.lenis-smooth { scroll-behavior: auto !important; }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter); }
+
+    /* ---------- DUOTONE PHOTO TREATMENT ---------- */
+    .duo { position: relative; overflow: hidden; background: var(--red); }
+    .duo img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: luminosity; opacity: .92; filter: contrast(1.05); transition: opacity .6s ease, mix-blend-mode .6s, transform 1.2s cubic-bezier(.16,1,.3,1); }
+    .duo:hover img { mix-blend-mode: normal; opacity: 1; transform: scale(1.04); }
+    .duo.ink { background: var(--ink); }
+    .duo::after { content: ''; position: absolute; inset: 0; border: 1px solid var(--line); pointer-events: none; }
+
+    /* ---------- CURSOR ---------- */
+    .cursor { position: fixed; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--red); pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); transition: width .25s, height .25s, background .25s, opacity .25s; }
+    .cursor.is-hover { width: 56px; height: 56px; background: rgba(229,35,28,0.18); }
+    @media (hover: none) { .cursor { display: none; } }
+
+    /* ---------- NAV ---------- */
+    .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; border-bottom: 1px solid var(--line); background: rgba(245, 241, 233, 0.82); backdrop-filter: blur(8px); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 1rem; }
+    .nav-mark { font-weight: 900; font-size: 1.05rem; letter-spacing: -0.02em; text-transform: uppercase; display: flex; align-items: center; gap: .5rem; }
+    .nav-mark img { width: 30px; height: 30px; border-radius: 7px; }
+    .nav-mark sup { font-size: .6rem; color: var(--red); font-family: 'JetBrains Mono', monospace; }
+    .nav-links { display: flex; align-items: center; gap: clamp(.8rem, 1.8vw, 2rem); }
+    .nav-links a { font-size: .72rem; }
+    .nav-cta { border: 1px solid var(--ink); border-radius: 100px; padding: .5rem 1rem; display: inline-flex; gap: .4rem; align-items: center; transition: background .2s, color .2s, border-color .2s; }
+    .nav-cta:hover { background: var(--red); border-color: var(--red); color: #fff; }
+    .nav-burger { display: none; flex-direction: column; gap: 5px; width: 30px; cursor: pointer; }
+    .nav-burger span { height: 2px; background: var(--ink); display: block; transition: .3s; }
+
+    /* ---------- HERO (split: type + photo) ---------- */
+    .hero { min-height: 100vh; padding-top: 64px; display: grid; grid-template-columns: 1.35fr .65fr; }
+    .hero-left { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 clamp(1.5rem,4vh,3rem) 0; padding-right: clamp(1.5rem,3vw,3rem); padding-left: var(--gutter); position: relative; }
+    .hero-topmeta { position: absolute; top: clamp(5rem, 11vh, 8rem); left: var(--gutter); right: clamp(1.5rem,3vw,3rem); display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+    .hero-topmeta span { font-size: .7rem; color: var(--ink-60); }
+    .hero h1 { font-weight: 900; font-size: clamp(3.4rem, 13vw, 13rem); line-height: 0.84; letter-spacing: -0.045em; text-transform: uppercase; }
+    .hero h1 .red { color: var(--red); }
+    .hero-bottom { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.5rem; margin-top: clamp(1.5rem,4vh,2.6rem); border-top: 1px solid var(--line); padding-top: 1.2rem; }
+    .hero-statement { max-width: 28rem; font-size: clamp(.95rem, 1.3vw, 1.12rem); line-height: 1.45; }
+    .hero-statement b { font-weight: 800; }
+    .hero-scroll { font-size: .7rem; display: flex; align-items: center; gap: .5rem; color: var(--ink-60); }
+    .hero-scroll .dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.3;transform:scale(.6);} }
+    .hero-photo { position: relative; border-left: 1px solid var(--line); }
+    .hero-photo .duo { position: absolute; inset: 0; }
+    .hero-photo .tag { position: absolute; left: 1rem; bottom: 1rem; z-index: 3; color: #fff; font-size: .68rem; mix-blend-mode: difference; }
+
+    /* ---------- MARQUEE ---------- */
+    .marquee { background: var(--red); color: #fff; overflow: hidden; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: .7rem 0; }
+    .marquee-track { display: inline-flex; white-space: nowrap; animation: scrollx 30s linear infinite; }
+    .marquee-track span { font-weight: 800; font-size: clamp(1.1rem, 2.6vw, 2rem); text-transform: uppercase; letter-spacing: -0.01em; padding: 0 1.4rem; display: inline-flex; align-items: center; gap: 1.4rem; }
+    .marquee-track span::after { content: '✺'; color: rgba(255,255,255,.7); font-size: .6em; }
+    @keyframes scrollx { to { transform: translateX(-50%); } }
+
+    /* ---------- SECTION SHELL ---------- */
+    section.block { padding: clamp(4rem, 11vh, 9rem) 0; border-bottom: 1px solid var(--line); }
+    section.sand { background: var(--sand); }
+    .sec-label { font-size: .7rem; color: var(--red); margin-bottom: 2.5rem; display: flex; align-items: center; gap: .6rem; }
+    .sec-label::before { content: ''; width: 28px; height: 1px; background: var(--red); }
+
+    /* ---------- MANIFESTO ---------- */
+    .manifesto p { font-weight: 800; font-size: clamp(1.6rem, 4.6vw, 4rem); line-height: 1.04; letter-spacing: -0.03em; text-transform: uppercase; max-width: 20ch; }
+    .manifesto .red { color: var(--red); }
+    .manifesto .mute { color: var(--ink-35); }
+
+    /* ---------- STATS ---------- */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .stat { background: var(--paper); padding: clamp(1.5rem, 3vw, 2.5rem); }
+    .stat .num { font-weight: 900; font-size: clamp(2.8rem, 7vw, 6rem); line-height: 1; letter-spacing: -0.04em; }
+    .stat .num .red { color: var(--red); }
+    .stat .lbl { font-size: .7rem; color: var(--ink-60); margin-top: .8rem; }
+
+    /* ---------- STORY: editorial photo grid ---------- */
+    .story-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: clamp(.8rem, 1.5vw, 1.4rem); }
+    .pcard { position: relative; }
+    .pcard .duo { aspect-ratio: 4/5; }
+    .pcard.wide .duo { aspect-ratio: 16/10; }
+    .pcard .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: .7rem; gap: .5rem; }
+    .pcard .pyear { font-weight: 900; font-size: clamp(1.3rem,2.4vw,2rem); letter-spacing: -0.03em; }
+    .pcard .pdesc { font-size: .7rem; color: var(--ink-60); text-align: right; }
+    .s-a { grid-column: span 7; } .s-a .duo { aspect-ratio: 16/11; }
+    .s-b { grid-column: span 5; }
+    .s-c { grid-column: span 4; } .s-d { grid-column: span 4; } .s-e { grid-column: span 4; }
+
+    /* ---------- CATALOG (этапы) ---------- */
+    .catalog { border-top: 1px solid var(--ink); }
+    .row { display: grid; grid-template-columns: 5rem 1fr auto 4rem; align-items: center; gap: 1rem; padding: clamp(1.2rem,3vw,2.2rem) 0; border-bottom: 1px solid var(--line); position: relative; overflow: hidden; transition: color .35s, padding-left .35s, padding-right .35s; }
+    .row::before { content: ''; position: absolute; inset: 0; background: var(--red); transform: translateY(101%); transition: transform .4s cubic-bezier(.7,0,.2,1); z-index: 0; }
+    .row:hover { color: #fff; padding-left: 1.4rem; padding-right: 1.4rem; }
+    .row:hover::before { transform: translateY(0); }
+    .row > * { position: relative; z-index: 1; }
+    .row .r-num { font-size: .8rem; opacity: .7; }
+    .row .r-title { font-weight: 800; font-size: clamp(1.5rem, 4.5vw, 3.4rem); text-transform: uppercase; letter-spacing: -0.03em; line-height: .98; }
+    .row .r-code { font-size: .72rem; opacity: .6; }
+    .row .r-arrow { font-size: 1.6rem; text-align: right; transition: transform .35s; }
+    .row:hover .r-arrow { transform: translate(6px, -6px); }
+
+    /* ---------- WINNERS teaser ---------- */
+    .winners-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; margin-bottom: 2.5rem; }
+    .winners-head h2 { font-weight: 900; font-size: clamp(2.2rem, 7vw, 5.5rem); text-transform: uppercase; letter-spacing: -0.04em; line-height: .9; }
+    .winners-link { border: 1px solid var(--ink); border-radius: 100px; padding: .7rem 1.3rem; font-size: .72rem; display: inline-flex; gap: .5rem; transition: background .2s, color .2s; }
+    .winners-link:hover { background: var(--red); border-color: var(--red); color: #fff; }
+    .winners-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(.8rem,1.5vw,1.4rem); }
+    .wcard .duo { aspect-ratio: 3/4; }
+    .wcard.empty .duo { background: var(--sand); display: flex; align-items: center; justify-content: center; }
+    .wcard.empty .duo .ph { color: var(--ink-35); font-size: 2rem; }
+    .wcard .wmeta { display: flex; justify-content: space-between; align-items: baseline; margin-top: .6rem; }
+    .wcard .wyear { font-weight: 900; font-size: clamp(1.2rem,2.2vw,1.7rem); letter-spacing: -0.03em; }
+    .wcard .wname { font-size: .68rem; color: var(--ink-60); }
+    .winners-note { margin-top: 1.6rem; font-size: .72rem; color: var(--ink-60); display: flex; align-items: center; gap: .6rem; }
+    .winners-note .dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; }
+
+    /* ---------- CTA (RED, not black) ---------- */
+    .cta { background: var(--red); color: var(--paper); padding: clamp(4rem, 12vh, 9rem) 0; }
+    .cta .sec-label { color: rgba(255,255,255,.85); } .cta .sec-label::before { background: rgba(255,255,255,.85); }
+    .cta-big { font-weight: 900; font-size: clamp(2.8rem, 12vw, 11rem); line-height: .86; text-transform: uppercase; letter-spacing: -0.045em; display: inline-flex; align-items: flex-start; gap: .3em; transition: opacity .2s; color: #fff; }
+    .cta-big:hover { opacity: .82; }
+    .cta-big sup { font-size: .18em; }
+    .cta-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid rgba(245,241,233,.35); }
+    .cta-foot a, .cta-foot span { font-size: .72rem; color: rgba(245,241,233,.85); }
+    .cta-foot a:hover { color: #fff; }
+
+    /* ---------- REVEAL ---------- */
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1); }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 1024px) {
+        .hero { grid-template-columns: 1fr; }
+        .hero-photo { display: none; }
+        .stats, .winners-grid { grid-template-columns: repeat(2, 1fr); }
+        .story-grid > * { grid-column: span 6 !important; }
+    }
+    @media (max-width: 760px) {
+        .nav-links { position: fixed; inset: 64px 0 auto 0; background: var(--paper); border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; padding: 1rem var(--gutter) 1.5rem; gap: .2rem; transform: translateY(-120%); transition: transform .4s cubic-bezier(.7,0,.2,1); }
+        .nav-links.open { transform: none; }
+        .nav-links a { padding: .9rem 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+        .nav-cta { justify-content: center; border-radius: 12px; margin-top: .6rem; }
+        .nav-burger { display: flex; }
+        .row { grid-template-columns: 3rem 1fr 2.2rem; }
+        .row .r-code { display: none; }
+        .story-grid > * { grid-column: span 12 !important; }
+    }
+    @media (max-width: 480px) {
+        .stats, .winners-grid { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+
+<!-- NAV -->
+<nav class="nav">
+    <div class="wrap nav-inner">
+        <a href="#" class="nav-mark"><img src="../assets/logo.jpg" alt="">Лидеры&nbsp;Права <sup>©2026</sup></a>
+        <div class="nav-links" id="navLinks">
+            <a href="#manifesto">О конкурсе</a>
+            <a href="#story">История</a>
+            <a href="#stages">Этапы</a>
+            <a href="#winners">Победители</a>
+            <a href="#cta" class="nav-cta mono">Подать заявку →</a>
+        </div>
+        <div class="nav-burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></div>
+    </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+    <div class="hero-left">
+        <div class="hero-topmeta mono">
+            <span>Юридический конкурс — Саратов</span>
+            <span>Сезон 02 / 2017—2026</span>
+        </div>
+        <h1>Лидеры<br><span class="red">Права</span></h1>
+        <div class="hero-bottom">
+            <p class="hero-statement">Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников, стажировки и гранты.</p>
+            <div class="hero-scroll mono"><span class="dot"></span> Листайте вниз</div>
+        </div>
+    </div>
+    <div class="hero-photo">
+        <div class="duo"><img src="../assets/timeline-2024.jpg" alt="Финал конкурса"></div>
+        <div class="tag mono">[ Финал · 2024 ]</div>
+    </div>
+</header>
+
+<!-- MARQUEE -->
+<div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+        <span>Регистрация открыта</span><span>До 15 ноября</span><span>Стажировки</span><span>Гранты</span><span>Наставники</span>
+        <span>Регистрация открыта</span><span>До 15 ноября</span><span>Стажировки</span><span>Гранты</span><span>Наставники</span>
+    </div>
+</div>
+
+<!-- MANIFESTO -->
+<section class="block manifesto" id="manifesto">
+    <div class="wrap reveal">
+        <div class="sec-label mono">(О конкурсе)</div>
+        <p>Право <span class="red">начинается</span> с тех, кто <span class="mute">не боится</span> взять слово.</p>
+    </div>
+</section>
+
+<!-- STATS -->
+<section class="block sand" id="stats">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(Цифры сезона)</div>
+        <div class="stats reveal">
+            <div class="stat"><div class="num" data-count="2017">2017</div><div class="lbl mono">Год основания</div></div>
+            <div class="stat"><div class="num" data-count="9">0</div><div class="lbl mono">Сезонов проведено</div></div>
+            <div class="stat"><div class="num" data-count="1200"><span class="red">0</span></div><div class="lbl mono">Участников+</div></div>
+            <div class="stat"><div class="num" data-count="60">0</div><div class="lbl mono">Партнёров</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- STORY: editorial photo grid -->
+<section class="block" id="story">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(История проекта / 2017—2025)</div>
+        <div class="story-grid reveal">
+            <a class="pcard s-a" href="#winners"><div class="duo"><img src="../assets/timeline-2025.jpg" alt=""></div><div class="meta"><span class="pyear">2025</span><span class="pdesc mono">Юбилейный сезон</span></div></a>
+            <a class="pcard s-b" href="#winners"><div class="duo"><img src="../assets/timeline-2022.jpg" alt=""></div><div class="meta"><span class="pyear">2022</span><span class="pdesc mono">Очные защиты</span></div></a>
+            <a class="pcard s-c" href="#winners"><div class="duo ink"><img src="../assets/timeline-2020.jpg" alt=""></div><div class="meta"><span class="pyear">2020</span><span class="pdesc mono">Онлайн-формат</span></div></a>
+            <a class="pcard s-d" href="#winners"><div class="duo"><img src="../assets/timeline-2019.jpg" alt=""></div><div class="meta"><span class="pyear">2019</span><span class="pdesc mono">Рост участников</span></div></a>
+            <a class="pcard s-e" href="#winners"><div class="duo ink"><img src="../assets/timeline-2017.jpg" alt=""></div><div class="meta"><span class="pyear">2017</span><span class="pdesc mono">Первый сезон</span></div></a>
+        </div>
+    </div>
+</section>
+
+<!-- STAGES CATALOG -->
+<section class="block sand" id="stages">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(Этапы / маршрут участника)</div>
+        <div class="catalog reveal">
+            <a class="row" href="#cta"><div class="r-num mono">№01</div><div class="r-title">Заявка</div><div class="r-code mono">SC_01 · 5 мин</div><div class="r-arrow">↗</div></a>
+            <a class="row" href="#cta"><div class="r-num mono">№02</div><div class="r-title">Отбор</div><div class="r-code mono">SC_02 · кейс</div><div class="r-arrow">↗</div></a>
+            <a class="row" href="#cta"><div class="r-num mono">№03</div><div class="r-title">Наставники</div><div class="r-code mono">SC_03 · менторство</div><div class="r-arrow">↗</div></a>
+            <a class="row" href="#cta"><div class="r-num mono">№04</div><div class="r-title">Защита</div><div class="r-code mono">SC_04 · финал</div><div class="r-arrow">↗</div></a>
+            <a class="row" href="#cta"><div class="r-num mono">№05</div><div class="r-title">Карьера</div><div class="r-code mono">SC_05 · стажировка</div><div class="r-arrow">↗</div></a>
+        </div>
+    </div>
+</section>
+
+<!-- WINNERS teaser -->
+<section class="block" id="winners">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(История победителей / отдельная страница)</div>
+        <div class="winners-head reveal">
+            <h2>Победители</h2>
+            <a href="pobediteli.html" class="winners-link mono">Открыть архив →</a>
+        </div>
+        <div class="winners-grid reveal">
+            <a class="wcard" href="pobediteli.html"><div class="duo"><img src="../assets/timeline-2023.jpg" alt=""></div><div class="wmeta"><span class="wyear">2025</span><span class="wname mono">Имя · вуз</span></div></a>
+            <a class="wcard" href="pobediteli.html"><div class="duo ink"><img src="../assets/timeline-2021.jpg" alt=""></div><div class="wmeta"><span class="wyear">2024</span><span class="wname mono">Имя · вуз</span></div></a>
+            <div class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wyear">2023</span><span class="wname mono">Скоро</span></div></div>
+            <div class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wyear">2022</span><span class="wname mono">Скоро</span></div></div>
+        </div>
+        <div class="winners-note mono reveal"><span class="dot"></span> Список формируется — структура готова под наполнение, как только пришлёте данные победителей.</div>
+    </div>
+</section>
+
+<!-- CTA / FOOTER -->
+<section class="cta" id="cta">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(Подать заявку)</div>
+        <a href="#" class="cta-big reveal">Стать<br>лидером<sup>↗</sup></a>
+        <div class="cta-foot mono">
+            <span>© 2026 ООО «АСПБ» · ИНН 6452098049</span>
+            <a href="mailto:support@lideryprava.ru">support@lideryprava.ru</a>
+            <a href="tel:+79614929890">+7 961 492-98-90</a>
+            <span>Саратов / Россия</span>
+        </div>
+    </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+<script>
+    (function () {
+        if (window.Lenis && !matchMedia('(hover: none)').matches) {
+            const lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+            window.lenis = lenis;
+            function raf(t) { lenis.raf(t); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+        }
+    })();
+    (function () {
+        const c = document.getElementById('cursor');
+        if (matchMedia('(hover: none)').matches) return;
+        let x = 0, y = 0, cx = 0, cy = 0;
+        addEventListener('mousemove', e => { x = e.clientX; y = e.clientY; });
+        (function loop() { cx += (x - cx) * 0.2; cy += (y - cy) * 0.2; c.style.transform = `translate(${cx}px, ${cy}px) translate(-50%,-50%)`; requestAnimationFrame(loop); })();
+        document.querySelectorAll('a, .nav-burger, .row, .pcard, .wcard').forEach(el => {
+            el.addEventListener('mouseenter', () => c.classList.add('is-hover'));
+            el.addEventListener('mouseleave', () => c.classList.remove('is-hover'));
+        });
+    })();
+    (function () {
+        const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.12 });
+        document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+    })();
+    (function () {
+        const seen = new WeakSet();
+        const io = new IntersectionObserver((es) => {
+            es.forEach(e => {
+                if (!e.isIntersecting || seen.has(e.target)) return; seen.add(e.target);
+                e.target.querySelectorAll('[data-count]').forEach(n => {
+                    const target = +n.dataset.count, red = !!n.querySelector('.red'); const t0 = performance.now(), dur = 1100;
+                    (function step(t) { const p = Math.min(1, (t - t0) / dur); const cur = Math.round(target * (1 - Math.pow(1 - p, 3))); const s = cur.toLocaleString('ru-RU'); n.innerHTML = red ? '<span class="red">' + s + '</span>' : s; if (p < 1) requestAnimationFrame(step); })(performance.now());
+                });
+            });
+        }, { threshold: 0.4 });
+        document.querySelectorAll('.stats').forEach(el => io.observe(el));
+    })();
+    (function () {
+        const b = document.getElementById('burger'), l = document.getElementById('navLinks');
+        b.addEventListener('click', () => l.classList.toggle('open'));
+        l.querySelectorAll('a').forEach(a => a.addEventListener('click', () => l.classList.remove('open')));
+    })();
+</script>
+</body>
+</html>

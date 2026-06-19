@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ============================================================
+     FILE: redesign/pobediteli.html — «История победителей»
+     ============================================================
+     КАК ДОБАВИТЬ ПОБЕДИТЕЛЯ:
+     1. Найдите блок нужного года (секция <div class="year-block" data-year="...">).
+     2. Внутри <div class="wcards"> замените пустой плейсхолдер
+        (<article class="wcard empty">...</article>) на заполненную карточку:
+
+        <article class="wcard">
+            <div class="duo">
+                <img src="assets/winners/FILE.jpg" alt="Имя Фамилия — победитель 2025">
+            </div>
+            <div class="wmeta">
+                <span class="wnomination mono">Номинация</span>   (напр. «Гран-при» / «Лучший проект»)
+                <span class="wname">Имя Фамилия</span>
+                <span class="wuniv">ВУЗ / организация</span>
+                <span class="wcase">Краткий кейс или тема проекта (1–2 строки).</span>
+            </div>
+        </article>
+
+     3. Фото победителей кладите в /Users/bubble3/Desktop/LIDERY_PRAVA/assets/winners/
+        (создайте папку), путь в src — assets/winners/...
+        Соотношение сторон карточки 3/4; дуотон применяется автоматически (класс .duo).
+     4. Можно дублировать <article class="wcard"> сколько угодно раз внутри года.
+     5. Когда год полностью наполнен — уберите у его .year-block атрибут-метку
+        и при желании снимите общий баннер «Список формируется» внизу.
+     ПОЛЯ КАРТОЧКИ: год (из заголовка года) · фото · номинация · имя · вуз · кейс.
+     ============================================================ -->
+<title>Победители — Лидеры Права</title>
+<meta name="description" content="История победителей юридического конкурса «Лидеры Права» с 2017 по 2025 год. Архив формируется.">
+<link rel="icon" href="assets/favicon-32x32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap&subset=cyrillic,latin" rel="stylesheet">
+<style>
+    :root {
+        --paper: #F5F1E9;
+        --sand:  #ECE6DA;
+        --ink:   #2C2722;
+        --ink-60: rgba(44, 39, 34, 0.6);
+        --ink-35: rgba(44, 39, 34, 0.35);
+        --red:   #E5231C;
+        --red-deep: #B81A14;
+        --line:  rgba(44, 39, 34, 0.16);
+        --gutter: clamp(1.1rem, 4vw, 3.5rem);
+        --maxw: 1600px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth; }
+    body { background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; }
+    html.lenis, html.lenis body { height: auto; }
+    .lenis.lenis-smooth { scroll-behavior: auto !important; }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+    button { font-family: inherit; cursor: pointer; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    .duo { position: relative; overflow: hidden; background: var(--paper); }
+    .duo img { width: 100%; height: 100%; object-fit: cover; opacity: 1; filter: saturate(1.12) contrast(1.04); transition: transform 1.2s cubic-bezier(.16,1,.3,1); }
+    .duo::before { content: ''; position: absolute; inset: 0; z-index: 1; background: var(--red); mix-blend-mode: soft-light; opacity: .42; transition: opacity .5s ease; pointer-events: none; }
+    .duo.ink::before { background: var(--ink); opacity: .3; }
+    .duo:hover img { transform: scale(1.04); }
+    .duo:hover::before { opacity: 0; }
+    .duo::after { content: ''; position: absolute; inset: 0; z-index: 2; border: 1px solid var(--line); pointer-events: none; }
+
+    .cursor { position: fixed; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--red); pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); transition: width .25s, height .25s, background .25s; }
+    .cursor.is-hover { width: 56px; height: 56px; background: rgba(229,35,28,0.18); }
+    @media (hover: none) { .cursor { display: none; } }
+
+    /* NAV */
+    .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; border-bottom: 1px solid var(--line); background: rgba(245, 241, 233, 0.82); backdrop-filter: blur(8px); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 1rem; }
+    .nav-mark { font-weight: 900; font-size: 1.05rem; letter-spacing: -0.02em; text-transform: uppercase; display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+    .nav-mark img { width: 30px; height: 30px; border-radius: 7px; }
+    .nav-mark sup { font-size: .6rem; color: var(--red); font-family: 'JetBrains Mono', monospace; }
+    .nav-links { display: flex; align-items: center; gap: clamp(.8rem, 1.8vw, 2rem); }
+    .nav-links a { font-size: .72rem; white-space: nowrap; }
+    .nav-cta { border: 1px solid var(--ink); border-radius: 100px; padding: .5rem 1rem; display: inline-flex; gap: .4rem; align-items: center; transition: background .2s, color .2s, border-color .2s; }
+    .nav-cta:hover { background: var(--red); border-color: var(--red); color: #fff; }
+    .nav-burger { display: none; flex-direction: column; gap: 5px; width: 44px; height: 44px; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; }
+    .nav-burger span { height: 2px; width: 30px; background: var(--ink); display: block; transition: .3s; }
+    @media (max-width: 1279px) and (min-width: 1025px) {
+        .nav-links { gap: clamp(.6rem, 1.2vw, 1.1rem); }
+        .nav-links a { font-size: .75rem; }
+        .nav-cta { padding: .45rem .8rem; }
+    }
+
+    /* PAGE HERO */
+    .phero { padding: clamp(8rem, 18vh, 12rem) 0 clamp(3rem, 7vh, 6rem); border-bottom: 1px solid var(--line); }
+    .phero .crumbs { font-size: .7rem; color: var(--ink-60); margin-bottom: 1.6rem; display: flex; align-items: center; gap: .5rem; }
+    .phero .crumbs a { color: var(--red); }
+    .phero h1 { font-weight: 900; font-size: clamp(3rem, 13vw, 12rem); line-height: .84; letter-spacing: -0.045em; text-transform: uppercase; }
+    .phero .ph-sub { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; margin-top: clamp(1.5rem, 4vh, 2.6rem); border-top: 1px solid var(--line); padding-top: 1.3rem; }
+    .phero .ph-sub p { max-width: 38ch; font-size: clamp(.95rem, 1.4vw, 1.15rem); line-height: 1.5; }
+    .phero .ph-meta { font-size: .7rem; color: var(--ink-60); text-align: right; line-height: 1.8; }
+    .phero .ph-meta b { color: var(--red); font-weight: 700; }
+
+    /* NOTICE banner */
+    .notice { background: var(--red); color: var(--paper); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 1rem 0; }
+    .notice .wrap { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    .notice .dot { width: 8px; height: 8px; background: var(--paper); border-radius: 50%; flex-shrink: 0; }
+    .notice span { font-weight: 700; font-size: clamp(.85rem, 1.4vw, 1.05rem); text-transform: uppercase; letter-spacing: .02em; }
+
+    /* ARCHIVE */
+    .archive { padding: clamp(3rem, 8vh, 6rem) 0; }
+    .year-block { border-top: 1px solid var(--ink); padding: clamp(2rem, 5vh, 3.5rem) 0; }
+    .year-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.8rem; }
+    .year-head .yr { font-weight: 900; font-size: clamp(2.4rem, 7vw, 5.5rem); letter-spacing: -0.045em; line-height: .9; }
+    .year-head .yr-tag { font-size: .72rem; color: var(--ink-60); }
+    .year-head .yr-tag.soon { color: var(--red); }
+    .wcards { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(.8rem, 1.5vw, 1.4rem); }
+    .wcard .duo { aspect-ratio: 3/4; }
+    .wcard.empty .duo { background: var(--sand); display: flex; align-items: center; justify-content: center; }
+    .wcard.empty .duo .ph { color: var(--ink-35); font-size: 2.2rem; font-weight: 300; }
+    .wcard .wmeta { display: flex; flex-direction: column; gap: .25rem; margin-top: .7rem; }
+    .wcard .wnomination { font-size: .64rem; color: var(--red); }
+    .wcard .wname { font-weight: 800; font-size: clamp(1rem, 1.6vw, 1.25rem); letter-spacing: -0.02em; }
+    .wcard .wuniv { font-size: .78rem; color: var(--ink-60); }
+    .wcard .wcase { font-size: .78rem; color: var(--ink-60); line-height: 1.45; }
+    .wcard.empty .wname { color: var(--ink-35); }
+
+    /* CTA + FOOTER (как на лендинге) */
+    .cta { background: var(--red); color: var(--paper); padding: clamp(4rem, 12vh, 9rem) 0; }
+    .cta .sec-label { font-size: .7rem; color: rgba(255,255,255,.85); margin-bottom: 2rem; display: flex; align-items: center; gap: .6rem; }
+    .cta .sec-label::before { content: ''; width: 28px; height: 1px; background: rgba(255,255,255,.85); }
+    .cta-big { font-weight: 900; font-size: clamp(2.8rem, 12vw, 11rem); line-height: .86; text-transform: uppercase; letter-spacing: -0.045em; display: inline-flex; align-items: flex-start; gap: .3em; transition: opacity .2s; color: #fff; }
+    .cta-big:hover { opacity: .82; }
+    .cta-big sup { font-size: .18em; }
+
+    .foot { background: var(--paper); padding: clamp(3rem, 8vh, 6rem) 0 2.5rem; }
+    .foot-top { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: clamp(2rem, 4vw, 4rem); }
+    .foot-brand .fb-mark { display: flex; align-items: center; gap: .7rem; font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; font-size: 1.1rem; }
+    .foot-brand .fb-mark img { width: 36px; height: 36px; border-radius: 8px; }
+    .foot-brand p { margin-top: 1.1rem; max-width: 34ch; font-size: .9rem; line-height: 1.5; color: var(--ink-60); }
+    .foot-col h4 { font-size: .7rem; color: var(--red); margin-bottom: 1.1rem; }
+    .foot-col a, .foot-col span { display: block; font-size: .9rem; color: var(--ink); margin-bottom: .7rem; transition: color .2s; }
+    .foot-col a:hover { color: var(--red); }
+    .foot-socials { display: flex; gap: .7rem; margin-top: .4rem; }
+    .foot-socials a { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: border-color .2s, background .2s; }
+    .foot-socials a:hover { border-color: var(--red); background: var(--sand); }
+    .foot-socials img { width: 22px; height: 22px; object-fit: contain; }
+    .foot-bottom { margin-top: clamp(2.5rem, 5vh, 4rem); padding-top: 1.5rem; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1.2rem; }
+    .foot-legal { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; }
+    .foot-legal a, .foot-bottom .fb-copy span { font-size: .72rem; color: var(--ink-60); }
+    .foot-legal a:hover { color: var(--red); }
+    .foot-req { margin-top: 1rem; font-size: .72rem; color: var(--ink-35); line-height: 1.6; }
+
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1); }
+    .reveal.in { opacity: 1; transform: none; }
+
+    @media (max-width: 1024px) {
+        .wcards { grid-template-columns: repeat(2, 1fr); }
+        .foot-top { grid-template-columns: 1fr 1fr; }
+        .phero .ph-meta { text-align: left; }
+    }
+    @media (max-width: 760px) {
+        .nav-links { position: fixed; inset: 64px 0 auto 0; width: 100%; max-width: 100vw; background: var(--paper); border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; padding: 1rem var(--gutter) 1.5rem; gap: .2rem; transform: translateY(-120%); transition: transform .4s cubic-bezier(.7,0,.2,1); }
+        .nav-links.open { transform: none; }
+        .nav-links a { padding: .9rem 0; border-bottom: 1px solid var(--line); font-size: .9rem; white-space: normal; }
+        .nav-cta { justify-content: center; border-radius: 12px; margin-top: .6rem; min-height: 44px; }
+        .nav-burger { display: flex; }
+        .foot-top { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+        .wcards { grid-template-columns: 1fr; }
+        /* «Победители» — длинное одно слово; ужать, чтобы не давало h-scroll на 320 */
+        .phero h1 { font-size: clamp(2.5rem, 11.5vw, 12rem); letter-spacing: -0.03em; }
+    }
+
+    /* ---------- MIN FONT FLOOR (≥12px требование ТЗ) ---------- */
+    .phero .crumbs, .phero .ph-meta, .year-head .yr-tag, .wcard .wnomination,
+    .wcard .wuniv, .wcard .wcase, .nav-links a, .nav-cta, .cta .sec-label,
+    .foot-col h4, .foot-legal a, .foot-bottom .fb-copy span, .foot-req { font-size: .75rem; }
+    .nav-mark sup { font-size: .66rem; }
+</style>
+</head>
+<body>
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+
+<!-- NAV -->
+<nav class="nav">
+    <div class="wrap nav-inner">
+        <a href="index.html" class="nav-mark"><img src="assets/logo.jpg" alt="Эмблема Лидеры Права">Лидеры&nbsp;Права <sup>©2026</sup></a>
+        <div class="nav-links" id="navLinks">
+            <a href="index.html#manifesto">О конкурсе</a>
+            <a href="index.html#story">История</a>
+            <a href="index.html#stages">Этапы</a>
+            <a href="index.html#faq">Вопросы</a>
+            <a href="index.html#apply" class="nav-cta mono">Подать заявку →</a>
+        </div>
+        <button class="nav-burger" id="burger" aria-label="Открыть меню" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    </div>
+</nav>
+
+<!-- PAGE HERO -->
+<header class="phero">
+    <div class="wrap">
+        <div class="crumbs mono"><a href="index.html">← На главную</a> / Архив победителей</div>
+        <h1>Победители</h1>
+        <div class="ph-sub">
+            <p>Истории тех, кто прошёл путь от заявки до финала и сделал следующий шаг в профессии. Архив конкурса с 2017 по 2025 год.</p>
+            <div class="ph-meta mono">
+                Сезонов: <b>2017—2025</b><br>
+                Статус: <b>список формируется</b>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- NOTICE -->
+<div class="notice">
+    <div class="wrap">
+        <span class="dot" aria-hidden="true"></span>
+        <span>Список формируется — данные победителей будут опубликованы по мере поступления</span>
+    </div>
+</div>
+
+<!-- ARCHIVE — пустые слоты-плейсхолдеры по годам. См. инструкцию вверху файла. -->
+<main class="archive">
+    <div class="wrap">
+
+        <section class="year-block reveal" data-year="2025">
+            <div class="year-head"><span class="yr">2025</span><span class="yr-tag soon mono">Юбилейный сезон · скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2024">
+            <div class="year-head"><span class="yr">2024</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2023">
+            <div class="year-head"><span class="yr">2023</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2022">
+            <div class="year-head"><span class="yr">2022</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2021">
+            <div class="year-head"><span class="yr">2021</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2020">
+            <div class="year-head"><span class="yr">2020</span><span class="yr-tag soon mono">Онлайн-формат · скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2019">
+            <div class="year-head"><span class="yr">2019</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2018">
+            <div class="year-head"><span class="yr">2018</span><span class="yr-tag soon mono">Скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+        <section class="year-block reveal" data-year="2017">
+            <div class="year-head"><span class="yr">2017</span><span class="yr-tag soon mono">Первый сезон · скоро</span></div>
+            <div class="wcards">
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+                <article class="wcard empty"><div class="duo"><span class="ph">—</span></div><div class="wmeta"><span class="wnomination mono">Номинация</span><span class="wname">Скоро</span><span class="wuniv">ВУЗ / организация</span><span class="wcase">Кейс победителя появится здесь.</span></div></article>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<!-- CTA -->
+<section class="cta">
+    <div class="wrap">
+        <div class="sec-label mono reveal">(Хотите попасть в этот список?)</div>
+        <a href="index.html#apply" class="cta-big reveal">Подать<br>заявку<sup>↗</sup></a>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="foot">
+    <div class="wrap">
+        <div class="foot-top">
+            <div class="foot-brand reveal">
+                <a href="index.html" class="fb-mark"><img src="assets/logo.jpg" alt="Эмблема Лидеры Права">Лидеры&nbsp;Права</a>
+                <p>Юридический конкурс для студентов и молодых специалистов. Стажировки, гранты, наставники и реальный карьерный результат.</p>
+            </div>
+            <div class="foot-col reveal">
+                <h4 class="mono">Навигация</h4>
+                <a href="index.html#story">История проекта</a>
+                <a href="pobediteli.html">Победители</a>
+                <a href="index.html#partners">Партнёры</a>
+                <a href="index.html#benefits">Что вы получите</a>
+                <a href="index.html#faq">Вопросы и ответы</a>
+            </div>
+            <div class="foot-col reveal">
+                <h4 class="mono">Контакты</h4>
+                <a href="tel:+79614929890">+7 (961) 492-98-90</a>
+                <a href="mailto:support@lideryprava.ru">support@lideryprava.ru</a>
+                <span>Саратов / Россия</span>
+                <div class="foot-socials">
+                    <a href="https://t.me/lideriprava" target="_blank" rel="noopener noreferrer" aria-label="Telegram"><img src="assets/social/tg.png" alt=""></a>
+                    <a href="https://vk.com/lideri.prava2026" target="_blank" rel="noopener noreferrer" aria-label="VK"><img src="assets/social/vk.png" alt=""></a>
+                </div>
+            </div>
+        </div>
+        <div class="foot-bottom">
+            <div class="fb-copy"><span>© 2017—2026 Лидеры Права</span></div>
+            <div class="foot-legal">
+                <a href="terms.html" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
+                <a href="cookies.html" target="_blank" rel="noopener noreferrer">Политика cookie</a>
+                <a href="privacy.html" target="_blank" rel="noopener noreferrer">Политика конфиденциальности</a>
+                <a href="soglasie.html" target="_blank" rel="noopener noreferrer">Согласие на обработку ПДн</a>
+            </div>
+        </div>
+        <p class="foot-req mono">ООО «АСПБ» · ИНН 6452098049 · КПП 645001001 · ОГРН 1126450005406</p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js" integrity="sha384-li4UtcFCH6QeUqR4JyV58/VgTprMuz9aauj+oWtew7V4Y7ZVjnvz5px9Y3UCG0Ea" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    (function () {
+        if (window.Lenis && !matchMedia('(hover: none)').matches) {
+            var lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+            window.lenis = lenis;
+            function raf(t) { lenis.raf(t); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+        }
+    })();
+    (function () {
+        var c = document.getElementById('cursor');
+        if (matchMedia('(hover: none)').matches) return;
+        var x = 0, y = 0, cx = 0, cy = 0;
+        addEventListener('mousemove', function (e) { x = e.clientX; y = e.clientY; });
+        (function loop() { cx += (x - cx) * 0.2; cy += (y - cy) * 0.2; c.style.transform = 'translate(' + cx + 'px, ' + cy + 'px) translate(-50%,-50%)'; requestAnimationFrame(loop); })();
+        document.querySelectorAll('a, button, .wcard').forEach(function (el) {
+            el.addEventListener('mouseenter', function () { c.classList.add('is-hover'); });
+            el.addEventListener('mouseleave', function () { c.classList.remove('is-hover'); });
+        });
+    })();
+    (function () {
+        var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.08 });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+    })();
+    (function () {
+        var b = document.getElementById('burger'), l = document.getElementById('navLinks');
+        b.addEventListener('click', function () {
+            var open = l.classList.toggle('open');
+            b.setAttribute('aria-expanded', open ? 'true' : 'false');
+            b.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+        });
+        l.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { l.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); }); });
+    })();
+</script>
+</body>
+</html>
