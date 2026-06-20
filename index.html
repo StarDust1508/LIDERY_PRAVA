@@ -162,6 +162,9 @@
     .bcard:hover p { color: var(--ink-60); }
     .bcard .b-foot { margin-top: auto; font-size: .75rem; color: var(--red); }
     .bcard:hover .b-foot { color: var(--red); }
+    /* отдельная плитка-фото в пустом слоте сетки (справа от «Стажировки») */
+    .bcard-photo { grid-column: span 2; display: flex; background: var(--paper); }
+    .bcard-photo .duo { flex: 1; min-height: 260px; }
     .benefits-lead { max-width: 52ch; font-size: clamp(1rem, 1.6vw, 1.3rem); line-height: 1.45; margin-bottom: 2.5rem; }
 
     /* ---------- PARTNERS ---------- */
@@ -428,6 +431,9 @@
                 <p>Лучшие участники получают прямой выход к стажировкам, задачам и командам, где можно быстро перейти от конкурса к реальной практике.</p>
                 <span class="b-foot mono">Контакт с работодателями</span>
             </article>
+            <div class="bcard-photo">
+                <div class="duo"><img src="assets/benefits-person.jpg" alt="Наставник конкурса «Лидеры Права»"></div>
+            </div>
             <article class="bcard">
                 <span class="b-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M14.5 9.3a2.6 2.6 0 0 0-2.5-1.6h-1a2 2 0 0 0 0 4h1a2 2 0 0 1 0 4h-1a2.6 2.6 0 0 1-2.5-1.6"></path><path d="M12 6v1.7"></path><path d="M12 16.3V18"></path></svg></span>
                 <h3>Гранты</h3>
