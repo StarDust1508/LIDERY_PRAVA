@@ -170,6 +170,7 @@
     /* ---------- PARTNERS ---------- */
     .partners-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
     .pcell { background: var(--paper); aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; padding: clamp(1.2rem, 2.5vw, 2.2rem); transition: background .25s; position: relative; }
+    .pcell:nth-child(odd) { background: #ffffff; }
     .pcell:hover { background: var(--sand); }
     .pcell img { max-height: 64px; max-width: 78%; object-fit: contain; mix-blend-mode: multiply; filter: grayscale(1) contrast(1.05); opacity: .85; transition: filter .3s, opacity .3s; }
     .pcell:hover img { filter: grayscale(0); opacity: 1; }
@@ -182,10 +183,6 @@
     .pcell .pcap { font-size: .64rem; color: var(--red); }
     .partners-cta { margin-top: 2.6rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.4rem; }
     .partners-cta p { font-weight: 800; font-size: clamp(1.3rem, 3vw, 2.4rem); text-transform: uppercase; letter-spacing: -0.03em; max-width: 16ch; line-height: 1.02; }
-    .partners-cta .pc-actions { display: flex; flex-wrap: wrap; gap: .8rem; }
-    .pc-btn { border: 1px solid var(--ink); border-radius: 100px; padding: .9rem 1.5rem; font-size: .72rem; display: inline-flex; gap: .5rem; align-items: center; transition: background .2s, color .2s, border-color .2s; }
-    .pc-btn.fill { background: var(--ink); color: var(--paper); }
-    .pc-btn:hover { background: var(--red); border-color: var(--red); color: #fff; }
 
     /* ---------- FORM ---------- */
     .apply { background: var(--ink); color: var(--paper); }
@@ -480,10 +477,6 @@
         </div>
         <div class="partners-cta reveal">
             <p>Становитесь частью будущего права</p>
-            <div class="pc-actions">
-                <a href="#apply" class="pc-btn fill mono">Стать партнёром →</a>
-                <a href="mailto:lideryprava@mail.ru" class="pc-btn mono">Написать нам</a>
-            </div>
         </div>
     </div>
 </section>
