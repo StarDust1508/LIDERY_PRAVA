@@ -44,3 +44,29 @@ systemctl start lideryprava
 - `DB_PATH` — путь к БД (дефолт `/var/www/lideryprava/data/applications.db`)
 - `BACKUP_DIR` — куда складывать (дефолт `/root/db-backups/lideryprava`)
 - `KEEP` — сколько копий хранить (дефолт `30`)
+
+## Off-site: ежедневная выгрузка на Mac
+Копии дублируются на локальный Mac (защита на случай гибели сервера).
+
+- **Доступ:** выделенный SSH-ключ `~/.lideryprava-backup/id_ed25519` (НЕ в репо).
+  На сервере он прописан в `/root/.ssh/authorized_keys` с жёстким ограничением:
+  `command="tar -C /root/db-backups/lideryprava -cf - .",restrict,no-pty` —
+  ключ умеет ТОЛЬКО отдавать архив бэкапов, без shell и root-доступа.
+- **Скрипт:** `scripts/mac/pull.sh` (рабочая копия в `~/.lideryprava-backup/pull.sh`)
+  тянет tar-поток и распаковывает `.db.gz` в `~/Documents/lideryprava-db-backups/`
+  (накопительно). Лог: `~/.lideryprava-backup/state/pull.log`.
+- **Расписание:** launchd-агент `scripts/mac/com.lideryprava.dbbackup.plist`
+  (`~/Library/LaunchAgents/`), ежедневно 13:30 + при входе в систему; пропущенные
+  запуски (Mac спал) выполняются при пробуждении.
+- **Проверка/перезагрузка агента:**
+  ```
+  launchctl list | grep lideryprava
+  bash ~/.lideryprava-backup/pull.sh            # ручной прогон
+  launchctl bootout gui/$(id -u)/com.lideryprava.dbbackup
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lideryprava.dbbackup.plist
+  ```
+- **Восстановление из локальной копии:** распаковать нужный `.db.gz` (gunzip) —
+  это готовый файл SQLite-БД, подставляется по процедуре «Восстановление» выше.
+
+> MacOS-rsync (openrsync, proto 29) несовместим с серверным rrsync — поэтому
+> используется tar-поток по SSH (версионно-независимо и строже по правам).
