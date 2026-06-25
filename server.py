@@ -1,29 +1,52 @@
 import json
 import mimetypes
 import os
+import re
 import secrets
-import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+import sqlite3
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "applications.db"
-HOST = "0.0.0.0"
+# BUG_FIX_CONTEXT: раньше HOST=0.0.0.0 — бэкенд слушал все интерфейсы, и при
+# падении ufw порт 8090 оказался бы доступен из интернета в обход nginx (TLS,
+# лимит тела, заголовки). Теперь по умолчанию только localhost; nginx проксирует.
+HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
 ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-me-please")
 SESSION_TTL_HOURS = 24
 SESSION_COOKIE_NAME = "leaders_admin_session"
+
+# Лимиты ввода (защита от мусора и oversized-payload; nginx тоже режет тело 1 МБ).
+MAX_BODY_BYTES = 64 * 1024
+MAX_LEN = {"full_name": 120, "email": 254, "phone": 32, "organization": 200}
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Анти-спам по IP за окно RL_WINDOW_SECONDS. Лимит заявок мягкий — чтобы группа
+# людей за одним NAT (вузовский/венью Wi-Fi) не блокировала друг друга; логин
+# жёстче — это защита от перебора пароля.
+RL_WINDOW_SECONDS = 60
+RL_MAX_APPLICATIONS = 30
+RL_MAX_LOGIN = 8
+
+# Состояние процесса (ThreadingHTTPServer -> доступ из многих потоков, нужен Lock).
 sessions = {}
+_sessions_lock = threading.Lock()
+_rate_state = {}
+_rate_lock = threading.Lock()
 
 
 def db_connect():
-    return sqlite3.connect(DB_PATH, timeout=10)
+    return sqlite3.connect(DB_PATH, timeout=15)
 
 
 def init_db():
@@ -45,16 +68,23 @@ def init_db():
             )
             """
         )
-        # Миграция: столбцы для фиксации согласий (152-ФЗ). Идемпотентно.
-        for ddl in (
+        # Идемпотентные миграции: согласия (152-ФЗ) + аудит согласия (момент и IP).
+        migrations = (
             "ALTER TABLE applications ADD COLUMN consent_pdn INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE applications ADD COLUMN consent_terms INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE applications ADD COLUMN consent_marketing INTEGER NOT NULL DEFAULT 0",
-        ):
+            "ALTER TABLE applications ADD COLUMN consent_at TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE applications ADD COLUMN source_ip TEXT NOT NULL DEFAULT ''",
+        )
+        for ddl in migrations:
             try:
                 connection.execute(ddl)
             except sqlite3.OperationalError:
                 pass
+        # Индекс под сортировку админ-списка по дате (масштабируемость).
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_applications_created_at ON applications(created_at)"
+        )
         connection.commit()
 
 
@@ -68,11 +98,38 @@ def json_response(handler, status_code, payload):
 
 
 def read_json(handler):
-    content_length = int(handler.headers.get("Content-Length", "0"))
+    content_length = int(handler.headers.get("Content-Length", "0") or "0")
+    if content_length > MAX_BODY_BYTES:
+        # BUG_FIX_CONTEXT: без верхней границы Content-Length тело читалось целиком
+        # в память — вектор DoS при прямом обращении в обход nginx.
+        raise ValueError("payload too large")
     raw_body = handler.rfile.read(content_length) if content_length else b"{}"
     if not raw_body:
         return {}
     return json.loads(raw_body.decode("utf-8"))
+
+
+def client_ip(handler):
+    real_ip = handler.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()[:64]
+    forwarded = handler.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()[:64]
+    return handler.client_address[0]
+
+
+def is_rate_limited(ip, scope, max_requests):
+    key = f"{scope}:{ip}"
+    now = time.time()
+    with _rate_lock:
+        recent = [t for t in _rate_state.get(key, []) if now - t < RL_WINDOW_SECONDS]
+        if len(recent) >= max_requests:
+            _rate_state[key] = recent
+            return True
+        recent.append(now)
+        _rate_state[key] = recent
+        return False
 
 
 def get_cookie(handler, name):
@@ -87,7 +144,12 @@ def get_cookie(handler, name):
 
 def create_session():
     token = secrets.token_urlsafe(32)
-    sessions[token] = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)
+    now = datetime.now(timezone.utc)
+    with _sessions_lock:
+        # Очистка протухших токенов, чтобы dict не рос бесконечно.
+        for stale in [t for t, exp in sessions.items() if exp < now]:
+            sessions.pop(stale, None)
+        sessions[token] = now + timedelta(hours=SESSION_TTL_HOURS)
     return token
 
 
@@ -95,12 +157,14 @@ def is_authenticated(handler):
     token = get_cookie(handler, SESSION_COOKIE_NAME)
     if not token:
         return False
-    expires_at = sessions.get(token)
-    if not expires_at:
-        return False
-    if expires_at < datetime.now(timezone.utc):
-        sessions.pop(token, None)
-        return False
+    now = datetime.now(timezone.utc)
+    with _sessions_lock:
+        expires_at = sessions.get(token)
+        if not expires_at:
+            return False
+        if expires_at < now:
+            sessions.pop(token, None)
+            return False
     return True
 
 
@@ -116,7 +180,8 @@ def set_session_cookie(handler, token):
 def clear_session_cookie(handler):
     token = get_cookie(handler, SESSION_COOKIE_NAME)
     if token:
-        sessions.pop(token, None)
+        with _sessions_lock:
+            sessions.pop(token, None)
     cookie = cookies.SimpleCookie()
     cookie[SESSION_COOKIE_NAME] = ""
     cookie[SESSION_COOKIE_NAME]["path"] = "/"
@@ -136,7 +201,16 @@ def validate_application(payload):
         value = str(payload.get(key, "")).strip()
         if not value:
             return None, f"Поле «{label}» обязательно для заполнения."
+        if len(value) > MAX_LEN[key]:
+            return None, f"Поле «{label}» слишком длинное."
         cleaned[key] = value
+    # BUG_FIX_CONTEXT: раньше проверялось только «не пусто» — в БД могли попасть
+    # битые e-mail/телефоны. Добавлена проверка формата.
+    if not EMAIL_RE.match(cleaned["email"]):
+        return None, "Укажите корректный адрес электронной почты."
+    phone_digits = re.sub(r"\D", "", cleaned["phone"])
+    if len(phone_digits) < 10 or len(phone_digits) > 15:
+        return None, "Укажите корректный номер телефона."
     return cleaned, None
 
 
@@ -223,8 +297,14 @@ class LeadersHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def handle_application_create(self):
+        ip = client_ip(self)
+        if is_rate_limited(ip, "app", RL_MAX_APPLICATIONS):
+            return json_response(self, 429, {"error": "Слишком много заявок. Попробуйте через минуту."})
+
         try:
             payload = read_json(self)
+        except ValueError:
+            return json_response(self, 413, {"error": "Слишком большой запрос."})
         except json.JSONDecodeError:
             return json_response(self, 400, {"error": "Некорректный JSON."})
 
@@ -249,8 +329,8 @@ class LeadersHandler(BaseHTTPRequestHandler):
                     """
                     INSERT INTO applications
                         (full_name, email, phone, organization, created_at,
-                         consent_pdn, consent_terms, consent_marketing)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         consent_pdn, consent_terms, consent_marketing, consent_at, source_ip)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         cleaned["full_name"],
@@ -261,6 +341,8 @@ class LeadersHandler(BaseHTTPRequestHandler):
                         int(consent_pdn),
                         int(consent_terms),
                         int(consent_marketing),
+                        created_at,
+                        ip,
                     ),
                 )
                 connection.commit()
@@ -285,7 +367,9 @@ class LeadersHandler(BaseHTTPRequestHandler):
                 connection.row_factory = sqlite3.Row
                 rows = connection.execute(
                     """
-                    SELECT id, full_name, email, phone, organization, status, admin_notes, created_at
+                    SELECT id, full_name, email, phone, organization, status, admin_notes,
+                           created_at, consent_pdn, consent_terms, consent_marketing,
+                           consent_at, source_ip
                     FROM applications
                     ORDER BY datetime(created_at) DESC, id DESC
                     """
@@ -306,11 +390,13 @@ class LeadersHandler(BaseHTTPRequestHandler):
 
         try:
             payload = read_json(self)
+        except ValueError:
+            return json_response(self, 413, {"error": "Слишком большой запрос."})
         except json.JSONDecodeError:
             return json_response(self, 400, {"error": "Некорректный JSON."})
 
         status = str(payload.get("status", "new")).strip()
-        admin_notes = str(payload.get("admin_notes", "")).strip()
+        admin_notes = str(payload.get("admin_notes", "")).strip()[:2000]
         if status not in {"new", "in_progress", "processed"}:
             return json_response(self, 400, {"error": "Недопустимый статус."})
 
@@ -334,15 +420,25 @@ class LeadersHandler(BaseHTTPRequestHandler):
         return json_response(self, 200, {"message": "Заявка обновлена."})
 
     def handle_login(self):
+        ip = client_ip(self)
+        if is_rate_limited(ip, "login", RL_MAX_LOGIN):
+            return json_response(self, 429, {"error": "Слишком много попыток. Попробуйте через минуту."})
+
         try:
             payload = read_json(self)
+        except ValueError:
+            return json_response(self, 413, {"error": "Слишком большой запрос."})
         except json.JSONDecodeError:
             return json_response(self, 400, {"error": "Некорректный JSON."})
 
         login = str(payload.get("login", "")).strip()
         password = str(payload.get("password", "")).strip()
 
-        if login != ADMIN_LOGIN or password != ADMIN_PASSWORD:
+        # BUG_FIX_CONTEXT: обычное сравнение строк уязвимо к timing-атаке —
+        # перешли на constant-time secrets.compare_digest.
+        login_ok = secrets.compare_digest(login, ADMIN_LOGIN)
+        password_ok = secrets.compare_digest(password, ADMIN_PASSWORD)
+        if not (login_ok and password_ok):
             return json_response(self, 401, {"error": "Неверный логин или пароль."})
 
         token = create_session()
@@ -364,16 +460,28 @@ class LeadersHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class LeadersServer(ThreadingHTTPServer):
+    # BUG_FIX_CONTEXT: дефолтный backlog accept-очереди = 5 — при всплеске ~300
+    # одновременных соединений лишние отбивались бы ОС. Поднят до 128.
+    # daemon_threads — чтобы зависший воркер не держал процесс при остановке.
+    daemon_threads = True
+    request_queue_size = 128
+    allow_reuse_address = True
+
+
 def main():
     init_db()
-    server = ThreadingHTTPServer((HOST, PORT), LeadersHandler)
+    server = LeadersServer((HOST, PORT), LeadersHandler)
     print(f"Сервер запущен: http://{HOST}:{PORT}")
     print(f"Админ-панель: http://{HOST}:{PORT}/admin")
     print(f"Логин: {ADMIN_LOGIN}")
     if ADMIN_PASSWORD == "change-me-please":
         print("Пароль по умолчанию: change-me-please")
         print("Для безопасности задайте свой пароль: ADMIN_PASSWORD=ваш_пароль python3 server.py")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
 
 
 if __name__ == "__main__":
