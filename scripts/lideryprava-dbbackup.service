@@ -1,0 +1,9 @@
+[Unit]
+Description=Lideryprava: backup applications DB (online, gzip, rotated)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /var/www/lideryprava/scripts/backup_db.py
+Nice=10
+IOSchedulingClass=idle
