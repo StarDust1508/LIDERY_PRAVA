@@ -70,3 +70,18 @@ systemctl start lideryprava
 
 > MacOS-rsync (openrsync, proto 29) несовместим с серверным rrsync — поэтому
 > используется tar-поток по SSH (версионно-независимо и строже по правам).
+
+## Хэш пароля админки (F1) и журнал входов (F2)
+- Пароль админки хранится PBKDF2-хэшем в env `ADMIN_PASSWORD_HASH` (не plaintext).
+  Сгенерировать хэш: `python3 server.py hash-password '<пароль>'` → строку в
+  `Environment=ADMIN_PASSWORD_HASH=...` юнита `lideryprava.service`, затем
+  `systemctl daemon-reload && systemctl restart lideryprava`.
+- Попытки входа пишутся в `data/auth.log` (событие/IP/логин, без ПДн заявителей).
+
+## Удаление/обезличивание по сроку (D2)
+`scripts/purge_expired.py` — по умолчанию **dry-run** (ничего не меняет).
+- Показать кандидатов: `sudo -u www-data python3 scripts/purge_expired.py --include-withdrawn`
+- Применить обезличивание: добавить `--apply` (полное удаление — `--apply --delete`).
+- Срок хранения: env `RETENTION_DAYS` (по умолчанию 1095 = 3 года) или `--retention-days N`.
+- Статус `withdrawn` ставится в админке при отзыве согласия; `--include-withdrawn`
+  включает такие записи в обработку.

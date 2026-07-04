@@ -10,7 +10,9 @@ from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+import hashlib
 import sqlite3
+import sys
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,6 +25,12 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
 ADMIN_LOGIN = os.environ.get("ADMIN_LOGIN", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-me-please")
+# F1: предпочтительно хранить не пароль, а его PBKDF2-хэш (ст. 16 149-ФЗ).
+# Формат: pbkdf2_sha256$<iterations>$<salt_hex>$<hash_hex>. Если задан — используется
+# он; ADMIN_PASSWORD оставлен для обратной совместимости.
+ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", "")
+# F2: журнал попыток входа в админку (событие/IP/логин, без ПДн заявителей).
+AUTH_LOG_PATH = DATA_DIR / "auth.log"
 SESSION_TTL_HOURS = 24
 SESSION_COOKIE_NAME = "leaders_admin_session"
 
@@ -214,6 +222,47 @@ def validate_application(payload):
     return cleaned, None
 
 
+def hash_password(password, iterations=240000):
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${dk.hex()}"
+
+
+def verify_password(password, stored_hash):
+    try:
+        algo, iterations, salt_hex, hash_hex = stored_hash.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(iterations))
+        return secrets.compare_digest(dk.hex(), hash_hex)
+    except (ValueError, TypeError):
+        return False
+
+
+def check_admin_password(password):
+    # F1: если задан хэш — сверяем с ним; иначе constant-time сравнение с plaintext.
+    if ADMIN_PASSWORD_HASH:
+        return verify_password(password, ADMIN_PASSWORD_HASH)
+    return secrets.compare_digest(password, ADMIN_PASSWORD)
+
+
+_auth_log_lock = threading.Lock()
+
+
+def log_auth(event, ip, login):
+    # F2: журнал входов в админку. Пишем только событие/IP/логин — без ПДн заявителей.
+    line = (
+        f"{datetime.now().astimezone().isoformat(timespec='seconds')}\t"
+        f"{event}\tip={ip}\tlogin={str(login)[:64]}\n"
+    )
+    try:
+        with _auth_log_lock:
+            with open(AUTH_LOG_PATH, "a", encoding="utf-8") as handle:
+                handle.write(line)
+    except OSError:
+        pass
+
+
 class LeadersHandler(BaseHTTPRequestHandler):
     def send_json_error(self, status_code, message):
         try:
@@ -397,7 +446,9 @@ class LeadersHandler(BaseHTTPRequestHandler):
 
         status = str(payload.get("status", "new")).strip()
         admin_notes = str(payload.get("admin_notes", "")).strip()[:2000]
-        if status not in {"new", "in_progress", "processed"}:
+        # D2: статус "withdrawn" — субъект отозвал согласие (запись помечается;
+        # фактическое удаление/обезличивание — scripts/purge_expired.py).
+        if status not in {"new", "in_progress", "processed", "withdrawn"}:
             return json_response(self, 400, {"error": "Недопустимый статус."})
 
         try:
@@ -437,10 +488,12 @@ class LeadersHandler(BaseHTTPRequestHandler):
         # BUG_FIX_CONTEXT: обычное сравнение строк уязвимо к timing-атаке —
         # перешли на constant-time secrets.compare_digest.
         login_ok = secrets.compare_digest(login, ADMIN_LOGIN)
-        password_ok = secrets.compare_digest(password, ADMIN_PASSWORD)
+        password_ok = check_admin_password(password)
         if not (login_ok and password_ok):
+            log_auth("login_fail", ip, login)
             return json_response(self, 401, {"error": "Неверный логин или пароль."})
 
+        log_auth("login_ok", ip, login)
         token = create_session()
         self.send_response(200)
         set_session_cookie(self, token)
@@ -470,6 +523,11 @@ class LeadersServer(ThreadingHTTPServer):
 
 
 def main():
+    # F1: утилита генерации хэша пароля — python3 server.py hash-password '<пароль>'
+    if len(sys.argv) >= 2 and sys.argv[1] == "hash-password":
+        password = sys.argv[2] if len(sys.argv) >= 3 else input("Пароль: ")
+        print(hash_password(password))
+        return
     init_db()
     server = LeadersServer((HOST, PORT), LeadersHandler)
     print(f"Сервер запущен: http://{HOST}:{PORT}")
