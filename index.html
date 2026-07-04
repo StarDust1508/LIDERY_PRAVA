@@ -99,9 +99,7 @@
 }
 </script>
 <noscript><style>.reveal{opacity:1 !important;transform:none !important}</style></noscript>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap&subset=cyrillic,latin" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts.css">
 <style>
     /* ============================================================
        FILE: redesign/index.html
@@ -644,7 +642,7 @@
                         <input id="consentMarketing" type="checkbox" name="consent_marketing">
                         <span>Согласен(на) получать информационные и новостные сообщения о конкурсе и мероприятиях по email (необязательно).</span>
                     </label>
-                    <p class="form-note">Мы используем ваши данные только для связи по заявке, организации участия в конкурсе и работы сервисов сайта. Согласие можно отозвать письмом на <a href="mailto:lideryprava@mail.ru">lideryprava@mail.ru</a>.</p>
+                    <p class="form-note">Мы используем ваши данные только для связи по заявке, организации участия в конкурсе и работы сервисов сайта. Согласие можно отозвать письмом на <a href="mailto:support@lideryprava.ru">support@lideryprava.ru</a>.</p>
                 </div>
                 <button type="submit" class="form-submit">Принять вызов</button>
                 <p id="applicationFormMessage" role="status" aria-live="polite"></p>
@@ -762,7 +760,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js" integrity="sha384-li4UtcFCH6QeUqR4JyV58/VgTprMuz9aauj+oWtew7V4Y7ZVjnvz5px9Y3UCG0Ea" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/vendor/lenis.min.js"></script>
 <script>
     /* ---------- A11Y: единый флаг "пользователь просит без анимации" ---------- */
     var PREFERS_REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
