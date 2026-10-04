@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Заявки на конкурс · Админ-панель Оргкомитета · Лидеры права – 2027</title>
+<meta name="description" content="Список заявок конкурса «Лидеры права – 2027»: фильтры, поиск, выгрузка CSV.">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* Раскладка конкретного экрана */
+  .admin-list { margin-top: var(--s-6); }
+  .admin-list__toolbar { border-bottom: 0; }
+  .pager { display: flex; align-items: center; gap: var(--s-4); }
+  .pager__pages { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--muted); }
+</style>
+</head>
+<body class="page" data-page="admin-applications">
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+
+<header class="topbar" data-od-id="admin-header">
+  <div class="container topbar__inner">
+    <a class="brand" href="index.html">
+      <svg class="brand__emblem" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Эмблема конкурса «Лидеры права – 2027»">
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="currentColor"/>
+        <rect class="emblem-mark" x="4" y="4" width="10" height="10"/>
+        <path d="M17.5 4v24" stroke="currentColor" stroke-width="1"/>
+        <path d="M22 10h6M22 14h6M22 18h6M22 22h4" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <span class="brand__text">
+        <span class="brand__name">Лидеры&nbsp;права&nbsp;– 2027</span>
+        <span class="brand__role">Админ-панель · Оргкомитет</span>
+      </span>
+    </a>
+    <span class="topbar__spacer"></span>
+    <p class="topbar__meta topbar__meta--keep">Техническая проверка<br><strong>до 22 декабря 2026 года</strong></p>
+    <p class="topbar__meta">Оператор<br><strong>Смирнова Ольга Викторовна</strong></p>
+    <a class="btn btn--secondary btn--inline-mobile" href="cabinet-access.html">Выйти</a>
+  </div>
+</header>
+
+<main class="page__main" id="main">
+  <div class="container">
+    <div class="layout">
+
+      <aside class="sidenav">
+        <p class="sidenav__title">Админ-панель</p>
+        <nav aria-label="Разделы админ-панели">
+          <ul class="sidenav__list">
+            <li><a class="sidenav__link" href="admin-applications.html" aria-current="page">Заявки <span class="sidenav__index">01</span></a></li>
+            <li><a class="sidenav__link" href="admin-application.html">Карточка заявки <span class="sidenav__index">02</span></a></li>
+            <li><a class="sidenav__link" href="admin-evaluation.html">Оценочный лист <span class="sidenav__index">03</span></a></li>
+          </ul>
+        </nav>
+        <div class="note mt-6">
+          <p class="note__label">Смена сезона</p>
+          <p class="note__body">Текущий сезон&nbsp;— 2026/2027. Заявки прошлых сезонов доступны только для чтения
+            и выгружаются тем же CSV-отчётом.</p>
+        </div>
+      </aside>
+
+      <div>
+        <p class="eyebrow">Админ-панель · Заявки</p>
+        <h1 class="page-title" data-od-id="admin-applications-title">Заявки на конкурс</h1>
+        <p class="page-lead">128 заявок сезона 2026/2027. Фильтры применяются к списку, выгрузка CSV формируется
+          по отфильтрованным или выбранным заявкам.</p>
+
+        <!-- Фильтры и поиск -->
+        <section class="admin-list" aria-labelledby="filters-heading" data-od-id="admin-filters">
+          <div class="sec">
+            <span class="sec__num">01 /</span>
+            <h2 class="sec__title" id="filters-heading">Поиск и фильтры</h2>
+            <span class="sec__aside">Результат обновляется сразу</span>
+          </div>
+
+          <div class="toolbar admin-list__toolbar">
+            <div class="toolbar__search">
+              <label class="toolbar__label" for="admin-search">Поиск</label>
+              <input class="input" id="admin-search" type="text" autocomplete="off"
+                placeholder="Номер заявки, команда, участник, e-mail">
+            </div>
+            <div class="toolbar__group">
+              <label class="toolbar__label" for="filter-status">Статус</label>
+              <select class="select" id="filter-status">
+                <option value="">Все статусы</option>
+                <option value="draft">Черновик</option>
+                <option value="review">На технической проверке</option>
+                <option value="ok">Допущена</option>
+                <option value="fix">Требуются исправления</option>
+              </select>
+            </div>
+            <div class="toolbar__group">
+              <label class="toolbar__label" for="filter-stage">Этап</label>
+              <select class="select" id="filter-stage">
+                <option value="">Все этапы</option>
+                <option value="tech">Техническая проверка</option>
+                <option value="selection">Отборочный этап</option>
+                <option value="first">Первый этап</option>
+                <option value="final">Второй (финальный) этап</option>
+              </select>
+            </div>
+            <div class="toolbar__group" style="min-width:220px">
+              <span class="toolbar__label">Замечания</span>
+              <div class="check" style="padding:0">
+                <input class="check__box" id="filter-notes" type="checkbox">
+                <label class="check__label txt-sm" for="filter-notes">Только с замечаниями Технической проверки</label>
+              </div>
+            </div>
+            <div class="toolbar__actions">
+              <button class="btn btn--secondary" type="button" data-filter-reset>Сбросить фильтры</button>
+            </div>
+          </div>
+
+          <div class="toolbar__foot">
+            <p class="txt-sm muted" data-result-count>Найдено 8 из 8 заявок</p>
+            <p class="txt-sm muted" data-selection-count>Заявки не выбраны — выгрузка включает все отфильтрованные</p>
+            <div class="toolbar__actions">
+              <button class="btn btn--primary" type="button" data-export-csv data-od-id="admin-export-csv">Выгрузить CSV</button>
+            </div>
+          </div>
+
+          <div class="empty mt-5" data-empty-state hidden>
+            <p class="empty__title">Заявок по этим условиям нет</p>
+            <p class="empty__body">Измените статус, этап или поисковый запрос. Сбросить условия можно кнопкой
+              «Сбросить фильтры».</p>
+          </div>
+        </section>
+
+        <!-- Список заявок -->
+        <section class="mt-7" aria-labelledby="list-heading" data-od-id="admin-list">
+          <div class="sec">
+            <span class="sec__num">02 /</span>
+            <h2 class="sec__title" id="list-heading">Список заявок</h2>
+            <span class="sec__aside">Сезон 2026/2027</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table table--select" data-admin-list>
+              <caption>Заявки: номер, команда, регион, направление, этап, статус, замечания, срок досдачи</caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <input class="check__box" type="checkbox" data-select-all aria-label="Выбрать все отфильтрованные заявки">
+                  </th>
+                  <th scope="col">Номер заявки</th>
+                  <th scope="col">Команда</th>
+                  <th scope="col">Регион</th>
+                  <th scope="col">Направление</th>
+                  <th scope="col">Этап</th>
+                  <th scope="col">Статус</th>
+                  <th scope="col">Замечаний</th>
+                  <th scope="col">Срок досдачи</th>
+                  <th scope="col">Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-status="fix" data-stage="tech" data-notes="yes">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0418"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0418</td>
+                  <td data-label="Команда"><span class="table__cell-title">Правовой десант</span><span class="table__cell-sub">МГЮА им. О. Е. Кутафина</span></td>
+                  <td data-label="Регион">Москва</td>
+                  <td data-label="Направление">Правовое регулирование цифровой экономики</td>
+                  <td data-label="Этап">Техническая проверка</td>
+                  <td data-label="Статус"><span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Требуются исправления</span></td>
+                  <td data-label="Замечаний">2</td>
+                  <td data-label="Срок досдачи" class="table__num">18 декабря 2026 года, 23:59 (МСК)</td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="ok" data-stage="selection" data-notes="no">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0107"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0107</td>
+                  <td data-label="Команда"><span class="table__cell-title">Кодекс</span><span class="table__cell-sub">СПбГУ</span></td>
+                  <td data-label="Регион">Санкт-Петербург</td>
+                  <td data-label="Направление">Защита прав граждан в социальной сфере</td>
+                  <td data-label="Этап">Отборочный этап</td>
+                  <td data-label="Статус"><span class="chip chip--ok"><span class="chip__mark" aria-hidden="true"></span>Допущена</span></td>
+                  <td data-label="Замечаний">0</td>
+                  <td data-label="Срок досдачи"><span class="muted">—</span></td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="review" data-stage="tech" data-notes="no">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0233"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0233</td>
+                  <td data-label="Команда"><span class="table__cell-title">Фемида-Юг</span><span class="table__cell-sub">КубГУ</span></td>
+                  <td data-label="Регион">Краснодарский край</td>
+                  <td data-label="Направление">Экологическое и природоресурсное право</td>
+                  <td data-label="Этап">Техническая проверка</td>
+                  <td data-label="Статус"><span class="chip chip--review"><span class="chip__mark" aria-hidden="true"></span>На технической проверке</span></td>
+                  <td data-label="Замечаний">0</td>
+                  <td data-label="Срок досдачи"><span class="muted">—</span></td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="draft" data-stage="tech" data-notes="no">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0056"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0056</td>
+                  <td data-label="Команда"><span class="table__cell-title">Правовой компас</span><span class="table__cell-sub">КФУ</span></td>
+                  <td data-label="Регион">Республика Татарстан</td>
+                  <td data-label="Направление">Антикоррупционное регулирование</td>
+                  <td data-label="Этап">Техническая проверка</td>
+                  <td data-label="Статус"><span class="chip chip--draft"><span class="chip__mark" aria-hidden="true"></span>Черновик</span></td>
+                  <td data-label="Замечаний">0</td>
+                  <td data-label="Срок досдачи" class="table__num">11 декабря 2026 года, 23:59 (МСК)</td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="ok" data-stage="tech" data-notes="yes">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0311"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0311</td>
+                  <td data-label="Команда"><span class="table__cell-title">Аргумент</span><span class="table__cell-sub">УрГЮУ</span></td>
+                  <td data-label="Регион">Свердловская область</td>
+                  <td data-label="Направление">Развитие конкуренции и защита прав потребителей</td>
+                  <td data-label="Этап">Техническая проверка</td>
+                  <td data-label="Статус"><span class="chip chip--ok"><span class="chip__mark" aria-hidden="true"></span>Допущена</span></td>
+                  <td data-label="Замечаний">1</td>
+                  <td data-label="Срок досдачи"><span class="muted">Замечание снято</span></td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="fix" data-stage="tech" data-notes="yes">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0289"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0289</td>
+                  <td data-label="Команда"><span class="table__cell-title">Резонанс</span><span class="table__cell-sub">НГУ</span></td>
+                  <td data-label="Регион">Новосибирская область</td>
+                  <td data-label="Направление">Правовое регулирование цифровой экономики</td>
+                  <td data-label="Этап">Техническая проверка</td>
+                  <td data-label="Статус"><span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Требуются исправления</span></td>
+                  <td data-label="Замечаний">1</td>
+                  <td data-label="Срок досдачи" class="table__num">18 декабря 2026 года, 23:59 (МСК)</td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="ok" data-stage="selection" data-notes="no">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0472"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0472</td>
+                  <td data-label="Команда"><span class="table__cell-title">Кафедра права</span><span class="table__cell-sub">МГУ им. М. В. Ломоносова</span></td>
+                  <td data-label="Регион">Москва</td>
+                  <td data-label="Направление">Экологическое и природоресурсное право</td>
+                  <td data-label="Этап">Отборочный этап</td>
+                  <td data-label="Статус"><span class="chip chip--ok"><span class="chip__mark" aria-hidden="true"></span>Допущена</span></td>
+                  <td data-label="Замечаний">0</td>
+                  <td data-label="Срок досдачи"><span class="muted">—</span></td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+                <tr data-status="review" data-stage="selection" data-notes="no">
+                  <td data-cell="select"><input class="check__box" type="checkbox" aria-label="Выбрать заявку ЛП‑2027‑0159"></td>
+                  <td data-label="Номер заявки" class="table__num">ЛП‑2027‑0159</td>
+                  <td data-label="Команда"><span class="table__cell-title">Лекс</span><span class="table__cell-sub">НИУ ВШЭ — Санкт-Петербург</span></td>
+                  <td data-label="Регион">Санкт-Петербург</td>
+                  <td data-label="Направление">Антикоррупционное регулирование</td>
+                  <td data-label="Этап">Отборочный этап</td>
+                  <td data-label="Статус"><span class="chip chip--review"><span class="chip__mark" aria-hidden="true"></span>На технической проверке</span></td>
+                  <td data-label="Замечаний">0</td>
+                  <td data-label="Срок досдачи"><span class="muted">—</span></td>
+                  <td data-label="Действие" data-cell="actions"><a class="rowaction" href="admin-application.html">Открыть</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <nav class="toolbar__foot" aria-label="Постраничная навигация" data-od-id="admin-pager">
+            <p class="pager__pages">Показано 1–8 из 128 заявок</p>
+            <div class="pager">
+              <button class="btn btn--secondary" type="button" disabled>Назад</button>
+              <button class="btn btn--secondary" type="button">Вперёд</button>
+            </div>
+          </nav>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/prototype.js"></script>
+</body>
+</html>

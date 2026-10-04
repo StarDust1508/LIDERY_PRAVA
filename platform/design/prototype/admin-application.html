@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Карточка заявки ЛП‑2027‑0418 · Админ-панель · Лидеры права – 2027</title>
+<meta name="description" content="Карточка заявки: участники, конкурсные материалы, техническая проверка, замечания и срок досдачи.">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* Раскладка конкретного экрана */
+  .card-head { display: flex; flex-wrap: wrap; gap: var(--s-5); align-items: flex-start; justify-content: space-between; }
+  .card-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+  .remark { border: var(--bw) solid var(--danger); background: var(--danger-tint); padding: var(--s-5); }
+  .remark__head { display: flex; flex-wrap: wrap; gap: var(--s-3) var(--s-5); align-items: baseline; justify-content: space-between; }
+</style>
+</head>
+<body class="page" data-page="admin-application">
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+
+<header class="topbar" data-od-id="admin-card-header">
+  <div class="container topbar__inner">
+    <a class="brand" href="index.html">
+      <svg class="brand__emblem" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Эмблема конкурса «Лидеры права – 2027»">
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="currentColor"/>
+        <rect class="emblem-mark" x="4" y="4" width="10" height="10"/>
+        <path d="M17.5 4v24" stroke="currentColor" stroke-width="1"/>
+        <path d="M22 10h6M22 14h6M22 18h6M22 22h4" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <span class="brand__text">
+        <span class="brand__name">Лидеры&nbsp;права&nbsp;– 2027</span>
+        <span class="brand__role">Админ-панель · Оргкомитет</span>
+      </span>
+    </a>
+    <span class="topbar__spacer"></span>
+    <p class="topbar__meta topbar__meta--keep">Карточка заявки<br><strong>ЛП‑2027‑0418</strong></p>
+    <p class="topbar__meta">Оператор<br><strong>Смирнова Ольга Викторовна</strong></p>
+    <a class="btn btn--secondary btn--inline-mobile" href="cabinet-access.html">Выйти</a>
+  </div>
+</header>
+
+<main class="page__main" id="main">
+  <div class="container">
+    <div class="layout">
+
+      <aside class="sidenav">
+        <p class="sidenav__title">Админ-панель</p>
+        <nav aria-label="Разделы админ-панели">
+          <ul class="sidenav__list">
+            <li><a class="sidenav__link" href="admin-applications.html">Заявки <span class="sidenav__index">01</span></a></li>
+            <li><a class="sidenav__link" href="admin-application.html" aria-current="page">Карточка заявки <span class="sidenav__index">02</span></a></li>
+            <li><a class="sidenav__link" href="admin-evaluation.html">Оценочный лист <span class="sidenav__index">03</span></a></li>
+          </ul>
+        </nav>
+        <div class="note mt-6">
+          <p class="note__label">Регламент проверки</p>
+          <p class="note__body">Техническая проверка занимает до пяти рабочих дней. Замечание обязательно
+            сопровождается сроком досдачи: без срока заявка не возвращается на исправление.</p>
+        </div>
+      </aside>
+
+      <div>
+        <p class="eyebrow">Админ-панель · <a href="admin-applications.html">Заявки</a> · ЛП‑2027‑0418</p>
+
+        <div class="card-head mt-3">
+          <div>
+            <h1 class="page-title" data-od-id="admin-card-title">Правовой десант · ЛП‑2027‑0418</h1>
+            <div class="filters">
+              <span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Требуются исправления</span>
+              <span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Техническая проверка</span>
+              <span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>2 замечания</span>
+            </div>
+          </div>
+          <div class="card-head__actions">
+            <button class="btn btn--secondary" type="button">Вернуть на исправление</button>
+            <button class="btn btn--primary" type="button" data-od-id="admin-approve">Допустить заявку</button>
+          </div>
+        </div>
+
+        <!-- Сводка -->
+        <section class="mt-7" aria-labelledby="summary-heading" data-od-id="admin-card-summary">
+          <div class="sec">
+            <span class="sec__num">01 /</span>
+            <h2 class="sec__title" id="summary-heading">Сводные сведения</h2>
+            <span class="sec__aside">Подана 4 декабря 2026 года, 12:41 (МСК)</span>
+          </div>
+          <div class="kv">
+            <div class="kv__item"><span class="kv__key">Направление конкурса</span><span class="kv__val">Правовое регулирование цифровой экономики</span></div>
+            <div class="kv__item"><span class="kv__key">Регион</span><span class="kv__val">Москва</span></div>
+            <div class="kv__item"><span class="kv__key">Образовательная организация</span><span class="kv__val">МГЮА им. О.&nbsp;Е.&nbsp;Кутафина</span></div>
+            <div class="kv__item"><span class="kv__key">Капитан команды</span><span class="kv__val">Тажибов Арслан Азизович</span></div>
+            <div class="kv__item"><span class="kv__key">Состав</span><span class="kv__val">3 участника, 1 наставник</span></div>
+            <div class="kv__item"><span class="kv__key">Комплект материалов</span><span class="kv__val">2 из 4 принято</span></div>
+          </div>
+          <div class="note mt-6">
+            <p class="note__label">Законотворческая инициатива</p>
+            <p class="note__body">«Оборот персональных данных в государственных информационных системах:
+              уведомительный порядок» — установление уведомительного порядка передачи персональных данных между
+              государственными информационными системами при оказании государственных услуг.</p>
+          </div>
+        </section>
+
+        <!-- Участники -->
+        <section class="mt-7" aria-labelledby="people-heading" data-od-id="admin-card-people">
+          <div class="sec">
+            <span class="sec__num">02 /</span>
+            <h2 class="sec__title" id="people-heading">Участники и наставники</h2>
+            <span class="sec__aside">Согласия на обработку персональных данных получены</span>
+          </div>
+          <div class="table-wrap">
+            <table class="table table--compact">
+              <caption>Состав команды и наставники</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Фамилия, имя, отчество</th>
+                  <th scope="col">Роль</th>
+                  <th scope="col">Дата рождения</th>
+                  <th scope="col">Организация, курс</th>
+                  <th scope="col">Контакты</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Тажибов Арслан Азизович</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Капитан команды</span></td>
+                  <td data-label="Дата рождения" class="table__num">14.03.2003</td>
+                  <td data-label="Организация, курс">МГЮА, 4 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">a.tazhibov@example.ru</span><br><span class="txt-mono">+7 (966) 789-76-05</span></td>
+                </tr>
+                <tr>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Ковалёва Мария Дмитриевна</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Участник</span></td>
+                  <td data-label="Дата рождения" class="table__num">02.09.2004</td>
+                  <td data-label="Организация, курс">МГЮА, 3 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">m.kovaleva@example.ru</span><br><span class="txt-mono">+7 (916) 244-10-77</span></td>
+                </tr>
+                <tr>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Гринько Пётр Сергеевич</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Участник</span></td>
+                  <td data-label="Дата рождения" class="table__num">27.11.2002</td>
+                  <td data-label="Организация, курс">МГЮА, 5 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">p.grinko@example.ru</span><br><span class="txt-mono">+7 (903) 118-45-02</span></td>
+                </tr>
+                <tr>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Ершова Наталья Владимировна</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Наставник</span></td>
+                  <td data-label="Дата рождения"><span class="muted">Не указана</span></td>
+                  <td data-label="Организация, курс">МГЮА, доцент кафедры информационного права</td>
+                  <td data-label="Контакты"><span class="txt-mono">n.ershova@example.ru</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Конкурсные материалы -->
+        <section class="mt-7" aria-labelledby="files-heading" data-od-id="admin-card-files">
+          <div class="sec">
+            <span class="sec__num">03 /</span>
+            <h2 class="sec__title" id="files-heading">Конкурсные материалы</h2>
+            <span class="sec__aside">Проверено 2 из 4</span>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <caption>Материалы заявки и результат проверки</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Тип материала</th>
+                  <th scope="col">Файл или ссылка</th>
+                  <th scope="col">Результат проверки</th>
+                  <th scope="col">Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Тип материала"><span class="table__cell-title">Законотворческая инициатива (текст)</span><span class="table__cell-sub">DOCX · 1,8 МБ</span></td>
+                  <td data-label="Файл или ссылка"><span class="file__name">iniciativa-2027-0418.docx</span></td>
+                  <td data-label="Результат проверки"><span class="chip chip--ok"><span class="chip__mark" aria-hidden="true"></span>Принят</span></td>
+                  <td data-label="Действие" data-cell="actions"><span class="table__actions"><button class="rowaction" type="button">Скачать</button><button class="rowaction" type="button">Вернуть с замечанием</button></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Тип материала"><span class="table__cell-title">Пояснительная записка</span><span class="table__cell-sub">PDF · 2,4 МБ</span></td>
+                  <td data-label="Файл или ссылка"><span class="file__name">poyasnitelnaya-zapiska.pdf</span></td>
+                  <td data-label="Результат проверки"><span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Требуется замена</span></td>
+                  <td data-label="Действие" data-cell="actions"><span class="table__actions"><button class="rowaction" type="button">Скачать</button><button class="rowaction" type="button">Снять замечание</button></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Тип материала"><span class="table__cell-title">Презентация защиты</span><span class="table__cell-sub">PDF или PPTX · до 30 МБ</span></td>
+                  <td data-label="Файл или ссылка"><span class="muted">Не загружен</span></td>
+                  <td data-label="Результат проверки"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Не загружен</span></td>
+                  <td data-label="Действие" data-cell="actions"><span class="table__actions"><button class="rowaction" type="button">Вернуть с замечанием</button></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Тип материала"><span class="table__cell-title">Ссылка на видеозапись защиты</span><span class="table__cell-sub">Внешний ресурс</span></td>
+                  <td data-label="Файл или ссылка"><span class="muted">Не указана</span></td>
+                  <td data-label="Результат проверки"><span class="chip chip--review"><span class="chip__mark" aria-hidden="true"></span>На проверке</span></td>
+                  <td data-label="Действие" data-cell="actions"><span class="table__actions"><button class="rowaction" type="button">Проверить доступ</button></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Техническая проверка -->
+        <section class="mt-7" aria-labelledby="tech-heading" data-od-id="admin-card-tech">
+          <div class="sec">
+            <span class="sec__num">04 /</span>
+            <h2 class="sec__title" id="tech-heading">Техническая проверка</h2>
+            <span class="sec__aside">Оператор: Смирнова О.&nbsp;В.</span>
+          </div>
+
+          <form class="panel checklist" novalidate>
+            <fieldset>
+              <legend>Контрольные пункты проверки</legend>
+
+              <div class="checkrow">
+                <div>
+                  <p class="checkrow__question">Комплектность: все обязательные материалы загружены</p>
+                  <p class="checkrow__note">Проверяется по перечню обязательных материалов Отборочного этапа.</p>
+                </div>
+                <div class="checkrow__opts">
+                  <div class="check"><input class="check__box" id="tech-1-yes" name="tech-1" type="radio"><label class="check__label txt-sm" for="tech-1-yes">Да</label></div>
+                  <div class="check"><input class="check__box" id="tech-1-no" name="tech-1" type="radio" checked><label class="check__label txt-sm" for="tech-1-no">Нет</label></div>
+                  <div class="check"><input class="check__box" id="tech-1-na" name="tech-1" type="radio"><label class="check__label txt-sm" for="tech-1-na">Не применимо</label></div>
+                </div>
+              </div>
+
+              <div class="checkrow">
+                <div>
+                  <p class="checkrow__question">Читаемость файлов: есть текстовый слой, документы открываются</p>
+                </div>
+                <div class="checkrow__opts">
+                  <div class="check"><input class="check__box" id="tech-2-yes" name="tech-2" type="radio"><label class="check__label txt-sm" for="tech-2-yes">Да</label></div>
+                  <div class="check"><input class="check__box" id="tech-2-no" name="tech-2" type="radio" checked><label class="check__label txt-sm" for="tech-2-no">Нет</label></div>
+                  <div class="check"><input class="check__box" id="tech-2-na" name="tech-2" type="radio"><label class="check__label txt-sm" for="tech-2-na">Не применимо</label></div>
+                </div>
+              </div>
+
+              <div class="checkrow">
+                <div>
+                  <p class="checkrow__question">Форматы и размеры файлов соответствуют требованиям Положения</p>
+                </div>
+                <div class="checkrow__opts">
+                  <div class="check"><input class="check__box" id="tech-3-yes" name="tech-3" type="radio" checked><label class="check__label txt-sm" for="tech-3-yes">Да</label></div>
+                  <div class="check"><input class="check__box" id="tech-3-no" name="tech-3" type="radio"><label class="check__label txt-sm" for="tech-3-no">Нет</label></div>
+                  <div class="check"><input class="check__box" id="tech-3-na" name="tech-3" type="radio"><label class="check__label txt-sm" for="tech-3-na">Не применимо</label></div>
+                </div>
+              </div>
+
+              <div class="checkrow">
+                <div>
+                  <p class="checkrow__question">Согласия на обработку персональных данных получены по каждому человеку</p>
+                </div>
+                <div class="checkrow__opts">
+                  <div class="check"><input class="check__box" id="tech-4-yes" name="tech-4" type="radio" checked><label class="check__label txt-sm" for="tech-4-yes">Да</label></div>
+                  <div class="check"><input class="check__box" id="tech-4-no" name="tech-4" type="radio"><label class="check__label txt-sm" for="tech-4-no">Нет</label></div>
+                  <div class="check"><input class="check__box" id="tech-4-na" name="tech-4" type="radio"><label class="check__label txt-sm" for="tech-4-na">Не применимо</label></div>
+                </div>
+              </div>
+            </fieldset>
+
+            <div class="field mt-6">
+              <label class="field__label" for="tech-verdict">Итог Технической проверки</label>
+              <select class="select" id="tech-verdict" name="tech-verdict">
+                <option value="fix" selected>Проверка пройдена с замечаниями — требуется досдача</option>
+                <option value="ok">Проверка пройдена — заявка допускается</option>
+                <option value="fail">Проверка не пройдена — заявка не допускается</option>
+              </select>
+              <p class="field__hint">Итог фиксируется в протоколе и виден капитану команды в Личном кабинете.</p>
+            </div>
+
+            <button class="btn btn--secondary" type="button">Сохранить результаты проверки</button>
+          </form>
+        </section>
+
+        <!-- Замечания и срок досдачи -->
+        <section class="mt-7" aria-labelledby="remarks-heading" data-od-id="admin-card-remarks">
+          <div class="sec">
+            <span class="sec__num">05 /</span>
+            <h2 class="sec__title" id="remarks-heading">Замечания и срок досдачи</h2>
+            <span class="sec__aside">2 действующих замечания</span>
+          </div>
+
+          <div class="remark" data-od-id="remark-note">
+            <div class="remark__head">
+              <p class="checkrow__question">Пояснительная записка</p>
+              <span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Действует</span>
+            </div>
+            <p class="mt-3">В файле отсутствует текстовый слой: документ не поддаётся поиску и не проходит
+              проверку на заимствования. Требуется повторная выгрузка из текстового редактора.</p>
+            <dl class="kv mt-4">
+              <div class="kv__item"><span class="kv__key">Срок досдачи</span><span class="kv__val kv__val--mono">18 декабря 2026 года, 23:59 (МСК)</span></div>
+              <div class="kv__item"><span class="kv__key">Автор замечания</span><span class="kv__val">Смирнова О.&nbsp;В., оператор Технической проверки</span></div>
+              <div class="kv__item"><span class="kv__key">Уведомление капитана команды</span><span class="kv__val">Отправлено 16 декабря 2026 года, 09:12 (МСК)</span></div>
+            </dl>
+            <p class="mt-4"><button class="rowaction" type="button">Снять замечание</button></p>
+          </div>
+
+          <div class="remark mt-5" data-od-id="remark-presentation">
+            <div class="remark__head">
+              <p class="checkrow__question">Презентация защиты</p>
+              <span class="chip chip--fix"><span class="chip__mark" aria-hidden="true"></span>Действует</span>
+            </div>
+            <p class="mt-3">Материал не загружен. Презентация обязательна для участия во Втором (финальном)
+              этапе; при досдаче проверяется соответствие требованиям к оформлению.</p>
+            <dl class="kv mt-4">
+              <div class="kv__item"><span class="kv__key">Срок досдачи</span><span class="kv__val kv__val--mono">18 декабря 2026 года, 23:59 (МСК)</span></div>
+              <div class="kv__item"><span class="kv__key">Автор замечания</span><span class="kv__val">Смирнова О.&nbsp;В., оператор Технической проверки</span></div>
+              <div class="kv__item"><span class="kv__key">Уведомление капитана команды</span><span class="kv__val">Отправлено 16 декабря 2026 года, 09:12 (МСК)</span></div>
+            </dl>
+            <p class="mt-4"><button class="rowaction" type="button">Снять замечание</button></p>
+          </div>
+
+          <form class="panel mt-6" novalidate data-od-id="remark-form">
+            <div class="panel__head">
+              <h3 class="panel__title">Новое замечание</h3>
+              <span class="panel__aside">Капитан команды получит письмо</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="remark-material">Материал <span class="field__req" aria-hidden="true">*</span></label>
+              <select class="select" id="remark-material" name="remark-material" data-required
+                data-error="Выберите материал, к которому относится замечание.">
+                <option value="">Выберите материал</option>
+                <option value="initiative">Законотворческая инициатива (текст)</option>
+                <option value="note">Пояснительная записка</option>
+                <option value="presentation">Презентация защиты</option>
+                <option value="video">Ссылка на видеозапись защиты</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="remark-text">Текст замечания <span class="field__req" aria-hidden="true">*</span></label>
+              <textarea class="textarea" id="remark-text" name="remark-text" data-required
+                data-error="Сформулируйте замечание так, чтобы команда понимала, что именно исправить."></textarea>
+              <p class="field__hint">Пишите по существу: что не соответствует требованиям и что нужно сделать.</p>
+            </div>
+            <div class="field">
+              <label class="field__label" for="remark-due">Срок досдачи (МСК) <span class="field__req" aria-hidden="true">*</span></label>
+              <input class="input" id="remark-due" name="remark-due" type="datetime-local" value="2026-12-18T23:59" data-required
+                data-error="Укажите срок досдачи: без срока заявка не возвращается на исправление.">
+              <p class="field__hint">Срок не может быть позже окончания Технической проверки — 22 декабря 2026 года, 18:00 (МСК).</p>
+            </div>
+            <button class="btn btn--secondary" type="button">Добавить замечание</button>
+          </form>
+        </section>
+
+        <!-- История -->
+        <section class="mt-7" aria-labelledby="history-heading" data-od-id="admin-card-history">
+          <div class="sec">
+            <span class="sec__num">06 /</span>
+            <h2 class="sec__title" id="history-heading">История действий</h2>
+          </div>
+          <ul class="log">
+            <li class="log__item"><span class="log__time">16 декабря 2026, 09:12</span><span>Добавлены два замечания, уведомление отправлено капитану команды.</span></li>
+            <li class="log__item"><span class="log__time">15 декабря 2026, 17:40</span><span>Заявка взята на Техническую проверку оператором Смирновой О.&nbsp;В.</span></li>
+            <li class="log__item"><span class="log__time">4 декабря 2026, 12:41</span><span>Заявка отправлена командой и зарегистрирована в системе.</span></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/prototype.js"></script>
+</body>
+</html>

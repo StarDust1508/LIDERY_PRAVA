@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Оценочный лист и протокол · Админ-панель · Лидеры права – 2027</title>
+<meta name="description" content="Оценочный лист: балл и обоснование по каждому критерию, итог, рекомендации команде, публикация протокола.">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* Раскладка конкретного экрана */
+  .score-cell { min-width: 132px; }
+  .score-cell .input { min-height: var(--tap); }
+  .criteria th:nth-child(2), .criteria td:nth-child(2) { width: 120px; }
+  .criteria th:nth-child(3), .criteria td:nth-child(3) { width: 168px; }
+  .criteria textarea { min-height: 96px; }
+  .protocol-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--s-5); }
+</style>
+</head>
+<body class="page" data-page="admin-evaluation">
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+
+<header class="topbar" data-od-id="evaluation-header">
+  <div class="container topbar__inner">
+    <a class="brand" href="index.html">
+      <svg class="brand__emblem" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Эмблема конкурса «Лидеры права – 2027»">
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="currentColor"/>
+        <rect class="emblem-mark" x="4" y="4" width="10" height="10"/>
+        <path d="M17.5 4v24" stroke="currentColor" stroke-width="1"/>
+        <path d="M22 10h6M22 14h6M22 18h6M22 22h4" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <span class="brand__text">
+        <span class="brand__name">Лидеры&nbsp;права&nbsp;– 2027</span>
+        <span class="brand__role">Админ-панель · Оргкомитет</span>
+      </span>
+    </a>
+    <span class="topbar__spacer"></span>
+    <p class="topbar__meta topbar__meta--keep">Оценочный лист<br><strong>ЛП‑2027‑0107</strong></p>
+    <p class="topbar__meta">Эксперт<br><strong>Ильин Дмитрий Андреевич</strong></p>
+    <a class="btn btn--secondary btn--inline-mobile" href="cabinet-access.html">Выйти</a>
+  </div>
+</header>
+
+<main class="page__main" id="main">
+  <div class="container">
+    <div class="layout">
+
+      <aside class="sidenav">
+        <p class="sidenav__title">Админ-панель</p>
+        <nav aria-label="Разделы админ-панели">
+          <ul class="sidenav__list">
+            <li><a class="sidenav__link" href="admin-applications.html">Заявки <span class="sidenav__index">01</span></a></li>
+            <li><a class="sidenav__link" href="admin-application.html">Карточка заявки <span class="sidenav__index">02</span></a></li>
+            <li><a class="sidenav__link" href="admin-evaluation.html" aria-current="page">Оценочный лист <span class="sidenav__index">03</span></a></li>
+          </ul>
+        </nav>
+        <div class="note mt-6">
+          <p class="note__label">Порядок оценки</p>
+          <p class="note__body">Оценочный лист заполняет член Конкурсной комиссии. Итог и рекомендации команде
+            передаются в Конкурсную комиссию, решение оформляется протоколом.</p>
+        </div>
+      </aside>
+
+      <div>
+        <p class="eyebrow">Админ-панель · <a href="admin-applications.html">Заявки</a> · ЛП‑2027‑0107 · Отборочный этап</p>
+
+        <h1 class="page-title" data-od-id="evaluation-title">Оценочный лист</h1>
+        <div class="filters">
+          <span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Отборочный этап</span>
+          <span class="chip chip--review"><span class="chip__mark" aria-hidden="true"></span>Черновик оценки</span>
+        </div>
+
+        <div class="kv mt-6">
+          <div class="kv__item"><span class="kv__key">Заявка</span><span class="kv__val kv__val--mono">ЛП‑2027‑0107</span></div>
+          <div class="kv__item"><span class="kv__key">Команда</span><span class="kv__val">Кодекс · СПбГУ</span></div>
+          <div class="kv__item"><span class="kv__key">Направление конкурса</span><span class="kv__val">Защита прав граждан в социальной сфере</span></div>
+          <div class="kv__item"><span class="kv__key">Эксперт</span><span class="kv__val">Ильин Дмитрий Андреевич, член Конкурсной комиссии</span></div>
+          <div class="kv__item"><span class="kv__key">Дата оценки</span><span class="kv__val">28 января 2027 года, 15:20 (МСК)</span></div>
+          <div class="kv__item"><span class="kv__key">Регламент оценки</span><span class="kv__val">Положение о конкурсе, приложение № 2</span></div>
+        </div>
+
+        <!-- Критерии -->
+        <section class="mt-7" aria-labelledby="criteria-heading" data-od-id="evaluation-criteria">
+          <div class="sec">
+            <span class="sec__num">01 /</span>
+            <h2 class="sec__title" id="criteria-heading">Критерии оценки</h2>
+            <span class="sec__aside">Максимум — 100 баллов</span>
+          </div>
+          <p class="txt-sm muted mb-5">Балл не может превышать максимум по критерию: превышение подсвечивается
+            рядом с полем и не учитывается в итоге до исправления. Обоснование заполняется по каждому критерию
+            с ненулевым баллом.</p>
+
+          <form data-evaluation novalidate>
+            <div class="table-wrap">
+              <table class="table criteria">
+                <caption>Балл и обоснование по каждому критерию</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Критерий</th>
+                    <th scope="col">Макс. балл</th>
+                    <th scope="col">Балл</th>
+                    <th scope="col">Обоснование</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr data-od-id="criterion-relevance">
+                    <td data-label="Критерий"><span class="table__cell-title">Актуальность и обоснование проблемы</span><span class="table__cell-sub">Насколько проблема значима и подтверждена данными</span></td>
+                    <td data-label="Макс. балл" class="table__num">15</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="15" step="1" value="14" data-score data-max="15"
+                          aria-label="Балл по критерию «Актуальность и обоснование проблемы», максимум 15">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Актуальность и обоснование проблемы»">Проблема подтверждена статистикой обращений: 38 % заявителей повторно представляют документы, уже имеющиеся в информационных системах ведомств.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr data-od-id="criterion-mechanism">
+                    <td data-label="Критерий"><span class="table__cell-title">Проработка правового механизма инициативы</span><span class="table__cell-sub">Полнота конструкции: субъекты, процедуры, сроки</span></td>
+                    <td data-label="Макс. балл" class="table__num">25</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="25" step="1" value="22" data-score data-max="25"
+                          aria-label="Балл по критерию «Проработка правового механизма инициативы», максимум 25">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Проработка правового механизма инициативы»">Механизм описан полно: определены оператор реестра, сроки уведомления, основания отказа. Не раскрыт порядок обжалования отказа в передаче данных.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr data-od-id="criterion-constitution">
+                    <td data-label="Критерий"><span class="table__cell-title">Соответствие Конституции Российской Федерации и системности законодательства</span><span class="table__cell-sub">Отсутствие противоречий действующим нормам</span></td>
+                    <td data-label="Макс. балл" class="table__num">20</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="20" step="1" value="18" data-score data-max="20"
+                          aria-label="Балл по критерию «Соответствие Конституции Российской Федерации и системности законодательства», максимум 20">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Соответствие Конституции и системности законодательства»">Проект согласуется с Федеральным законом «О персональных данных» и не изменяет объём прав субъектов данных.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr data-od-id="criterion-impact">
+                    <td data-label="Критерий"><span class="table__cell-title">Оценка регулирующего воздействия и рисков</span><span class="table__cell-sub">Издержки, риски, меры их снижения</span></td>
+                    <td data-label="Макс. балл" class="table__num">15</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="15" step="1" value="11" data-score data-max="15"
+                          aria-label="Балл по критерию «Оценка регулирующего воздействия и рисков», максимум 15">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Оценка регулирующего воздействия и рисков»">Издержки операторов оценены, но не приведён расчёт затрат на доработку информационных систем.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr data-od-id="criterion-quality">
+                    <td data-label="Критерий"><span class="table__cell-title">Качество оформления конкурсных материалов</span><span class="table__cell-sub">Структура, язык, соответствие требованиям</span></td>
+                    <td data-label="Макс. балл" class="table__num">10</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="10" step="1" value="8" data-score data-max="10"
+                          aria-label="Балл по критерию «Качество оформления конкурсных материалов», максимум 10">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Качество оформления конкурсных материалов»">Материалы оформлены аккуратно, структура соответствует приложению № 1. Есть опечатки в нумерации статей.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr data-od-id="criterion-defense">
+                    <td data-label="Критерий"><span class="table__cell-title">Публичное представление инициативы</span><span class="table__cell-sub">Видеозапись защиты, аргументация, ответы на вопросы</span></td>
+                    <td data-label="Макс. балл" class="table__num">15</td>
+                    <td data-label="Балл" class="score-cell">
+                      <div class="field" style="margin:0">
+                        <input class="input" type="number" min="0" max="15" step="1" value="18" data-score data-max="15"
+                          aria-label="Балл по критерию «Публичное представление инициативы», максимум 15">
+                      </div>
+                    </td>
+                    <td data-label="Обоснование">
+                      <div class="field" style="margin:0">
+                        <textarea class="textarea" aria-label="Обоснование по критерию «Публичное представление инициативы»">Защита выстроена логично, ответы на вопросы членов Конкурсной комиссии аргументированы.</textarea>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Итог -->
+            <div class="deadline mt-5" data-od-id="evaluation-total">
+              <p class="deadline__label">Итоговый балл</p>
+              <p class="deadline__date"><span data-score-total>88</span> из <span data-score-max>100</span></p>
+              <p class="deadline__meta" data-score-verdict>Рекомендовать к участию в Первом этапе</p>
+            </div>
+
+            <div class="field mt-6">
+              <label class="field__label" for="team-recommendations">Рекомендации команде</label>
+              <textarea class="textarea" id="team-recommendations" name="team-recommendations">Раскрыть порядок обжалования отказа в передаче персональных данных и дополнить оценку регулирующего воздействия расчётом затрат операторов. Обратить внимание на нумерацию статей в проекте.</textarea>
+              <p class="field__hint">Рекомендации видны капитану команды в Личном кабинете после опубликования протокола.</p>
+            </div>
+
+            <button class="btn btn--primary" type="button" data-od-id="evaluation-save">Сохранить и передать в Конкурсную комиссию</button>
+          </form>
+        </section>
+
+        <!-- Протокол -->
+        <section class="mt-7" aria-labelledby="protocol-heading" data-od-id="evaluation-protocol">
+          <div class="sec">
+            <span class="sec__num">02 /</span>
+            <h2 class="sec__title" id="protocol-heading">Протокол заседания Конкурсной комиссии</h2>
+            <span class="sec__aside">Публикуется после подписания всеми членами</span>
+          </div>
+
+          <div class="panel">
+            <div class="panel__head">
+              <h3 class="panel__title">Протокол № 3 от 20 февраля 2027 года</h3>
+              <span class="chip chip--review" data-protocol-status><span class="chip__mark" aria-hidden="true"></span>Черновик</span>
+            </div>
+
+            <div class="protocol-meta">
+              <div class="kv__item"><span class="kv__key">Этап</span><span class="kv__val">Отборочный этап</span></div>
+              <div class="kv__item"><span class="kv__key">Заявок в протоколе</span><span class="kv__val">128</span></div>
+              <div class="kv__item"><span class="kv__key">Допущено к Первому этапу</span><span class="kv__val">42 заявки</span></div>
+              <div class="kv__item"><span class="kv__key">Срок апелляции</span><span class="kv__val">20 февраля 2027 года, 23:59 (МСК)</span></div>
+            </div>
+
+            <div class="note mt-6">
+              <p class="note__label">Публикация</p>
+              <p class="note__body">После публикации протокол становится доступен капитанам команд в Личных
+                кабинетах, а итоги отборочного этапа — на сайте конкурса. Изменение оценки после публикации
+                возможно только по результатам апелляции.</p>
+            </div>
+
+            <div class="check mt-5">
+              <input class="check__box" id="publish-confirm" type="checkbox" data-publish-confirm>
+              <label class="check__label" for="publish-confirm">Подтверждаю, что все оценочные листы заполнены,
+                итоги сверены и протокол подписан членами Конкурсной комиссии.</label>
+            </div>
+
+            <p class="mt-5"><button class="btn btn--secondary" type="button" data-publish disabled>Опубликовать протокол</button></p>
+            <p class="txt-sm mt-4" data-protocol-note hidden role="status" aria-live="polite"></p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/prototype.js"></script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Функциональные экраны платформы · Лидеры права – 2027</title>
+<meta name="description" content="Обзор HTML-прототипа функциональных экранов конкурса «Лидеры права – 2027»: заявка, Личный кабинет, админ-панель.">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* Раскладка конкретного экрана */
+  .specimen { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s-4); }
+  .swatch { border: var(--bw) solid var(--border); }
+  .swatch__chip { height: 88px; border-bottom: var(--bw) solid var(--border); }
+  .swatch__meta { padding: var(--s-3); font-family: var(--font-mono); font-size: var(--fs-mono-sm); }
+  .swatch__name { display: block; font-weight: var(--fw-medium); letter-spacing: 0.02em; }
+  .swatch__value { color: var(--muted); }
+  .type-sample { border-top: var(--bw) solid var(--border); padding-top: var(--s-4); }
+  .type-sample__meta { font-family: var(--font-mono); font-size: var(--fs-mono-sm); color: var(--muted); }
+  .preview-controls { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: flex-end; margin-bottom: var(--s-5); }
+</style>
+</head>
+<body class="page page--with-proto" data-page="overview">
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+
+<header class="topbar" data-od-id="overview-header">
+  <div class="container topbar__inner">
+    <a class="brand" href="index.html">
+      <svg class="brand__emblem" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Эмблема конкурса «Лидеры права – 2027»">
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="currentColor"/>
+        <rect class="emblem-mark" x="4" y="4" width="10" height="10"/>
+        <path d="M17.5 4v24" stroke="currentColor" stroke-width="1"/>
+        <path d="M22 10h6M22 14h6M22 18h6M22 22h4" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <span class="brand__text">
+        <span class="brand__name">Лидеры&nbsp;права&nbsp;– 2027</span>
+        <span class="brand__role">Прототип · функциональные экраны</span>
+      </span>
+    </a>
+    <span class="topbar__spacer"></span>
+    <p class="topbar__meta">Версия прототипа<br><strong>от 4 декабря 2026 года</strong></p>
+  </div>
+</header>
+
+<main class="page__main" id="main">
+  <div class="container">
+    <p class="eyebrow">Платформа конкурса · lideryprava.ru</p>
+    <h1 class="page-title" data-od-id="overview-title">Функциональные экраны: заявка, Личный кабинет, админ-панель</h1>
+    <p class="page-lead">Прототип собран на текущем визуальном языке сайта: paper, sand, ink и красный акцент,
+      Inter для текста и JetBrains Mono для служебных подписей. Маркетинговые страницы в объём не входят.
+      Все данные в экранах — демонстрационные, номера заявок и команды вымышлены.</p>
+
+    <!-- Экраны участника -->
+    <section class="mt-7" aria-labelledby="participant-heading" data-od-id="overview-participant">
+      <div class="sec">
+        <span class="sec__num">01 /</span>
+        <h2 class="sec__title" id="participant-heading">Экраны участника</h2>
+        <span class="sec__aside">Каждый экран адаптируется под мобильный</span>
+      </div>
+      <div class="overview">
+        <a class="overview__link" href="apply.html" data-od-id="link-apply">
+          <span class="overview__num">01</span>
+          <span class="overview__title">Подача заявки</span>
+          <span class="overview__desc">Мастер из шести шагов: команда и инициатива, участники, наставники,
+            конкурсные материалы, согласия, проверка и отправка. Автосохранение черновика, ошибки рядом
+            с полями, состояния загрузки файла и «приём заявок закрыт».</span>
+          <span class="overview__path">apply.html</span>
+        </a>
+        <a class="overview__link" href="cabinet-access.html" data-od-id="link-access">
+          <span class="overview__num">02</span>
+          <span class="overview__title">Вход в Личный кабинет</span>
+          <span class="overview__desc">Номер заявки и адрес электронной почты капитана команды, повторная
+            отправка ссылки, состояние ошибки входа.</span>
+          <span class="overview__path">cabinet-access.html</span>
+        </a>
+        <a class="overview__link" href="cabinet.html" data-od-id="link-cabinet">
+          <span class="overview__num">03</span>
+          <span class="overview__title">Сводка по заявке</span>
+          <span class="overview__desc">Номер заявки, статус (черновик, техническая проверка, допущена,
+            требуются исправления), что осталось догрузить, ближайший срок.</span>
+          <span class="overview__path">cabinet.html</span>
+        </a>
+        <a class="overview__link" href="cabinet-team.html" data-od-id="link-team">
+          <span class="overview__num">04</span>
+          <span class="overview__title">Состав</span>
+          <span class="overview__desc">Участники и наставники, согласия, правило изменения состава до
+            опубликования итогов отборочного этапа.</span>
+          <span class="overview__path">cabinet-team.html</span>
+        </a>
+        <a class="overview__link" href="cabinet-materials.html" data-od-id="link-materials">
+          <span class="overview__num">05</span>
+          <span class="overview__title">Конкурсные материалы</span>
+          <span class="overview__desc">Комплект по этапам: тип материала, файл или ссылка, статус, замечание
+            Технической проверки, срок досдачи, загрузка файла.</span>
+          <span class="overview__path">cabinet-materials.html</span>
+        </a>
+        <a class="overview__link" href="cabinet-deadlines.html" data-od-id="link-deadlines">
+          <span class="overview__num">06</span>
+          <span class="overview__title">Сроки этапов</span>
+          <span class="overview__desc">Календарь этапов по московскому времени, режим «срок пропущен»
+            и контакты Оргкомитета.</span>
+          <span class="overview__path">cabinet-deadlines.html</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Админ-панель -->
+    <section class="mt-7" aria-labelledby="admin-heading" data-od-id="overview-admin">
+      <div class="sec">
+        <span class="sec__num">02 /</span>
+        <h2 class="sec__title" id="admin-heading">Админ-панель Оргкомитета</h2>
+        <span class="sec__aside">Отдельная сборка, тот же визуальный язык</span>
+      </div>
+      <div class="overview">
+        <a class="overview__link" href="admin-applications.html" data-od-id="link-admin-list">
+          <span class="overview__num">01</span>
+          <span class="overview__title">Список заявок</span>
+          <span class="overview__desc">Поиск по номеру, команде, участнику и адресу почты, фильтры по статусу,
+            этапу и замечаниям, выбор заявок и выгрузка CSV.</span>
+          <span class="overview__path">admin-applications.html</span>
+        </a>
+        <a class="overview__link" href="admin-application.html" data-od-id="link-admin-card">
+          <span class="overview__num">02</span>
+          <span class="overview__title">Карточка заявки</span>
+          <span class="overview__desc">Участники и наставники, конкурсные материалы, контрольные пункты
+            Технической проверки, замечания и срок досдачи, история действий.</span>
+          <span class="overview__path">admin-application.html</span>
+        </a>
+        <a class="overview__link" href="admin-evaluation.html" data-od-id="link-admin-evaluation">
+          <span class="overview__num">03</span>
+          <span class="overview__title">Оценочный лист и протокол</span>
+          <span class="overview__desc">Балл и обоснование по каждому критерию, итог, рекомендации команде,
+            публикация протокола Конкурсной комиссии.</span>
+          <span class="overview__path">admin-evaluation.html</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Предпросмотр -->
+    <section class="mt-7" aria-labelledby="preview-heading" data-od-id="overview-preview">
+      <div class="sec">
+        <span class="sec__num">03 /</span>
+        <h2 class="sec__title" id="preview-heading">Предпросмотр: десктоп и мобильный</h2>
+        <span class="sec__aside">Ширина макета 390 px</span>
+      </div>
+
+      <div class="preview-controls">
+        <div class="toolbar__group">
+          <label class="toolbar__label" for="preview-screen">Экран</label>
+          <select class="select" id="preview-screen">
+            <option value="apply.html">Подача заявки</option>
+            <option value="cabinet-access.html">Вход в Личный кабинет</option>
+            <option value="cabinet.html">Сводка по заявке</option>
+            <option value="cabinet-team.html">Состав</option>
+            <option value="cabinet-materials.html">Конкурсные материалы</option>
+            <option value="cabinet-deadlines.html">Сроки этапов</option>
+            <option value="admin-applications.html">Админка: список заявок</option>
+            <option value="admin-application.html">Админка: карточка заявки</option>
+            <option value="admin-evaluation.html">Админка: оценочный лист</option>
+          </select>
+        </div>
+        <div class="toolbar__actions">
+          <button class="btn btn--secondary" type="button" id="preview-desktop" aria-pressed="true">Десктоп</button>
+          <button class="btn btn--secondary" type="button" id="preview-mobile" aria-pressed="false">Мобильный</button>
+        </div>
+        <p><a class="rowaction" id="preview-open" href="apply.html">Открыть экран отдельно</a></p>
+      </div>
+
+      <div class="device" id="device">
+        <div class="device__frame">
+          <iframe id="preview-frame" src="apply.html" title="Предпросмотр экрана прототипа" loading="lazy"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- Токены -->
+    <section class="mt-7" aria-labelledby="tokens-heading" data-od-id="overview-tokens">
+      <div class="sec">
+        <span class="sec__num">04 /</span>
+        <h2 class="sec__title" id="tokens-heading">Токены оформления</h2>
+        <span class="sec__aside"><a href="../DESIGN.md">DESIGN.md</a></span>
+      </div>
+
+      <div class="specimen">
+        <div class="swatch"><div class="swatch__chip" style="background:var(--paper)"></div>
+          <p class="swatch__meta"><span class="swatch__name">paper</span><span class="swatch__value">#F5F1E9 · фон</span></p></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--sand)"></div>
+          <p class="swatch__meta"><span class="swatch__name">sand</span><span class="swatch__value">#ECE6DA · поверхность</span></p></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--ink)"></div>
+          <p class="swatch__meta"><span class="swatch__name">ink</span><span class="swatch__value">#2C2722 · текст</span></p></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--red)"></div>
+          <p class="swatch__meta"><span class="swatch__name">red</span><span class="swatch__value">#E5231C · акцент</span></p></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--red-deep)"></div>
+          <p class="swatch__meta"><span class="swatch__name">red-deep</span><span class="swatch__value">#B81A14 · акцент текста</span></p></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--sand-deep)"></div>
+          <p class="swatch__meta"><span class="swatch__name">sand-deep</span><span class="swatch__value">#E0DACE · disabled</span></p></div>
+      </div>
+
+      <div class="grid-2 mt-6">
+        <div class="type-sample">
+          <p class="type-sample__meta">Inter 600 · display 56/34 px · −0.03em</p>
+          <p class="display mt-3">Заявка команды</p>
+        </div>
+        <div class="type-sample">
+          <p class="type-sample__meta">Inter 400 · текст 16 px · 1.55</p>
+          <p class="mt-3">Документы принимаются в формате PDF или DOCX с текстовым слоем: сканы без
+            распознавания не проходят техническую проверку.</p>
+        </div>
+        <div class="type-sample">
+          <p class="type-sample__meta">JetBrains Mono 500 · подпись 12 px · капс, +0.085em</p>
+          <p class="eyebrow mt-3">Срок досдачи · 18 декабря 2026 года, 23:59 (МСК)</p>
+        </div>
+        <div class="type-sample">
+          <p class="type-sample__meta">Состояния кнопок</p>
+          <p class="mt-3" style="display:flex;gap:var(--s-3);flex-wrap:wrap">
+            <button class="btn btn--primary" type="button">Основное</button>
+            <button class="btn btn--secondary" type="button">Второстепенное</button>
+            <button class="btn" type="button" disabled>Недоступно</button>
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="proto" role="group" aria-label="Оформление прототипа">
+  <span class="proto__label">Оформление:</span>
+  <button class="proto__btn" type="button" data-theme-switch="brand" aria-pressed="true">Бренд</button>
+  <button class="proto__btn" type="button" data-theme-switch="dusk" aria-pressed="false">Сумерки</button>
+  <span class="proto__label">Смена оформления меняет только токены — структура экранов остаётся прежней.</span>
+</div>
+
+<script src="assets/prototype.js"></script>
+<script>
+  /* Предпросмотр экранов: выбор экрана и ширины макета */
+  (function () {
+    var frame = document.getElementById("preview-frame");
+    var select = document.getElementById("preview-screen");
+    var device = document.getElementById("device");
+    var open = document.getElementById("preview-open");
+    var desktop = document.getElementById("preview-desktop");
+    var mobile = document.getElementById("preview-mobile");
+    if (!frame) return;
+
+    select.addEventListener("change", function () {
+      frame.src = select.value;
+      open.href = select.value;
+    });
+    function setMode(mode) {
+      device.classList.toggle("device--mobile", mode === "mobile");
+      desktop.setAttribute("aria-pressed", String(mode === "desktop"));
+      mobile.setAttribute("aria-pressed", String(mode === "mobile"));
+    }
+    desktop.addEventListener("click", function () { setMode("desktop"); });
+    mobile.addEventListener("click", function () { setMode("mobile"); });
+    open.href = select.value;
+  })();
+</script>
+</body>
+</html>

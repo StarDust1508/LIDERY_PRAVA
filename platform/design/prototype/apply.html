@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подача заявки · Лидеры права – 2027</title>
+<meta name="description" content="Мастер подачи заявки на конкурс «Лидеры права – 2027»: шесть шагов, автосохранение черновика, загрузка конкурсных материалов.">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="page page--with-proto" data-page="apply">
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+
+<header class="topbar" data-od-id="apply-header">
+  <div class="container topbar__inner">
+    <a class="brand" href="index.html" data-od-id="brand">
+      <svg class="brand__emblem" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Эмблема конкурса «Лидеры права – 2027»">
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="currentColor"/>
+        <rect class="emblem-mark" x="4" y="4" width="10" height="10"/>
+        <path d="M17.5 4v24" stroke="currentColor" stroke-width="1"/>
+        <path d="M22 10h6M22 14h6M22 18h6M22 22h4" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <span class="brand__text">
+        <span class="brand__name">Лидеры&nbsp;права&nbsp;– 2027</span>
+        <span class="brand__role">Подача заявки</span>
+      </span>
+    </a>
+    <span class="topbar__spacer"></span>
+    <p class="topbar__meta">Этап конкурса<br><strong>Приём заявок</strong></p>
+    <p class="topbar__meta">Срок подачи<br><strong>11 декабря 2026 года, 23:59 (МСК)</strong></p>
+  </div>
+</header>
+
+<main class="page__main" id="main">
+  <div class="container">
+
+    <div class="wizard-head">
+      <div>
+        <p class="eyebrow">Заявка на конкурс · Законотворческая инициатива</p>
+        <h1 class="page-title" data-od-id="apply-title">Заявка команды на участие</h1>
+        <p class="page-lead">Шесть шагов: команда и инициатива, участники, наставники, конкурсные материалы,
+          согласия, проверка и отправка. Черновик сохраняется автоматически&nbsp;— заполнение можно прервать
+          и вернуться позже по ссылке из письма.</p>
+      </div>
+      <p class="savestate" data-savestate data-state="saved" aria-live="polite" data-od-id="apply-autosave">
+        <span class="savestate__dot" aria-hidden="true"></span>
+        <span data-savestate-text>Черновик сохранён, 12:41 (МСК)</span>
+      </p>
+    </div>
+
+    <!-- Состояние «приём заявок закрыт» -->
+    <div class="banner banner--closed mt-5" data-when-state="closed" role="status" data-od-id="apply-closed-banner">
+      <span class="banner__icon" aria-hidden="true">×</span>
+      <div>
+        <p class="banner__title">Приём заявок закрыт 11 декабря 2026 года, 23:59 (МСК)</p>
+        <p class="banner__body">Черновик сохранён и доступен для просмотра. Отправка заявки и изменение
+          конкурсных материалов недоступны. По вопросам участия в следующем сезоне обращайтесь в Оргкомитет:
+          <a href="mailto:ssla_av@mail.ru">ssla_av@mail.ru</a>.</p>
+      </div>
+    </div>
+
+    <div class="mobile-steps mt-5">
+      <p class="eyebrow" data-step-num>Шаг 1 из 6</p>
+      <p class="txt-sm" data-step-current>Команда и инициатива</p>
+      <div class="bar mt-4" role="progressbar" aria-label="Ход заполнения заявки" aria-valuemin="1" aria-valuemax="6" aria-valuenow="1">
+        <div class="bar__fill" data-step-fill style="width:16.6%"></div>
+      </div>
+    </div>
+
+    <div class="wizard-body mt-6">
+
+      <!-- Индикатор прогресса -->
+      <aside class="wizard-rail">
+        <nav aria-label="Шаги заявки" data-od-id="apply-steps">
+          <ol class="steps">
+            <li class="steps__item" data-step-ref="1" data-state="current">
+              <span class="steps__num">01</span>
+              <span><a class="steps__label" href="#step-1">Команда и инициатива</a>
+                <span class="steps__meta">Черновик заполнен</span></span>
+            </li>
+            <li class="steps__item" data-step-ref="2" data-state="todo">
+              <span class="steps__num">02</span>
+              <span><a class="steps__label" href="#step-2">Участники</a>
+                <span class="steps__meta">3 из 5 человек</span></span>
+            </li>
+            <li class="steps__item" data-step-ref="3" data-state="todo">
+              <span class="steps__num">03</span>
+              <span><a class="steps__label" href="#step-3">Наставники</a>
+                <span class="steps__meta">1 из 2</span></span>
+            </li>
+            <li class="steps__item" data-step-ref="4" data-state="todo">
+              <span class="steps__num">04</span>
+              <span><a class="steps__label" href="#step-4">Конкурсные материалы</a>
+                <span class="steps__meta">2 из 4 загружено</span></span>
+            </li>
+            <li class="steps__item" data-step-ref="5" data-state="todo">
+              <span class="steps__num">05</span>
+              <span><a class="steps__label" href="#step-5">Согласия</a>
+                <span class="steps__meta">Требуется действие</span></span>
+            </li>
+            <li class="steps__item" data-step-ref="6" data-state="todo">
+              <span class="steps__num">06</span>
+              <span><a class="steps__label" href="#step-6">Проверка и отправка</a>
+                <span class="steps__meta">Не отправлено</span></span>
+            </li>
+          </ol>
+        </nav>
+        <div class="note mt-6">
+          <p class="note__label">Оргкомитет конкурса</p>
+          <p class="note__body">Тажибов Арслан Азизович<br>
+            <a href="tel:+79667897605">8 (966) 789-76-05</a><br>
+            <a href="mailto:ssla_av@mail.ru">ssla_av@mail.ru</a></p>
+        </div>
+      </aside>
+
+      <form class="wizard-panel" data-wizard novalidate>
+
+        <!-- ШАГ 1 -->
+        <section data-step data-od-id="apply-team-initiative" data-step-title="Команда и инициатива" id="step-1" aria-labelledby="step-1-heading">
+          <div class="sec">
+            <span class="sec__num">01 /</span>
+            <h2 class="sec__title" id="step-1-heading" tabindex="-1">Команда и инициатива</h2>
+            <span class="sec__aside">Обязательные поля отмечены&nbsp;*</span>
+          </div>
+
+          <div class="field" data-invalid="true">
+            <label class="field__label" for="team-name">Наименование команды <span class="field__req" aria-hidden="true">*</span></label>
+            <input class="input" id="team-name" name="team-name" type="text" data-required
+              data-error="Укажите наименование команды — оно будет указано в протоколах конкурса."
+              aria-invalid="true" aria-describedby="team-name-error">
+            <p class="field__hint">Как команда будет указана в протоколах Конкурсной комиссии и Жюри.</p>
+            <p class="field__error" id="team-name-error" role="alert">Укажите наименование команды — оно будет указано в протоколах конкурса.</p>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label class="field__label" for="team-region">Регион <span class="field__req" aria-hidden="true">*</span></label>
+              <select class="select" id="team-region" name="team-region" data-required
+                data-error="Выберите регион — он определяет территориальную группу отборочного этапа.">
+                <option value="">Выберите регион</option>
+                <option value="msk" selected>Москва</option>
+                <option value="spb">Санкт-Петербург</option>
+                <option value="tatarstan">Республика Татарстан</option>
+                <option value="krasnodar">Краснодарский край</option>
+                <option value="sverdlovsk">Свердловская область</option>
+                <option value="novosibirsk">Новосибирская область</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="team-org">Образовательная организация <span class="field__req" aria-hidden="true">*</span></label>
+              <input class="input" id="team-org" name="team-org" type="text" data-required
+                data-error="Укажите образовательную организацию по полному наименованию."
+                value="Московский государственный юридический университет имени О.&nbsp;Е.&nbsp;Кутафина (МГЮА)">
+              <p class="field__hint">Полное наименование по уставу.</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="team-direction">Направление конкурса <span class="field__req" aria-hidden="true">*</span></label>
+            <select class="select" id="team-direction" name="team-direction" data-required
+              data-error="Выберите направление конкурса.">
+              <option value="">Выберите направление</option>
+              <option value="digital" selected>Правовое регулирование цифровой экономики</option>
+              <option value="social">Защита прав граждан в социальной сфере</option>
+              <option value="eco">Экологическое и природоресурсное право</option>
+              <option value="anticor">Антикоррупционное регулирование</option>
+              <option value="competition">Развитие конкуренции и защита прав потребителей</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="initiative-title">Название законотворческой инициативы <span class="field__req" aria-hidden="true">*</span></label>
+            <input class="input" id="initiative-title" name="initiative-title" type="text" data-required
+              data-error="Укажите название законотворческой инициативы так, как оно будет в протоколе."
+              value="Оборот персональных данных в государственных информационных системах: уведомительный порядок">
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="initiative-summary">Краткое описание инициативы <span class="field__req" aria-hidden="true">*</span></label>
+            <textarea class="textarea" id="initiative-summary" name="initiative-summary" data-required
+              data-error="Опишите инициативу: проблему, предмет регулирования и ожидаемый результат."
+              aria-describedby="initiative-summary-hint">Предлагается установить уведомительный порядок передачи персональных данных между государственными информационными системами при оказании государственных услуг: оператор уведомляет субъект данных и регистрирует передачу в едином реестре. Ожидаемый результат&nbsp;— сокращение числа повторных запросов документов и прослеживаемость обработки данных.</textarea>
+            <p class="field__hint" id="initiative-summary-hint">Не более 600 знаков: проблема, предмет регулирования, ожидаемый результат.</p>
+            <span class="counter">412 / 600 знаков</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label class="field__label" for="captain-phone">Контактный телефон капитана команды <span class="field__req" aria-hidden="true">*</span></label>
+              <input class="input" id="captain-phone" name="captain-phone" type="tel" inputmode="tel"
+                data-required data-error="Укажите телефон в формате +7 (999) 000-00-00: по нему Оргкомитет связывается с капитаном команды."
+                value="+7 (9" aria-describedby="captain-phone-hint">
+              <p class="field__hint" id="captain-phone-hint">Формат: +7 (999) 000-00-00.</p>
+            </div>
+            <div class="field">
+              <label class="field__label" for="captain-email">Адрес электронной почты капитана команды <span class="field__req" aria-hidden="true">*</span></label>
+              <input class="input" id="captain-email" name="captain-email" type="email" data-required
+                data-error="Укажите адрес электронной почты: на него придёт номер заявки и ссылка для входа в Личный кабинет."
+                value="a.tazhibov@example.ru" autocomplete="email">
+              <p class="field__hint">На этот адрес придёт номер заявки и ссылка для входа в Личный кабинет.</p>
+            </div>
+          </div>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 1 из 6. Черновик сохраняется автоматически.</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--primary" type="button" data-wizard-next data-when-state="open">Далее: Участники</button>
+              <button class="btn btn--secondary" type="button" disabled>Назад</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ШАГ 2 -->
+        <section data-step data-od-id="apply-members" data-step-title="Участники" id="step-2" aria-labelledby="step-2-heading" hidden>
+          <div class="sec">
+            <span class="sec__num">02 /</span>
+            <h2 class="sec__title" id="step-2-heading" tabindex="-1">Участники</h2>
+            <span class="sec__aside">3 из 5 человек</span>
+          </div>
+
+          <div class="note mb-6">
+            <p class="note__label">Условия участия</p>
+            <p class="note__body">В команде от трёх до пяти человек, включая капитана команды. Капитан команды
+              заполняет заявку и ведёт переписку с Оргкомитетом. Изменение состава доступно до опубликования
+              итогов отборочного этапа.</p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption>Состав команды</caption>
+              <thead>
+                <tr>
+                  <th scope="col">№</th>
+                  <th scope="col">Фамилия, имя, отчество</th>
+                  <th scope="col">Роль</th>
+                  <th scope="col">Дата рождения</th>
+                  <th scope="col">Организация, курс</th>
+                  <th scope="col">Контакты</th>
+                  <th scope="col">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="№" class="table__num">1</td>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Тажибов Арслан Азизович</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Капитан команды</span></td>
+                  <td data-label="Дата рождения" class="table__num">14.03.2003</td>
+                  <td data-label="Организация, курс">МГЮА, 4 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">a.tazhibov@example.ru</span><br><span class="txt-mono">+7 (966) 789-76-05</span></td>
+                  <td data-label="Действия" data-cell="actions"><span class="table__actions"><button class="rowaction" type="button">Изменить</button></span></td>
+                </tr>
+                <tr>
+                  <td data-label="№" class="table__num">2</td>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Ковалёва Мария Дмитриевна</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Участник</span></td>
+                  <td data-label="Дата рождения" class="table__num">02.09.2004</td>
+                  <td data-label="Организация, курс">МГЮА, 3 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">m.kovaleva@example.ru</span><br><span class="txt-mono">+7 (916) 244-10-77</span></td>
+                  <td data-label="Действия" data-cell="actions"><span class="table__actions">
+                    <button class="rowaction" type="button">Изменить</button>
+                    <button class="rowaction" type="button">Удалить</button></span></td>
+                </tr>
+                <tr>
+                  <td data-label="№" class="table__num">3</td>
+                  <td data-label="Фамилия, имя, отчество"><span class="table__cell-title">Гринько Пётр Сергеевич</span></td>
+                  <td data-label="Роль"><span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Участник</span></td>
+                  <td data-label="Дата рождения" class="table__num">27.11.2002</td>
+                  <td data-label="Организация, курс">МГЮА, 5 курс</td>
+                  <td data-label="Контакты"><span class="txt-mono">p.grinko@example.ru</span><br><span class="txt-mono">+7 (903) 118-45-02</span></td>
+                  <td data-label="Действия" data-cell="actions"><span class="table__actions">
+                    <button class="rowaction" type="button">Изменить</button>
+                    <button class="rowaction" type="button">Удалить</button></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4"><button class="btn btn--secondary" type="button">Добавить участника</button></p>
+          <p class="field__note mt-3">Участники не входят в Личный кабинет: доступ к заявке есть только у капитана команды.</p>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 2 из 6.</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--secondary" type="button" data-wizard-back>Назад</button>
+              <button class="btn btn--primary" type="button" data-wizard-next data-when-state="open">Далее: Наставники</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ШАГ 3 -->
+        <section data-step data-od-id="apply-mentors" data-step-title="Наставники" id="step-3" aria-labelledby="step-3-heading" hidden>
+          <div class="sec">
+            <span class="sec__num">03 /</span>
+            <h2 class="sec__title" id="step-3-heading" tabindex="-1">Наставники</h2>
+            <span class="sec__aside">Не более двух наставников</span>
+          </div>
+
+          <div class="note mb-6">
+            <p class="note__label">Роль наставника</p>
+            <p class="note__body">Наставник сопровождает подготовку законотворческой инициативы и конкурсных
+              материалов, не входит в состав команды и не участвует в оценивании. У команды может быть
+              не более двух наставников.</p>
+          </div>
+
+          <div class="panel panel--raised" data-od-id="mentor-1">
+            <div class="panel__head">
+              <h3 class="panel__title">Наставник 1</h3>
+              <span class="panel__aside">Сведения заполнены</span>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="field__label" for="mentor-1-name">Фамилия, имя, отчество <span class="field__req" aria-hidden="true">*</span></label>
+                <input class="input" id="mentor-1-name" name="mentor-1-name" type="text" data-required
+                  data-error="Укажите фамилию, имя и отчество наставника." value="Ершова Наталья Владимировна">
+              </div>
+              <div class="field">
+                <label class="field__label" for="mentor-1-job">Место работы и должность <span class="field__req" aria-hidden="true">*</span></label>
+                <input class="input" id="mentor-1-job" name="mentor-1-job" type="text" data-required
+                  data-error="Укажите место работы и должность наставника."
+                  value="МГЮА, доцент кафедры информационного права">
+              </div>
+              <div class="field">
+                <label class="field__label" for="mentor-1-degree">Учёная степень, звание</label>
+                <input class="input" id="mentor-1-degree" name="mentor-1-degree" type="text" value="Кандидат юридических наук">
+                <p class="field__hint">Необязательное поле.</p>
+              </div>
+              <div class="field">
+                <label class="field__label" for="mentor-1-email">Адрес электронной почты <span class="field__req" aria-hidden="true">*</span></label>
+                <input class="input" id="mentor-1-email" name="mentor-1-email" type="email" data-required
+                  data-error="Укажите адрес электронной почты наставника." value="n.ershova@example.ru">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="mentor-1-note">Вклад наставника в подготовку инициативы</label>
+              <textarea class="textarea" id="mentor-1-note" name="mentor-1-note">Научное консультирование по составу персональных данных, проверка соответствия инициативы требованиям законодательства о персональных данных.</textarea>
+            </div>
+            <div class="check">
+              <input class="check__box" id="mentor-1-consent" name="mentor-1-consent" type="checkbox" checked>
+              <label class="check__label" for="mentor-1-consent">Наставник ознакомлен с Положением о конкурсе и согласен на обработку персональных данных.</label>
+            </div>
+          </div>
+
+          <div class="panel mt-5" data-od-id="mentor-2">
+            <div class="panel__head">
+              <h3 class="panel__title">Наставник 2</h3>
+              <span class="panel__aside">Не указан</span>
+            </div>
+            <p class="muted txt-sm">Второй наставник не заявлен. Это необязательно: команда может участвовать
+              с одним наставником или без него.</p>
+            <p class="mt-4"><button class="btn btn--secondary" type="button">Добавить наставника</button></p>
+          </div>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 3 из 6.</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--secondary" type="button" data-wizard-back>Назад</button>
+              <button class="btn btn--primary" type="button" data-wizard-next data-when-state="open">Далее: Конкурсные материалы</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ШАГ 4 -->
+        <section data-step data-od-id="apply-materials" data-step-title="Конкурсные материалы" id="step-4" aria-labelledby="step-4-heading" hidden>
+          <div class="sec">
+            <span class="sec__num">04 /</span>
+            <h2 class="sec__title" id="step-4-heading" tabindex="-1">Конкурсные материалы</h2>
+            <span class="sec__aside">2 из 4 загружено</span>
+          </div>
+
+          <div class="note mb-6">
+            <p class="note__label">Требования к файлам</p>
+            <p class="note__body">Документы&nbsp;— PDF или DOCX до 20&nbsp;МБ, презентация&nbsp;— PDF или PPTX до 30&nbsp;МБ,
+              видеозапись&nbsp;— ссылка на внешний ресурс с открытым доступом. Файлы с текстовым слоем: сканы без
+              распознавания не проходят техническую проверку.</p>
+          </div>
+
+          <!-- Состояние: загружено -->
+          <div class="slot slot--done" data-od-id="material-initiative">
+            <div>
+              <p class="slot__title">Законотворческая инициатива (текст)</p>
+              <p class="slot__req">PDF или DOCX, до 20&nbsp;МБ. Обязательный материал.</p>
+            </div>
+            <div class="slot__side">
+              <span class="chip chip--ok"><span class="chip__mark" aria-hidden="true"></span>Принят</span>
+              <span class="file">
+                <span class="file__name">iniciativa-2027-0418.docx</span>
+                <span class="file__size">1,8 МБ</span>
+              </span>
+              <span class="txt-sm muted">Загружен 4 декабря 2026 года, 12:41 (МСК)</span>
+              <span class="table__actions">
+                <button class="rowaction" type="button">Заменить</button>
+                <button class="rowaction" type="button">Удалить</button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Состояние: идёт загрузка -->
+          <div class="slot slot--uploading" data-od-id="material-note">
+            <div>
+              <p class="slot__title">Пояснительная записка</p>
+              <p class="slot__req">PDF или DOCX, до 20&nbsp;МБ. Обязательный материал.</p>
+            </div>
+            <div class="slot__side">
+              <span class="chip chip--review"><span class="chip__mark" aria-hidden="true"></span>Идёт загрузка</span>
+              <div class="upload-bar">
+                <div class="bar" role="progressbar" aria-label="Загрузка файла «Пояснительная записка.pdf»" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62">
+                  <div class="bar__fill" style="width:62%"></div>
+                </div>
+                <p class="upload-bar__meta"><span>1,1 МБ из 1,8 МБ</span><span data-upload-percent>62 %</span></p>
+              </div>
+              <p class="txt-sm" data-upload-status aria-live="polite">Загрузка файла «Пояснительная записка.pdf» — 62&nbsp;%. Не закрывайте страницу.</p>
+            </div>
+          </div>
+
+          <!-- Состояние: материал не загружен -->
+          <div class="slot slot--missing" data-od-id="material-presentation">
+            <div>
+              <p class="slot__title">Презентация защиты</p>
+              <p class="slot__req">PDF или PPTX, до 30&nbsp;МБ. Обязательный материал для Второго (финального) этапа.</p>
+            </div>
+            <div class="slot__side">
+              <span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Не загружен</span>
+              <div class="dropzone">
+                <p class="txt-sm">Перетащите файл в эту область или выберите его на устройстве.</p>
+                <button class="btn btn--secondary btn--inline-mobile" type="button" data-upload-sim>Выбрать файл</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ссылка вместо файла -->
+          <div class="slot" data-od-id="material-video">
+            <div>
+              <p class="slot__title">Ссылка на видеозапись защиты</p>
+              <p class="slot__req">Открытый доступ без авторизации, длительность до 10 минут.</p>
+            </div>
+            <div class="slot__side">
+              <span class="chip chip--plain"><span class="chip__mark" aria-hidden="true"></span>Не указана</span>
+              <div class="field" style="margin:0">
+                <label class="field__label" for="material-video-url">Адрес видеозаписи</label>
+                <input class="input" id="material-video-url" name="material-video-url" type="url" placeholder="https://" inputmode="url">
+                <p class="field__hint">Проверьте доступ: ссылка открывается в режиме инкогнито.</p>
+              </div>
+              <button class="btn btn--secondary btn--inline-mobile" type="button">Сохранить ссылку</button>
+            </div>
+          </div>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 4 из 6. Файлы можно догрузить до 18 декабря 2026 года, 23:59 (МСК).</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--secondary" type="button" data-wizard-back>Назад</button>
+              <button class="btn btn--primary" type="button" data-wizard-next data-when-state="open">Далее: Согласия</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ШАГ 5 -->
+        <section data-step data-od-id="apply-consents" data-step-title="Согласия" id="step-5" aria-labelledby="step-5-heading" hidden>
+          <div class="sec">
+            <span class="sec__num">05 /</span>
+            <h2 class="sec__title" id="step-5-heading" tabindex="-1">Согласия</h2>
+            <span class="sec__aside">Требуется действие</span>
+          </div>
+
+          <div class="panel" data-od-id="consents">
+            <div class="check check--invalid">
+              <input class="check__box" id="consent-regulation" name="consent-regulation" type="checkbox" data-required
+                data-error="Отметьте согласие с Положением о конкурсе — без него заявка не может быть принята."
+                aria-invalid="true" aria-describedby="consent-regulation-error">
+              <label class="check__label" for="consent-regulation">Команда ознакомлена с <a href="index.html">Положением о конкурсе «Лидеры&nbsp;права&nbsp;– 2027»</a> и принимает условия участия.</label>
+              <p class="field__error" id="consent-regulation-error" role="alert">Отметьте согласие с Положением о конкурсе — без него заявка не может быть принята.</p>
+            </div>
+
+            <div class="check">
+              <input class="check__box" id="consent-pd" name="consent-pd" type="checkbox" checked>
+              <label class="check__label" for="consent-pd">Каждый участник команды и наставник дал согласие на обработку персональных данных в объёме, необходимом для проведения конкурса.</label>
+            </div>
+            <div class="check">
+              <input class="check__box" id="consent-materials" name="consent-materials" type="checkbox" checked>
+              <label class="check__label" for="consent-materials">Разрешаем публикацию конкурсных материалов в архиве законопроектов конкурса с указанием авторства команды.</label>
+            </div>
+            <div class="check">
+              <input class="check__box" id="consent-truth" name="consent-truth" type="checkbox" checked>
+              <label class="check__label" for="consent-truth">Подтверждаем, что сведения о составе команды, наставниках и конкурсных материалах полные и достоверные.</label>
+            </div>
+          </div>
+
+          <div class="note mt-6">
+            <p class="note__label">Отзыв согласия</p>
+            <p class="note__body">Согласие можно отозвать письмом в Оргкомитет: <a href="mailto:ssla_av@mail.ru">ssla_av@mail.ru</a>.
+              Отзыв согласия до опубликования итогов отборочного этапа означает отказ команды от участия в конкурсе.</p>
+          </div>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 5 из 6.</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--secondary" type="button" data-wizard-back>Назад</button>
+              <button class="btn btn--primary" type="button" data-wizard-next data-when-state="open">Далее: Проверка и отправка</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ШАГ 6 -->
+        <section data-step data-od-id="apply-review-submit" data-step-title="Проверка и отправка" id="step-6" aria-labelledby="step-6-heading" hidden>
+          <div class="sec">
+            <span class="sec__num">06 /</span>
+            <h2 class="sec__title" id="step-6-heading" tabindex="-1">Проверка и отправка</h2>
+            <span class="sec__aside">Проверьте данные перед отправкой</span>
+          </div>
+
+          <div class="banner banner--warning mb-6">
+            <span class="banner__icon" aria-hidden="true">!</span>
+            <div>
+              <p class="banner__title">Не хватает одного конкурсного материала</p>
+              <p class="banner__body">Презентация защиты не загружена. Заявку можно отправить: материал
+                догружается в Личном кабинете до 18 декабря 2026 года, 23:59 (МСК). Ссылка&nbsp;— на шаге 4.</p>
+            </div>
+          </div>
+
+          <div class="panel" data-od-id="review">
+            <div class="panel__head">
+              <h3 class="panel__title">Данные заявки</h3>
+              <span class="panel__aside">Черновик от 12:41 (МСК)</span>
+            </div>
+            <div class="kv">
+              <div class="kv__item"><span class="kv__key">Команда</span><span class="kv__val" data-review="team-name" data-empty="— не заполнено —">— не заполнено —</span></div>
+              <div class="kv__item"><span class="kv__key">Регион</span><span class="kv__val" data-review="team-region">Москва</span></div>
+              <div class="kv__item"><span class="kv__key">Организация</span><span class="kv__val" data-review="team-org">МГЮА</span></div>
+              <div class="kv__item"><span class="kv__key">Направление</span><span class="kv__val" data-review="team-direction">Правовое регулирование цифровой экономики</span></div>
+              <div class="kv__item"><span class="kv__key">Капитан команды</span><span class="kv__val">Тажибов Арслан Азизович</span></div>
+              <div class="kv__item"><span class="kv__key">Участники</span><span class="kv__val">3 человека</span></div>
+              <div class="kv__item"><span class="kv__key">Наставники</span><span class="kv__val">1 наставник</span></div>
+              <div class="kv__item"><span class="kv__key">Конкурсные материалы</span><span class="kv__val">2 из 4 загружено</span></div>
+            </div>
+            <div class="note mt-6">
+              <p class="note__label">Законотворческая инициатива</p>
+              <p class="note__body" data-review="initiative-title">Оборот персональных данных в государственных информационных системах</p>
+            </div>
+          </div>
+
+          <div class="check mt-5">
+            <input class="check__box" id="submit-confirm" name="submit-confirm" type="checkbox" data-required
+              data-error="Подтвердите, что данные проверены: после отправки заявка уходит на техническую проверку.">
+            <label class="check__label" for="submit-confirm">Подтверждаю, что данные заявки проверены. После отправки заявка получает номер и уходит на техническую проверку; исправления вносятся по замечаниям Оргкомитета.</label>
+          </div>
+
+          <div class="panel panel--surface mt-6" data-sent hidden tabindex="-1" role="status" data-od-id="apply-sent">
+            <div class="panel__head">
+              <h3 class="panel__title">Заявка отправлена</h3>
+              <span class="panel__aside">12:47 (МСК)</span>
+            </div>
+            <p>Номер заявки: <strong class="txt-mono">ЛП‑2027‑0418</strong>. Ссылка для входа в Личный кабинет
+              отправлена на адрес капитана команды. Срок технической проверки&nbsp;— до 22 декабря 2026 года.</p>
+            <p class="mt-4"><a class="btn btn--secondary" href="cabinet.html">Перейти в Личный кабинет</a></p>
+          </div>
+
+          <div class="wizard-foot">
+            <p class="txt-sm muted">Шаг 6 из 6. Отправка доступна до 11 декабря 2026 года, 23:59 (МСК).</p>
+            <div class="wizard-foot__right">
+              <button class="btn btn--secondary" type="button" data-wizard-back>Назад</button>
+              <button class="btn btn--primary" type="button" data-wizard-submit data-when-state="open">Отправить заявку</button>
+            </div>
+          </div>
+          <p class="field__note mt-4" data-when-state="closed">Отправка заявок закрыта 11 декабря 2026 года, 23:59 (МСК).</p>
+        </section>
+
+      </form>
+    </div>
+  </div>
+</main>
+
+<!-- Служебная панель прототипа: показывает состояния, которые в продукте приходят с сервера -->
+<div class="proto" role="group" aria-label="Состояния прототипа">
+  <span class="proto__label">Прототип · состояния:</span>
+  <button class="proto__btn" type="button" data-proto-set="open" data-proto-group="state" aria-pressed="true">Приём заявок открыт</button>
+  <button class="proto__btn" type="button" data-proto-set="closed" data-proto-group="state" aria-pressed="false">Приём заявок закрыт</button>
+  <span class="proto__label">Оформление:</span>
+  <button class="proto__btn" type="button" data-theme-switch="brand" aria-pressed="true">Бренд</button>
+  <button class="proto__btn" type="button" data-theme-switch="dusk" aria-pressed="false">Сумерки</button>
+</div>
+
+<script src="assets/prototype.js"></script>
+</body>
+</html>
