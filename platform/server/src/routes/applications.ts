@@ -56,6 +56,8 @@ interface CaptainInput {
   category: ParticipantCategory;
   email: string;
   phone: string | null;
+  /** Признак несовершеннолетия на дату окончания приёма заявок (п. 4.8). */
+  is_minor: boolean;
 }
 
 async function loadActiveSeason(): Promise<SeasonRow | null> {
@@ -159,6 +161,7 @@ function parseCaptain(raw: unknown, closeAt: Date | null): { value?: CaptainInpu
       category: item.category,
       email: normalizeEmail(String(item.email)),
       phone: optionalText(item.phone, 32),
+      is_minor: age < 18,
     },
   };
 }
@@ -282,8 +285,8 @@ router.post(
         const captainRow = await client.query(
           `INSERT INTO participants
              (season_id, team_id, full_name, birth_date, category, email, phone, role,
-              consent_pdn, consent_received)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'captain', FALSE, FALSE)
+              consent_pdn, consent_received, is_minor)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'captain', FALSE, FALSE, $8)
            RETURNING id`,
           [
             season.id,
@@ -293,6 +296,7 @@ router.post(
             captainInput.category,
             captainInput.email,
             captainInput.phone,
+            captainInput.is_minor,
           ]
         );
         const captainId = Number(captainRow.rows[0].id);

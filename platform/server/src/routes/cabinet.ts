@@ -4,6 +4,12 @@ import { MAX_FILE_SIZE } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt } from '../lib/http.js';
 import {
+  collectSubmissionErrors,
+  parseSubmission,
+  recordConsents,
+  type SubmissionContext,
+} from '../lib/application-submission.js';
+import {
   LINK_ONLY_MATERIAL_TYPES,
   MATERIAL_TYPES,
   hasValidSignature,
@@ -433,7 +439,8 @@ router.patch(
       const message = (error as Error).message;
       if (message.includes('participants_season_email_idx')) {
         res.status(409).json({
-          error: 'Один из участников уже заявлен в другой команде этого сезона (п. 4.4 Положения)',
+          error:
+            'Участник с таким адресом электронной почты уже есть в этой заявке или заявлен в другой команде сезона (п. 4.4 Положения). Передайте идентификатор существующего участника, чтобы изменить его данные.',
         });
         return;
       }
@@ -770,6 +777,106 @@ router.get(
       [context.teamId]
     );
     res.json(result.rows);
+  })
+);
+
+// POST /api/cabinet/submit — отправка заявки: последний шаг мастера.
+// До этого шага заявка остаётся черновиком и в техническую проверку не попадает.
+router.post(
+  '/submit',
+  rateLimit(5, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const bundle = await loadTeamBundle(context.teamId);
+    if (!bundle) {
+      res.status(404).json({ error: 'Команда не найдена' });
+      return;
+    }
+
+    const applicationResult = await query(
+      `SELECT id, submitted_at, public_number
+         FROM applications
+        WHERE team_id = $1
+        ORDER BY id DESC
+        LIMIT 1`,
+      [context.teamId]
+    );
+    const application = applicationResult.rows[0];
+    if (!application) {
+      res.status(409).json({ error: 'Заявка не найдена: начните подачу на странице /apply.' });
+      return;
+    }
+    if (application.submitted_at !== null) {
+      res.status(409).json({ error: 'Заявка уже отправлена. Изменения возможны до окончания приёма заявок.' });
+      return;
+    }
+    if (isDeadlinePassed(bundle.team.application_close_at)) {
+      res.status(403).json({
+        error: 'Срок приёма заявок истёк: отправка недоступна. Свяжитесь с Оргкомитетом.',
+        contact_endpoint: '/api/cabinet/contact',
+      });
+      return;
+    }
+
+    const parsed = parseSubmission(req.body ?? {});
+    if (parsed.error || !parsed.value) {
+      res.status(400).json({ error: parsed.error ?? 'Некорректные подтверждения согласий.' });
+      return;
+    }
+
+    const submissionContext: SubmissionContext = {
+      teamId: context.teamId,
+      seasonId: context.seasonId,
+      applicationId: Number(application.id),
+      ip: clientIpOf(req),
+      userAgent: String(req.headers['user-agent'] || '').slice(0, 500),
+      input: parsed.value,
+    };
+
+    // Сначала собираем все замечания и показываем их списком: команда должна
+    // видеть сразу весь объём недоделанного, а не по одной ошибке за раз.
+    const errors = await withTransaction(async (client) =>
+      collectSubmissionErrors(client, submissionContext)
+    );
+    if (errors.length > 0) {
+      res.status(422).json({
+        error: 'Заявка не может быть отправлена: заполнены не все обязательные сведения.',
+        details: errors,
+      });
+      return;
+    }
+
+    const submittedAt = new Date();
+    await withTransaction(async (client) => {
+      await recordConsents(client, submissionContext);
+      await client.query(
+        `UPDATE applications
+            SET submitted_at = $1, submitted_ip = $2, tech_status = 'pending',
+                content_locked = TRUE, draft_updated_at = now(), updated_at = now()
+          WHERE id = $3`,
+        [submittedAt, submissionContext.ip, submissionContext.applicationId]
+      );
+      await client.query(
+        `UPDATE teams
+            SET status = 'submitted', status_changed_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [context.teamId]
+      );
+    });
+
+    void logAccess(context, req, 'application_submitted', {
+      application_id: Number(application.id),
+      public_number: application.public_number,
+    });
+
+    res.json({
+      success: true,
+      public_number: application.public_number,
+      submitted_at: submittedAt.toISOString(),
+      team_status: 'submitted',
+      tech_status: 'pending',
+      message: 'Заявка отправлена и поступила на техническую проверку.',
+    });
   })
 );
 

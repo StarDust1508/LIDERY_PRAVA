@@ -181,6 +181,7 @@ liders.…`), `search_path` выставляется на каждом соед�
 | POST | `/api/cabinet/materials` | загрузка файла (multipart) или ссылки |
 | DELETE | `/api/cabinet/materials/:id` | удаление материала до дедлайна |
 | GET | `/api/cabinet/deadlines` | сроки этапов и сроки досдачи |
+| POST | `/api/cabinet/submit` | отправка заявки: проверка комплекта, согласий и численности, затем статус «на технической проверке» |
 | POST | `/api/cabinet/contact` | связь с оргкомитетом, в том числе после дедлайна |
 | GET | `/api/cabinet/appeals` | апелляции команды |
 
@@ -327,4 +328,9 @@ curl -X POST https://lideryprava.ru/api/admin/masterclasses \
 | Проверки заявки | направление вне справочника, возраст 15 лет, единоличное участие без даты согласования | `400` с сообщениями по пунктам 4.1, 4.3 Положения |
 | Срок приёма | `POST /api/applications` вне окна приёма | `409` с датой в формате «11 ноября 2026 года, 00:00 (МСК)» |
 | Журнал доступа | `select event, token_id from liders.access_log` | `cabinet_login_by_number`, `cabinet_access`, `cabinet_login_by_token` |
+| Отправка некомплектной заявки | `POST /api/cabinet/submit` до заполнения шагов | `422` и список замечаний: численность 2–4, согласие ПДн участника, оба обязательных материала |
+| Полный цикл отправки | состав 2 участника + наставник, два материала, подтверждения | `200`; `teams.status = submitted`, `submitted_at` и `submitted_ip` заполнены, `content_locked = true` |
+| Согласия при отправке | `select subject_type, document_code, document_version, ip from liders.consents` | Записаны: `team/regulation`, `participant/appendix_10`, `mentor/appendix_10`, `participant/appendix_13`, `participant/appendix_12`; у каждого версия `2026-10-04`, время и сетевой адрес |
+| Матрица Приложения № 12 | `select category_code, allowed from liders.participant_distribution_consents` | Шесть категорий, «разрешаю» и «не разрешаю» по каждой строке отдельно |
+| Несовершеннолетний без скана | `POST /api/cabinet/submit` при участнике младше 18 лет | `422`: «приложите скан подписанного согласия законного представителя»; после загрузки скана — `200` и согласие `legal_representative/appendix_11` со ссылкой на файл |
 
