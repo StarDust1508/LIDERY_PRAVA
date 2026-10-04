@@ -342,6 +342,31 @@ LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_
 [ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
 gap "С8.1 (роли admin/operator) — управление пользователями админки не реализовано, роль оператора не проверить"
 
+# ── Публикация редакции 04.10.2026 ───────────────────────────────────────────
+step "Публикация Положения и Приложений редакции 04.10.2026"
+DOC_COUNT=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active")
+[ "${DOC_COUNT:-0}" = "15" ] && ok "в таблице documents 15 активных документов (Положение и Приложения № 1–14)" || bad "активных документов: ${DOC_COUNT:-0} (ожидалось 15)"
+APPENDICES=$(psql_db "SELECT count(*) FROM liders.documents WHERE type='appendix' AND is_active")
+[ "${APPENDICES:-0}" = "14" ] && ok "приложений № 1–14 опубликовано: $APPENDICES" || bad "приложений в таблице: ${APPENDICES:-0}"
+VERSION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND version='2026-10-04'")
+[ "${VERSION_OK:-0}" = "15" ] && ok "у всех документов версия 2026-10-04" || bad "документов с версией 2026-10-04: ${VERSION_OK:-0}"
+# Ссылки на PDF должны вести на файлы, которые выкат кладёт в корень сайта
+# (ops/deploy.sh копирует platform/public в /var/www/lideryprava/public).
+MISSING_FILES=""
+for url in $(psql_db "SELECT DISTINCT external_url FROM liders.documents WHERE is_active AND external_url LIKE '/docs/%'"); do
+    [ -f "$ROOT/platform/public${url}" ] || MISSING_FILES="${MISSING_FILES} ${url}"
+done
+if [ -z "$MISSING_FILES" ]; then
+    ok "все ссылки documents ведут на существующие PDF в platform/public/docs"
+else
+    bad "нет файлов для ссылок:${MISSING_FILES}"
+fi
+if head -c 5 "$ROOT/platform/public/docs/polozhenie-lidery-prava-2027.pdf" | grep -q '%PDF-'; then
+    ok "PDF Положения — корректный PDF-файл"
+else
+    bad "PDF Положения не читается"
+fi
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

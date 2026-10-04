@@ -332,7 +332,7 @@ curl -X POST https://lideryprava.ru/api/admin/masterclasses \
 
 | Проверка | Команда | Результат |
 |---|---|---|
-| Приёмка целиком | `bash platform/scripts/acceptance.sh` | **71 проверка пройдена, провалов 0**; найдены и исправлены три дефекта (флаг доп. оценки, публикация протокола, ссылки на зарубежные облака) |
+| Приёмка целиком | `bash platform/scripts/acceptance.sh` | **76 проверок, провалов 0**; найдены и исправлены три дефекта (флаг доп. оценки, публикация протокола, ссылки на зарубежные облака) |
 | Типы | `cd platform/server && npx tsc --noEmit` | Без ошибок |
 | Миграции | `npm run migrate` на пустой БД | Применяются; повторный запуск — «уже применена» |
 | Схема | `psql -c "select table_name from information_schema.tables where table_schema='liders'"` | 27 таблиц, 0 таблиц в других схемах |
