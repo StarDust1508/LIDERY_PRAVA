@@ -4,6 +4,10 @@ import { MAX_FILE_SIZE } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt } from '../lib/http.js';
 import {
+  MATERIAL_URL_POLICY_MESSAGE,
+  isAllowedMaterialUrl,
+} from '../lib/validation.js';
+import {
   collectSubmissionErrors,
   parseSubmission,
   recordConsents,
@@ -634,8 +638,9 @@ router.post(
     }
 
     const externalUrl = optionalText(body.external_url, 2000);
-    if (externalUrl !== null && !isValidExternalUrl(externalUrl)) {
-      res.status(400).json({ error: 'Ссылка должна быть корректным адресом http(s)' });
+    if (externalUrl !== null && !isAllowedMaterialUrl(externalUrl)) {
+      // Пункт 14.4 Положения: только сервисы, зарегистрированные в России.
+      res.status(400).json({ error: MATERIAL_URL_POLICY_MESSAGE });
       return;
     }
 

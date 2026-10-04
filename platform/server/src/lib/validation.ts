@@ -91,3 +91,46 @@ export function isValidExternalUrl(value: unknown): value is string {
     return false;
   }
 }
+
+// ── Ссылки на конкурсные материалы ───────────────────────────────────────────
+// Пункт 14.4 Положения: размещение конкурсных материалов в облачных хранилищах
+// допускается только в сервисах, принадлежащих юридическим лицам,
+// зарегистрированным на территории Российской Федерации.
+//
+// Список — это разрешение, а не запрет: незнакомый домен отклоняется, потому что
+// проверить его принадлежность автоматически нельзя. Оргкомитет может расширить
+// перечень в коде осознанно, а не «на глазок» в интерфейсе.
+
+export const ALLOWED_MATERIAL_DOMAINS: readonly string[] = [
+  // «ВКонтакте» — основная площадка конкурса (п. 8.3).
+  'vk.com',
+  'vk.ru',
+  'vkvideo.ru',
+  // Российские облачные хранилища.
+  'disk.yandex.ru',
+  'yandex.ru',
+  'ya.ru',
+  'cloud.mail.ru',
+  'mail.ru',
+  // Видео и публикации российских сервисов.
+  'rutube.ru',
+  'dzen.ru',
+  'ok.ru',
+  '1c.ru',
+];
+
+/** Домен входит в перечень разрешённых (сравнение по суффиксу домена). */
+export function isAllowedMaterialUrl(value: unknown): value is string {
+  if (!isValidExternalUrl(value)) return false;
+  try {
+    const host = new URL(value.trim()).hostname.toLowerCase();
+    return ALLOWED_MATERIAL_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
+/** Понятное сообщение об отказе: что именно не так со ссылкой. */
+export const MATERIAL_URL_POLICY_MESSAGE =
+  'Ссылка должна вести на сервис, зарегистрированный в Российской Федерации: «ВКонтакте», Яндекс.Диск, Облако Mail.ru, Rutube, Дзен, Одноклассники. ' +
+  'Размещение конкурсных материалов в зарубежных облачных хранилищах не допускается (п. 14.4 Положения).';

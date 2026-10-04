@@ -1298,12 +1298,14 @@ router.post(
       const bucket = byTeam.get(id) ?? { regular: [], chair: [] };
       const spread =
         bucket.regular.length > 1 ? round2(Math.max(...bucket.regular) - Math.min(...bucket.regular)) : 0;
-      // Пункт 7.7: расхождение более 20 баллов — нужна дополнительная оценка
-      // председателя; если она уже есть, её балл учитывается в среднем.
-      const needsChairReview = spread > 20;
-      const scores = needsChairReview && bucket.chair.length > 0
-        ? [...bucket.regular, ...bucket.chair]
-        : bucket.regular;
+      // Пункт 7.7: расхождение более 20 баллов — материалы направляются на
+      // дополнительную оценку председателя, и его балл учитывается в среднем.
+      // Флаг needs_chair_review означает «оценка председателя ещё нужна»:
+      // как только она внесена, требование выполнено и флаг снимается
+      // (ТЗ 04, п. 3.4.3; приёмочный сценарий С4.4).
+      const hasChairExtra = bucket.chair.length > 0;
+      const needsChairReview = spread > 20 && !hasChairExtra;
+      const scores = spread > 20 && hasChairExtra ? [...bucket.regular, ...bucket.chair] : bucket.regular;
       const average =
         scores.length > 0 ? round2(scores.reduce((sum, value) => sum + value, 0) / scores.length) : 0;
       const juryTotal = round2(scores.reduce((sum, value) => sum + value, 0));
@@ -1379,6 +1381,28 @@ router.post(
       res.status(400).json({ error: 'Укажите сезон и этап' });
       return;
     }
+
+    // Пункт 7.7 и ТЗ 04 (п. 3.4.3): итог не публикуется, пока по команде
+    // требуется дополнительная оценка председателя.
+    if (publish) {
+      const pending = await query(
+        `SELECT t.name
+           FROM rankings r
+           JOIN teams t ON t.id = r.team_id
+          WHERE r.season_id = $1 AND r.stage = $2 AND r.needs_chair_review
+          ORDER BY t.name`,
+        [seasonId, stage]
+      );
+      if (pending.rows.length > 0) {
+        res.status(409).json({
+          error:
+            'Протокол нельзя опубликовать: по части команд требуется дополнительная оценка председателя (п. 7.7 Положения). ' +
+            `Команды: ${pending.rows.map((row) => String(row.name)).join(', ')}.`,
+        });
+        return;
+      }
+    }
+
     const result = await query(
       `UPDATE rankings
           SET is_published = $1,
