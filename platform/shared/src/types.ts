@@ -247,6 +247,26 @@ export const MATERIAL_STATUS_TITLES: Record<string, string> = {
   rejected: 'Отклонён',
 };
 
+/** Подписи типов конкурсных материалов (совпадают с ограничением БД). */
+export const MATERIAL_TYPE_TITLES: Record<string, string> = {
+  application_form: 'Заявка на участие (формируется системой)',
+  law_draft: 'Текст законопроекта',
+  explanatory_note: 'Пояснительная записка',
+  acts_list: 'Перечень актов',
+  comparison_table: 'Сравнительная таблица',
+  video_link: 'Ссылка на видеоролик',
+  presentation: 'Презентация',
+  status_proof: 'Справка о статусе участника',
+  consent: 'Согласие на обработку персональных данных',
+  consent_pdn: 'Согласие на обработку персональных данных',
+  consent_legal_rep: 'Согласие законного представителя (скан)',
+  other: 'Иной материал',
+};
+
+export function materialTypeTitle(value: string | null | undefined): string {
+  return MATERIAL_TYPE_TITLES[value ?? ''] ?? String(value ?? '—');
+}
+
 /** Типы материалов, которые передаются ссылкой, а не файлом. */
 export const LINK_ONLY_MATERIAL_TYPES = ['video_link'] as const;
 
@@ -370,6 +390,173 @@ export interface FinalConfirmationResponse {
   success: true;
   speakers: string[];
   message: string;
+}
+
+// ── Админ-панель ─────────────────────────────────────────────────────────────
+// Типы строк, которые отдаёт /api/admin/*. Имена полей — как в базе (ТЗ 05, п. 7.1).
+
+export interface AdminApplicationRow {
+  id: number;
+  season_id: number;
+  team_id: number;
+  source: string;
+  submitted_at: string | null;
+  tech_status: string;
+  tech_checked_at: string | null;
+  tech_rejection_reason: string | null;
+  organizer_notes: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  created_at: string;
+  updated_at: string;
+  team_name: string;
+  team_status: string;
+  organization: string | null;
+  city: string | null;
+  captain_participant_id: number | null;
+  direction_id: number | null;
+  direction_title: string | null;
+  season_title: string;
+  participants_count: number;
+  mentors_count: number;
+  materials_count: number;
+  // Сведения об инициативе по Приложению № 1.
+  public_number: string | null;
+  law_title: string | null;
+  act_level: string | null;
+  proposed_initiator: string | null;
+  annotation: string | null;
+  ai_usage: boolean;
+  ai_usage_purpose: string | null;
+  is_solo: boolean;
+  solo_approved_at: string | null;
+  content_locked: boolean;
+}
+
+export interface AdminMaterial {
+  id: number;
+  application_id: number;
+  team_id: number;
+  type: string;
+  media_id: string | null;
+  external_url: string | null;
+  version: number;
+  status: string;
+  reviewer_comment: string | null;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  fix_deadline: string | null;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+  file_name: string | null;
+  file_type: string | null;
+  file_size: number | null;
+}
+
+export interface AdminApplicationCard {
+  application: AdminApplicationRow;
+  participants: Participant[];
+  mentors: Mentor[];
+  materials: AdminMaterial[];
+}
+
+/** Согласие субъекта: версия текста, время и сетевой адрес (п. 14.3). */
+export interface AdminConsent {
+  id: number;
+  subject_type: string;
+  document_code: string;
+  document_version: string;
+  accepted: boolean;
+  accepted_at: string | null;
+  ip: string | null;
+  revoked_at: string | null;
+  scan_media_id: string | null;
+  participant_name: string | null;
+  mentor_name: string | null;
+  document_title: string | null;
+}
+
+/** Строка матрицы Приложения № 12. */
+export interface AdminDistributionConsent {
+  participant_id: number;
+  participant_name: string;
+  category_code: string;
+  allowed: boolean;
+  conditions: string | null;
+  signed_at: string | null;
+}
+
+export interface Criterion {
+  id: number;
+  stage: string;
+  code: string;
+  title: string;
+  description: string | null;
+  max_score: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface Expert {
+  id: number;
+  full_name: string;
+  organization: string | null;
+  position: string | null;
+  degree: string | null;
+  role: string;
+  stage: string;
+  email: string | null;
+  is_active: boolean;
+}
+
+export interface EvaluationScore {
+  criterion_id: number;
+  score: number;
+  comment?: string | null;
+}
+
+export interface Evaluation {
+  id: number;
+  team_id: number;
+  stage: string;
+  expert_id: number | null;
+  jury_member_id: number | null;
+  scores: EvaluationScore[];
+  total_score: number;
+  comment: string | null;
+  recommendations: string | null;
+  is_chair_extra: boolean;
+  is_final_vote: boolean;
+  created_at: string;
+}
+
+export interface Ranking {
+  id: number;
+  season_id: number;
+  team_id: number;
+  stage: string;
+  place: number;
+  average_score: number;
+  jury_total: number | null;
+  scores_spread: number | null;
+  needs_chair_review: boolean;
+  evaluations_count: number;
+  is_published: boolean;
+  published_at: string | null;
+  protocol_note: string | null;
+}
+
+export const EVALUATION_STAGES = [
+  { value: 'selection', title: 'Отборочный этап' },
+  { value: 'stage1', title: 'Первый этап' },
+  { value: 'debate', title: 'Дебаты финального этапа' },
+] as const;
+
+export type EvaluationStage = (typeof EVALUATION_STAGES)[number]['value'];
+
+export function evaluationStageTitle(value: string | null | undefined): string {
+  return EVALUATION_STAGES.find((stage) => stage.value === value)?.title ?? '—';
 }
 
 /** Тело запроса на отправку заявки. */export interface SubmitApplicationPayload {

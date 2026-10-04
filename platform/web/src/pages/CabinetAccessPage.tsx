@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError, api } from '@shared/index';
-import { Alert, Button, PageHeader, SectionCard, TextField } from '@/ui/primitives';
+import { Alert, Button, PageHeader, SectionCard, TextField } from '@shared/index';
 
 // Вход в личный кабинет. Пароля у команды нет: вход по ссылке-доступа либо по
 // номеру заявки и адресу электронной почты капитана (решение Р7: письма не

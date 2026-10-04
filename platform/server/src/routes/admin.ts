@@ -327,6 +327,9 @@ const APPLICATION_SELECT = `
   SELECT a.id, a.season_id, a.team_id, a.source, a.external_form_id, a.external_response_id,
          a.submitted_at, a.tech_status, a.tech_checked_at, a.tech_rejection_reason,
          a.organizer_notes, a.ip, a.user_agent, a.created_at, a.updated_at,
+         -- Сведения об инициативе по Приложению № 1: нужны в карточке заявки.
+         a.public_number, a.law_title, a.act_level, a.proposed_initiator, a.annotation,
+         a.ai_usage, a.ai_usage_purpose, a.is_solo, a.solo_approved_at, a.content_locked,
          t.name AS team_name, t.status AS team_status, t.organization, t.city,
          t.captain_participant_id,
          d.id AS direction_id, d.title AS direction_title,
@@ -434,6 +437,53 @@ router.get(
     );
 
     res.json({ application, participants: participants.rows, mentors: mentors.rows, materials: materials.rows });
+  })
+);
+
+// GET /api/admin/applications/:id/consents — согласия заявки и матрица
+// распространения. Электронное согласие подтверждается версией текста, датой,
+// временем и сетевым адресом (п. 14.3 Положения), поэтому Оргкомитет должен
+// видеть эти сведения, а не только галочку.
+router.get(
+  '/applications/:id/consents',
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор заявки' });
+      return;
+    }
+    const application = await query('SELECT id, team_id FROM applications WHERE id = $1 LIMIT 1', [id]);
+    const row = application.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Заявка не найдена' });
+      return;
+    }
+
+    const consents = await query(
+      `SELECT c.id, c.subject_type, c.document_code, c.document_version, c.accepted,
+              c.accepted_at, c.ip, c.revoked_at, c.scan_media_id,
+              p.full_name AS participant_name, m.full_name AS mentor_name,
+              d.title AS document_title
+         FROM consents c
+         LEFT JOIN participants p ON p.id = c.participant_id
+         LEFT JOIN mentors m ON m.id = c.mentor_id
+         LEFT JOIN documents d ON d.id = c.document_id
+        WHERE c.team_id = $1
+        ORDER BY c.id`,
+      [row.team_id]
+    );
+
+    const distribution = await query(
+      `SELECT dc.participant_id, p.full_name AS participant_name, dc.category_code,
+              dc.allowed, dc.conditions, dc.signed_at
+         FROM participant_distribution_consents dc
+         JOIN participants p ON p.id = dc.participant_id
+        WHERE p.team_id = $1
+        ORDER BY p.id, dc.category_code`,
+      [row.team_id]
+    );
+
+    res.json({ consents: consents.rows, distribution: distribution.rows });
   })
 );
 
@@ -1073,7 +1123,7 @@ router.post(
       return;
     }
 
-    const scores: Array<{ criterion_id: number; score: number }> = [];
+    const scores: Array<{ criterion_id: number; score: number; comment: string | null }> = [];
     let total = 0;
     for (const raw of rawScores) {
       const item = raw as Record<string, unknown>;
@@ -1089,11 +1139,18 @@ router.post(
         return;
       }
       total += score;
-      scores.push({ criterion_id: criterionId, score: round2(score) });
+      // Приложение № 9: у каждого критерия — балл и обоснование.
+      scores.push({
+        criterion_id: criterionId,
+        score: round2(score),
+        comment: optionalText(item?.comment, 1000),
+      });
     }
 
     const totalScore = round2(total);
     const comment = optionalText(body.comment, 3000);
+    // Приложение № 9: рекомендации команде по итогам оценки.
+    const recommendations = optionalText(body.recommendations, 3000);
     const isChairExtra = body.is_chair_extra === true;
     const isFinalVote = body.is_final_vote === true;
 
@@ -1108,10 +1165,11 @@ router.post(
       const updated = await query(
         `UPDATE evaluations
             SET scores = $1::jsonb, total_score = $2, comment = $3,
-                is_chair_extra = $4, is_final_vote = $5, updated_at = now()
-          WHERE id = $6
+                is_chair_extra = $4, is_final_vote = $5, recommendations = $6,
+                updated_at = now()
+          WHERE id = $7
           RETURNING *`,
-        [JSON.stringify(scores), totalScore, comment, isChairExtra, isFinalVote, existing.rows[0].id]
+        [JSON.stringify(scores), totalScore, comment, isChairExtra, isFinalVote, recommendations, existing.rows[0].id]
       );
       res.json(updated.rows[0]);
       return;
@@ -1120,8 +1178,8 @@ router.post(
     const inserted = await query(
       `INSERT INTO evaluations
          (team_id, stage, expert_id, jury_member_id, scores, total_score, comment,
-          is_chair_extra, is_final_vote, created_by)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
+          recommendations, is_chair_extra, is_final_vote, created_by)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         teamId,
@@ -1131,6 +1189,7 @@ router.post(
         JSON.stringify(scores),
         totalScore,
         comment,
+        recommendations,
         isChairExtra,
         isFinalVote,
         adminUserId(req),

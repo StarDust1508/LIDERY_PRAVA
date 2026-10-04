@@ -8,7 +8,7 @@ import {
   api,
   formatMoscowHuman,
 } from '@shared/index';
-import { Alert, Button, CheckboxField, SectionCard, SelectField, TextAreaField } from '@/ui/primitives';
+import { Alert, Button, CheckboxField, SectionCard, SelectField, TextAreaField } from '@shared/index';
 
 // Действия команды в личном кабинете: обращение в Оргкомитет, апелляция по
 // форме Приложения № 14, подтверждение участия в финале и отказ от участия.

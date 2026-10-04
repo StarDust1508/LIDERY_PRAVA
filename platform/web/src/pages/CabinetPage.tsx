@@ -13,7 +13,7 @@ import {
   pluralize,
   teamStatusTitle,
 } from '@shared/index';
-import { Alert, Button, PageHeader, SectionCard, StatusBadge } from '@/ui/primitives';
+import { Alert, Button, PageHeader, SectionCard, StatusBadge } from '@shared/index';
 import { saveBlob } from '@/lib/download';
 import { CabinetActions } from './CabinetActions';
 

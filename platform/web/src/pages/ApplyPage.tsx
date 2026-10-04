@@ -20,8 +20,17 @@ import {
   formatSavedAt,
   MATERIAL_STATUS_TITLES,
   pluralize,
+  Alert,
+  Button,
+  CheckboxField,
+  PageHeader,
+  SectionCard,
+  SelectField,
+  StatusBadge,
+  StepProgress,
+  TextAreaField,
+  TextField,
 } from '@shared/index';
-import { Alert, Button, CheckboxField, PageHeader, SectionCard, SelectField, StatusBadge, StepProgress, TextAreaField, TextField } from '@/ui/primitives';
 import { clearDraft, createIdempotencyKey, loadDraft, saveDraft, type ApplicationDraftRef } from '@/lib/session';
 
 // Мастер подачи заявки: шесть шагов от сведений о команде до отправки.
