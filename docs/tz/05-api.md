@@ -115,9 +115,9 @@
 | POST | `/api/admin/login` / `logout`, GET `me` | Сессия |
 | GET | `/api/admin/applications` | Список с фильтрами (`seasonId`, `status`, `directionId`, `q`, `submittedFrom/To`, `hasFix`) |
 | GET | `/api/admin/applications/:id` | Карточка: команда, участники, наставники, материалы, история |
-| POST | `/api/admin/applications` | Ручное создание заявки (для переноса из Яндекс.Формы) |
+| POST | `/api/admin/applications` | Ручное создание заявки (по обращению команды) |
 | PATCH | `/api/admin/applications/:id` | Статус технической проверки, комментарий, срок досдачи |
-| POST | `/api/admin/applications/import` | Импорт выгрузки Яндекс.Формы (CSV/XLSX) с предпросмотром |
+| POST | `/api/admin/applications/import` | Импорт архива заявок (CSV/XLSX) с предпросмотром — только перенос истории |
 | POST | `/api/admin/applications/:id/issue-token` | Выдать/перевыдать токен доступа команде |
 | GET/PATCH | `/api/admin/teams[/:id]` | Команды, смена статуса, дисквалификация с причиной |
 | GET/POST/PATCH/DELETE | `/api/admin/participants[/:id]` | Участники |
