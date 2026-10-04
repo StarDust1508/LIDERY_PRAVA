@@ -40,6 +40,8 @@
 | GET | `/api/news` | Новости и видео: `?type=news\|video&page=` |
 | GET | `/api/news/:slug` | Материал целиком |
 | GET | `/api/documents` | Юридические документы и Положение (PDF) |
+| GET | `/api/initiatives` | Архив законопроектов: `?year=&directionId=&actLevel=&hasFiles=&q=&page=` |
+| GET | `/api/initiatives/:slug` | Карточка инициативы; авторы и файлы — только при соответствующих согласиях |
 | GET | `/api/winners` | Победители по годам: `?year=2025` |
 | GET | `/api/pages/:slug` | Статические страницы («О конкурсе», «История конкурса») |
 | GET | `/api/media/file/:id` | Только файлы с `is_public = true` (Положение, логотипы, обложки) |
@@ -136,6 +138,9 @@
 | GET/POST/PATCH/DELETE | `/api/admin/news[/:id]` | Новости и видео |
 | GET/POST/PATCH/DELETE | `/api/admin/documents[/:id]` | Документы и Положение (PDF), версии и редакции |
 | GET/POST/PATCH/DELETE | `/api/admin/winners[/:id]` | Победители и фото по номинациям |
+| GET/POST/PATCH/DELETE | `/api/admin/initiatives[/:id]` | Архив законопроектов: публикация, авторы, файлы, Year/направление |
+| POST | `/api/admin/initiatives/:id/publish` | Публикация в архив с проверкой согласий и лицензии |
+| POST | `/api/admin/initiatives/import` | Массовый внос инициатив прошлых сезонов (CSV/XLSX) |
 | GET/PATCH | `/api/admin/settings` | Настройки сайта, ревизии |
 | GET/POST/DELETE | `/api/admin/media[/:id]` | Файлы |
 | GET/POST/PATCH | `/api/admin/users[/:id]` | Админы и операторы (только роль `admin`) |

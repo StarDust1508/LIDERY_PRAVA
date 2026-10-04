@@ -202,3 +202,18 @@
 **`documents`:** 14 строк для Приложений № 1–14 с `type = 'appendix'` и номером в заголовке; PDF обоих документов уже лежат в `platform/public/docs/`.
 
 **Файлы:** шаблон имени «Команда_Документ» (Приложение № 6, п. 3) — подсказка в интерфейсе загрузки и предупреждение при несоответствии; обязательные форматы `.docx` и `.pdf`.
+
+## 10. Архив законопроектов (таблицы)
+
+| Таблица | Поля |
+|---|---|
+| `initiatives` | `season_id`, `team_id` (nullable — для записей прошлых лет), `direction_id`, `slug` (uniq), `title` (название законопроекта), `annotation`, `act_level`, `proposed_initiator`, `team_name` (текстом — для архивных записей без команды в БД), `result_place` (1–3 / NULL), `nomination`, `law_draft_media_id`, `explanatory_note_media_id`, `video_url`, `is_published`, `published_at`, `authors_public` (bool), `files_public` (bool), `archive_year`, `sort_order` |
+| `initiative_authors` | `initiative_id`, `full_name`, `organization`, `region`, `is_published` (по категориям согласия Приложения № 12) — чтобы публиковать авторов выборочно, а не всех или никого |
+
+Правила:
+1. `authors_public = false` → блок авторов не отдаётся публичным API вообще (проверка на сервере, не в интерфейсе).
+2. `files_public = false` → `law_draft_media_id` и `explanatory_note_media_id` не отдаются; публичные файлы имеют `media.is_public = true`.
+3. Публикация (`is_published`) — только действие администратора; `published_at` заполняется при публикации и используется в сортировке и `sitemap.xml`.
+4. Полнотекстовый индекс: `to_tsvector('russian', title || ' ' || annotation || ' ' || team_name)`.
+
+Миграции: создаются в пакете 1 (миграция `011`+).
