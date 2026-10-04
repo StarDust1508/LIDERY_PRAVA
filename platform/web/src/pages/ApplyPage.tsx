@@ -231,6 +231,40 @@ export function ApplyPage() {
     });
   }, [draft, refreshCabinet]);
 
+  // Мастер должен продолжаться с любого устройства: если черновика в браузере
+  // нет, но команда вошла в кабинет, заявка подхватывается по сессионной cookie.
+  // Иначе команда создала бы вторую заявку и получила отказ по пункту 4.4.
+  useEffect(() => {
+    if (draft || loading) return;
+    let active = true;
+    void (async () => {
+      try {
+        const session = await api.cabinetSession();
+        if (!active || !session.authenticated || !session.team) return;
+        const teamData = await api.cabinetTeam();
+        if (!active) return;
+        // Пустая ссылка доступа означает работу по cookie: api не добавит заголовок.
+        const restored: ApplicationDraftRef = {
+          public_number: teamData.public_number ?? '',
+          access_token: '',
+          team_name: teamData.name,
+          created_at: new Date().toISOString(),
+        };
+        setDraft(restored);
+        await refreshCabinet('');
+        setMaxStep(teamData.submitted_at ? 5 : 1);
+        if (teamData.submitted_at) {
+          setSubmitted({ public_number: teamData.public_number ?? '', submitted_at: teamData.submitted_at });
+        }
+      } catch {
+        // Нет сессии — обычный сценарий: команда начинает подачу с первого шага.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [draft, loading, refreshCabinet]);
+
   const requiredMaterials = useMemo(
     () => requirements.filter((item) => item.is_required && !['application_form', 'consent_pdn', 'consent_legal_rep'].includes(item.type)),
     [requirements]
