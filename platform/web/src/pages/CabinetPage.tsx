@@ -13,6 +13,7 @@ import {
   teamStatusTitle,
 } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, StatusBadge } from '@/ui/primitives';
+import { saveBlob } from '@/lib/download';
 
 // Сводка личного кабинета: номер заявки, статус, состав, материалы и сроки.
 // Данные команды отдаются только по её сессии (проверка на сервере).
@@ -24,6 +25,23 @@ export function CabinetPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formBusy, setFormBusy] = useState<'docx' | 'pdf' | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  /** Скачивание заполненного бланка заявки (Приложение № 1). */
+  async function downloadApplicationForm(format: 'docx' | 'pdf') {
+    if (!team?.public_number) return;
+    setFormError(null);
+    setFormBusy(format);
+    try {
+      const blob = await api.cabinetApplicationForm(format);
+      saveBlob(blob, `zayavka-${team.public_number}.${format}`);
+    } catch (caught) {
+      setFormError(caught instanceof ApiError ? caught.message : 'Не удалось сформировать бланк заявки.');
+    } finally {
+      setFormBusy(null);
+    }
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -217,6 +235,33 @@ export function CabinetPage() {
             Перейти к материалам
           </Link>
           .
+        </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Бланк заявки по Приложению № 1"
+        description="Заявка формируется системой: бланк заполнен данными команды, участников, наставников и инициативы. Скачивание и подписание — по желанию команды, загружать бланк не нужно."
+      >
+        {formError ? (
+          <div className="mb-4">
+            <Alert tone="warning">{formError}</Alert>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button loading={formBusy === 'docx'} onClick={() => void downloadApplicationForm('docx')} disabled={formBusy !== null}>
+            Скачать в DOCX
+          </Button>
+          <Button
+            variant="secondary"
+            loading={formBusy === 'pdf'}
+            onClick={() => void downloadApplicationForm('pdf')}
+            disabled={formBusy !== null}
+          >
+            Скачать в PDF
+          </Button>
+        </div>
+        <p className="mt-4 text-sm text-muted">
+          PDF формируется сервером; если на сервере нет LibreOffice, доступен только DOCX — об этом появится сообщение выше.
         </p>
       </SectionCard>
 

@@ -163,4 +163,27 @@ export const api = {
       headers: authHeader(accessToken),
       body: JSON.stringify({ message }),
     }),
+
+  /**
+   * Заполненный бланк заявки (Приложение № 1). Файл тянется как blob, потому что
+   * сервер может ответить 503 (нет LibreOffice для PDF) — тогда нужно показать
+   * понятное сообщение, а не открывать JSON в новой вкладке.
+   */
+  cabinetApplicationForm: async (format: 'docx' | 'pdf', accessToken?: string | null): Promise<Blob> => {
+    const response = await fetch(`/api/cabinet/application-form.${format}`, {
+      credentials: 'include',
+      headers: authHeader(accessToken),
+    });
+    if (!response.ok) {
+      let message = 'Не удалось сформировать бланк заявки.';
+      try {
+        const body = (await response.json()) as { error?: unknown };
+        if (typeof body.error === 'string') message = body.error;
+      } catch {
+        // Ответ без JSON — оставляем сообщение по умолчанию.
+      }
+      throw new ApiError(response.status, message);
+    }
+    return response.blob();
+  },
 };

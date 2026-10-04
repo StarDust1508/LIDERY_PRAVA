@@ -91,6 +91,23 @@ export function formatMoscowHuman(value: Date | string | null | undefined): stri
   return `${dayAndMonth} ${year} года, ${time} (МСК)`;
 }
 
+/**
+ * Дата без времени по-русски: «3 марта 2001 года». Для дат рождения и дат
+ * согласований, где время суток не имеет смысла. Значение приводится к
+ * московскому времени, поэтому дата не «съезжает» на сутки.
+ */
+export function formatMoscowDateHuman(value: Date | string | null | undefined): string | null {
+  const date = toDate(value);
+  if (!date) return null;
+  const dayAndMonth = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: MOSCOW_TIMEZONE,
+    day: 'numeric',
+    month: 'long',
+  }).format(date);
+  const year = new Intl.DateTimeFormat('ru-RU', { timeZone: MOSCOW_TIMEZONE, year: 'numeric' }).format(date);
+  return `${dayAndMonth} ${year} года`;
+}
+
 /** Добавляет к моменту заданное число рабочих дней (для апелляций, п. 12.1). */
 export function addWorkingDays(from: Date, days: number): Date {
   const result = new Date(from.getTime());

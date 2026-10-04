@@ -82,6 +82,16 @@ export interface Participant {
   is_minor: boolean;
   consent_received: boolean;
   consent_received_at: string | null;
+  // Поля Приложения № 1.
+  citizenship: string | null;
+  region: string | null;
+  settlement: string | null;
+  vk_url: string | null;
+  competencies: string | null;
+  personal_contribution: string | null;
+  faculty: string | null;
+  course: number | null;
+  study_program: string | null;
 }
 
 export interface Mentor {
@@ -90,8 +100,8 @@ export interface Mentor {
   organization: string | null;
   position: string | null;
   degree: string | null;
-  academic_degree?: string | null;
-  academic_title?: string | null;
+  academic_degree: string | null;
+  academic_title: string | null;
   email: string | null;
   phone: string | null;
   consent_pdn: boolean;

@@ -40,6 +40,17 @@ interface ParticipantRow {
   consent_pdn: boolean;
   consent_distribution: boolean;
   consent_legal_representative: boolean;
+  // Поля Приложения № 1.
+  organization: string;
+  citizenship: string;
+  region: string;
+  settlement: string;
+  vk_url: string;
+  competencies: string;
+  personal_contribution: string;
+  faculty: string;
+  course: string;
+  study_program: string;
 }
 
 interface MentorRow {
@@ -76,8 +87,41 @@ function participantToRow(participant: Participant): ParticipantRow {
     consent_pdn: participant.consent_pdn,
     consent_distribution: participant.consent_distribution,
     consent_legal_representative: participant.consent_legal_representative,
+    organization: participant.organization ?? '',
+    citizenship: participant.citizenship ?? '',
+    region: participant.region ?? '',
+    settlement: participant.settlement ?? '',
+    vk_url: participant.vk_url ?? '',
+    competencies: participant.competencies ?? '',
+    personal_contribution: participant.personal_contribution ?? '',
+    faculty: participant.faculty ?? '',
+    course: participant.course === null ? '' : String(participant.course),
+    study_program: participant.study_program ?? '',
   };
 }
+
+const EMPTY_PARTICIPANT: ParticipantRow = {
+  id: null,
+  full_name: '',
+  birth_date: '',
+  category: 'student',
+  email: '',
+  phone: '',
+  role: 'member',
+  consent_pdn: false,
+  consent_distribution: false,
+  consent_legal_representative: false,
+  organization: '',
+  citizenship: 'Российская Федерация',
+  region: '',
+  settlement: '',
+  vk_url: '',
+  competencies: '',
+  personal_contribution: '',
+  faculty: '',
+  course: '',
+  study_program: '',
+};
 
 export function ApplyPage() {
   const [loading, setLoading] = useState(true);
@@ -199,6 +243,11 @@ export function ApplyPage() {
     return age < 18;
   });
 
+  /** Точечное изменение строки участника: поля Приложения № 1 заполняются так же. */
+  function patchParticipant(index: number, patch: Partial<ParticipantRow>) {
+    setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
   function goTo(next: number) {
     setStep(next);
     setMaxStep((value) => Math.max(value, next));
@@ -291,6 +340,16 @@ export function ApplyPage() {
             consent_pdn: participant.consent_pdn,
             consent_distribution: participant.consent_distribution,
             consent_legal_representative: participant.consent_legal_representative,
+            organization: participant.organization || null,
+            citizenship: participant.citizenship || null,
+            region: participant.region || null,
+            settlement: participant.settlement || null,
+            vk_url: participant.vk_url || null,
+            competencies: participant.competencies || null,
+            personal_contribution: participant.personal_contribution || null,
+            faculty: participant.faculty || null,
+            course: participant.course === '' ? null : Number(participant.course),
+            study_program: participant.study_program || null,
           })),
           mentors: mentors
             .filter((mentor) => mentor.full_name.trim() !== '')
@@ -526,21 +585,7 @@ export function ApplyPage() {
                 <div className="flex flex-wrap gap-3">
                   <Button
                     onClick={() => {
-                      setParticipants((rows) => [
-                        ...rows,
-                        {
-                          id: null,
-                          full_name: '',
-                          birth_date: '',
-                          category: 'student',
-                          email: '',
-                          phone: '',
-                          role: 'member',
-                          consent_pdn: false,
-                          consent_distribution: false,
-                          consent_legal_representative: false,
-                        },
-                      ]);
+                      setParticipants((rows) => [...rows, { ...EMPTY_PARTICIPANT }]);
                     }}
                     variant="secondary"
                   >
@@ -576,7 +621,30 @@ export function ApplyPage() {
                       />
                       <TextField id={`p-email-${index}`} label="Адрес электронной почты" type="email" required value={participant.email} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
                       <TextField id={`p-phone-${index}`} label="Контактный телефон" type="tel" value={participant.phone} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
+                      <TextField id={`p-citizenship-${index}`} label="Гражданство" value={participant.citizenship} onChange={(e) => patchParticipant(index, { citizenship: e.target.value })} maxLength={120} />
+                      <TextField id={`p-region-${index}`} label="Субъект Российской Федерации" value={participant.region} onChange={(e) => patchParticipant(index, { region: e.target.value })} maxLength={200} />
+                      <TextField id={`p-settlement-${index}`} label="Населённый пункт" value={participant.settlement} onChange={(e) => patchParticipant(index, { settlement: e.target.value })} maxLength={200} />
+                      <TextField id={`p-vk-${index}`} label="Ссылка на страницу «ВКонтакте»" value={participant.vk_url} onChange={(e) => patchParticipant(index, { vk_url: e.target.value })} maxLength={300} placeholder="https://vk.com/…" />
+                      <TextField id={`p-education-org-${index}`} label="Образовательная организация (место работы)" value={participant.organization} onChange={(e) => patchParticipant(index, { organization: e.target.value })} maxLength={300} />
+                      <TextField id={`p-faculty-${index}`} label="Факультет" value={participant.faculty} onChange={(e) => patchParticipant(index, { faculty: e.target.value })} maxLength={300} />
+                      <TextField id={`p-course-${index}`} label="Курс" type="number" min={1} max={6} value={participant.course} onChange={(e) => patchParticipant(index, { course: e.target.value })} hint="От 1 до 6; для работающих участников оставьте пустым." />
+                      <TextField id={`p-program-${index}`} label="Направление подготовки (должность)" value={participant.study_program} onChange={(e) => patchParticipant(index, { study_program: e.target.value })} maxLength={300} />
                     </div>
+                    <TextAreaField
+                      id={`p-competencies-${index}`}
+                      label="Краткие сведения о компетенциях, опыте, публикациях, достижениях"
+                      value={participant.competencies}
+                      onChange={(e) => patchParticipant(index, { competencies: e.target.value })}
+                      maxLength={800}
+                      hint={`Не более 800 знаков. Введено: ${participant.competencies.length}.`}
+                    />
+                    <TextAreaField
+                      id={`p-contribution-${index}`}
+                      label="Личный вклад в разработку инициативы"
+                      value={participant.personal_contribution}
+                      onChange={(e) => patchParticipant(index, { personal_contribution: e.target.value })}
+                      maxLength={1000}
+                    />
                     <CheckboxField
                       id={`p-consent-pdn-${index}`}
                       label="Согласие на обработку персональных данных (Приложения № 10–12)"

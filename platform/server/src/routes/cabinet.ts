@@ -9,6 +9,8 @@ import {
   recordConsents,
   type SubmissionContext,
 } from '../lib/application-submission.js';
+import { buildApplicationFormDocx, loadApplicationFormData } from '../lib/application-form.js';
+import { convertDocxToPdf } from '../lib/docx-to-pdf.js';
 import {
   LINK_ONLY_MATERIAL_TYPES,
   MATERIAL_TYPES,
@@ -80,6 +82,16 @@ interface ParticipantInput {
   consent_distribution: boolean;
   consent_legal_representative: boolean;
   is_minor: boolean;
+  // Поля Приложения № 1 (миграция 011).
+  citizenship: string | null;
+  region: string | null;
+  settlement: string | null;
+  vk_url: string | null;
+  competencies: string | null;
+  personal_contribution: string | null;
+  faculty: string | null;
+  course: number | null;
+  study_program: string | null;
 }
 
 interface MentorInput {
@@ -87,6 +99,7 @@ interface MentorInput {
   organization: string | null;
   position: string | null;
   degree: string | null;
+  academic_title: string | null;
   email: string | null;
   phone: string | null;
   consent_pdn: boolean;
@@ -119,7 +132,9 @@ async function loadTeamBundle(teamId: number) {
   const participants = await query(
     `SELECT id, full_name, birth_date, category, organization, position, education,
             email, phone, role, consent_pdn, consent_distribution,
-            consent_legal_representative, is_minor, consent_received, consent_received_at
+            consent_legal_representative, is_minor, consent_received, consent_received_at,
+            citizenship, region, settlement, vk_url, competencies,
+            personal_contribution, faculty, course, study_program
        FROM participants
       WHERE team_id = $1
       ORDER BY role DESC, id`,
@@ -127,7 +142,8 @@ async function loadTeamBundle(teamId: number) {
   );
 
   const mentors = await query(
-    `SELECT id, full_name, organization, position, degree, email, phone, consent_pdn, consent_received
+    `SELECT id, full_name, organization, position, degree,
+            academic_degree, academic_title, email, phone, consent_pdn, consent_received
        FROM mentors
       WHERE team_id = $1
       ORDER BY id`,
@@ -177,6 +193,22 @@ function parseParticipant(raw: unknown, closeAt: Date | null): { value?: Partici
   const role = item.role === 'captain' ? 'captain' : 'member';
   const id = parsePositiveInt(item.id);
 
+  // Курс обучения: необязательное поле, но значение вне 1–6 отклоняется.
+  let course: number | null = null;
+  const courseRaw = item.course;
+  if (courseRaw !== undefined && courseRaw !== null && String(courseRaw).trim() !== '') {
+    const parsedCourse = Number.parseInt(String(courseRaw), 10);
+    if (!Number.isInteger(parsedCourse) || parsedCourse < 1 || parsedCourse > 6) {
+      return { error: `Некорректный курс у участника «${fullName}»: допустимо от 1 до 6` };
+    }
+    course = parsedCourse;
+  }
+
+  const vkUrl = optionalText(item.vk_url, 300);
+  if (vkUrl !== null && !isValidExternalUrl(vkUrl)) {
+    return { error: `Некорректная ссылка на страницу «ВКонтакте» у участника «${fullName}»` };
+  }
+
   return {
     value: {
       id,
@@ -193,6 +225,15 @@ function parseParticipant(raw: unknown, closeAt: Date | null): { value?: Partici
       consent_distribution: item.consent_distribution === true,
       consent_legal_representative: legalRepresentativeConsent,
       is_minor: isMinor,
+      citizenship: optionalText(item.citizenship, 120),
+      region: optionalText(item.region, 200),
+      settlement: optionalText(item.settlement, 200),
+      vk_url: vkUrl,
+      competencies: optionalText(item.competencies, 800),
+      personal_contribution: optionalText(item.personal_contribution, 1000),
+      faculty: optionalText(item.faculty, 300),
+      course,
+      study_program: optionalText(item.study_program, 300),
     },
   };
 }
@@ -212,7 +253,10 @@ function parseMentor(raw: unknown): { value?: MentorInput; error?: string } {
       full_name: fullName,
       organization: optionalText(item.organization, 300),
       position: optionalText(item.position, 300),
-      degree: optionalText(item.degree, 200),
+      // degree — устаревшее поле (учёная степень); новые данные пишутся в
+      // academic_degree, а degree заполняется тем же значением для совместимости.
+      degree: optionalText(item.academic_degree ?? item.degree, 200),
+      academic_title: optionalText(item.academic_title, 200),
       email: email === null ? null : normalizeEmail(email),
       phone: optionalText(item.phone, 32),
       consent_pdn: item.consent_pdn === true,
@@ -352,7 +396,11 @@ router.patch(
                     position = $5, education = $6, email = $7, phone = $8, role = $9,
                     consent_pdn = $10, consent_distribution = $11,
                     consent_legal_representative = $12, is_minor = $13,
-                    consent_received = $10, updated_at = now()
+                    consent_received = $10,
+                    citizenship = $16, region = $17, settlement = $18, vk_url = $19,
+                    competencies = $20, personal_contribution = $21, faculty = $22,
+                    course = $23, study_program = $24,
+                    updated_at = now()
               WHERE id = $14 AND team_id = $15
               RETURNING id`,
             [
@@ -371,6 +419,15 @@ router.patch(
               participant.is_minor,
               participant.id,
               context.teamId,
+              participant.citizenship,
+              participant.region,
+              participant.settlement,
+              participant.vk_url,
+              participant.competencies,
+              participant.personal_contribution,
+              participant.faculty,
+              participant.course,
+              participant.study_program,
             ]
           );
 
@@ -385,9 +442,12 @@ router.patch(
             `INSERT INTO participants
                (season_id, team_id, full_name, birth_date, category, organization, position,
                 education, email, phone, role, consent_pdn, consent_distribution,
-                consent_legal_representative, is_minor, consent_received, consent_received_at)
+                consent_legal_representative, is_minor, consent_received, consent_received_at,
+                citizenship, region, settlement, vk_url, competencies, personal_contribution,
+                faculty, course, study_program)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $12,
-                     CASE WHEN $12 THEN now() ELSE NULL END)
+                     CASE WHEN $12 THEN now() ELSE NULL END,
+                     $16, $17, $18, $19, $20, $21, $22, $23, $24)
              RETURNING id`,
             [
               bundle.team.season_id,
@@ -405,6 +465,15 @@ router.patch(
               participant.consent_distribution,
               participant.consent_legal_representative,
               participant.is_minor,
+              participant.citizenship,
+              participant.region,
+              participant.settlement,
+              participant.vk_url,
+              participant.competencies,
+              participant.personal_contribution,
+              participant.faculty,
+              participant.course,
+              participant.study_program,
             ]
           );
           const id = Number(inserted.rows[0].id);
@@ -430,9 +499,10 @@ router.patch(
         for (const mentor of mentors) {
           await client.query(
             `INSERT INTO mentors
-               (team_id, full_name, organization, position, degree, email, phone, consent_pdn,
-                consent_received, consent_received_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CASE WHEN $8 THEN now() ELSE NULL END)`,
+               (team_id, full_name, organization, position, degree, academic_degree,
+                academic_title, email, phone, consent_pdn, consent_received, consent_received_at)
+             VALUES ($1, $2, $3, $4, $5, $5, $9, $6, $7, $8, $8,
+                     CASE WHEN $8 THEN now() ELSE NULL END)`,
             [
               context.teamId,
               mentor.full_name,
@@ -442,6 +512,7 @@ router.patch(
               mentor.email,
               mentor.phone,
               mentor.consent_pdn,
+              mentor.academic_title,
             ]
           );
         }
@@ -888,6 +959,61 @@ router.post(
       tech_status: 'pending',
       message: 'Заявка отправлена и поступила на техническую проверку.',
     });
+  })
+);
+
+// GET /api/cabinet/application-form.docx — заполненный бланк заявки.
+// Приложение № 1 в редакции 04.10.2026: заявка формируется системой и доступна
+// участнику для скачивания в личном кабинете; загружать её не требуется.
+router.get(
+  '/application-form.docx',
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const data = await loadApplicationFormData(context.teamId);
+    if (!data) {
+      res.status(404).json({ error: 'Заявка не найдена' });
+      return;
+    }
+
+    const buffer = buildApplicationFormDocx(data);
+    void logAccess(context, req, 'application_form_downloaded', { format: 'docx' });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="zayavka-${data.application.public_number ?? 'lidery-prava'}.docx"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.send(buffer);
+  })
+);
+
+// GET /api/cabinet/application-form.pdf — тот же бланк в PDF.
+// Требуется LibreOffice на сервере; если его нет, честно сообщаем об этом.
+router.get(
+  '/application-form.pdf',
+  rateLimit(10, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const data = await loadApplicationFormData(context.teamId);
+    if (!data) {
+      res.status(404).json({ error: 'Заявка не найдена' });
+      return;
+    }
+
+    const pdf = await convertDocxToPdf(buildApplicationFormDocx(data));
+    if (!pdf) {
+      res.status(503).json({
+        error: 'Формирование PDF на этом сервере недоступно. Скачайте бланк в формате DOCX.',
+      });
+      return;
+    }
+
+    void logAccess(context, req, 'application_form_downloaded', { format: 'pdf' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="zayavka-${data.application.public_number ?? 'lidery-prava'}.pdf"`);
+    res.setHeader('Content-Length', String(pdf.length));
+    res.send(pdf);
   })
 );
 

@@ -105,6 +105,20 @@ sudo -u postgres createdb -O liders liders
 sudo -u postgres psql -c "\\l liders"
 ```
 
+**Необязательно: PDF бланка заявки.** Бланк по Приложению № 1 формируется в DOCX
+средствами сервера; PDF получается конвертацией через LibreOffice:
+
+```bash
+apt-get install -y libreoffice-writer     # нужен только для PDF
+which soffice && soffice --version
+# если LibreOffice установлен в нестандартное место:
+# SOFFICE_BIN=/opt/libreoffice/program/soffice в /etc/lideryprava/api.env
+```
+
+Без LibreOffice кабинет отдаёт DOCX и сообщает, что PDF недоступен, — заявки
+принимаются в любом случае. Конвертация запускается по запросу (не фоновым
+заданием) с отдельным профилем и таймаутом 60 секунд.
+
 ### 6.3. Пользователь сервиса, каталоги, секреты
 
 ```bash
