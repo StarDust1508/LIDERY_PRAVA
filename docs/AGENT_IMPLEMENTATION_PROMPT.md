@@ -122,6 +122,10 @@ LIDERY_PRAVA/                        (ветка feature/lidery-prava-platform)
 │   │   └── 011_… .sql                       ← твои новые миграции (см. пакет 1)
 │   ├── public/docs/                 PDF Положения и Приложений, README
 │   ├── scripts/check-decoupling.sh  гейты разделения Г1–Г7
+│   ├── web/                         публичная сборка: React 18 + Vite + TS + Tailwind
+│   │   └── src/{app,pages,flows,ui}
+│   ├── admin/                       отдельная сборка админ-панели
+│   └── shared/                      общий код web и admin: API-клиент, типы, даты МСК
 │   └── server/
 │       ├── package.json             Express 4 + TS (ESM), tsx, tsc
 │       ├── tsconfig.json            NodeNext, strict
