@@ -367,6 +367,35 @@ else
     bad "PDF Положения не читается"
 fi
 
+# ── Юридические документы (пакет 6) ──────────────────────────────────────────
+step "Юридические документы сайта"
+LEGAL_COUNT=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active = FALSE AND sort_order >= 20")
+[ "${LEGAL_COUNT:-0}" = "6" ] && ok "юридических документов заведено: $LEGAL_COUNT (не опубликованы)" || bad "юридических документов: ${LEGAL_COUNT:-0} (ожидалось 6)"
+if curl -s "${BASE}/api/documents" | grep -q 'Оферта'; then
+    bad "неопубликованная оферта видна в публичном API"
+else
+    ok "неопубликованные юридические документы не отдаются публично"
+fi
+LEGAL_MISSING=""
+for slug in oferta privacy-policy cookies-policy user-agreement jury-regulations mailing-consent; do
+    [ -f "$ROOT/docs/legal/${slug}.md" ] || LEGAL_MISSING="${LEGAL_MISSING} ${slug}.md"
+    [ -f "$ROOT/platform/public/docs/legal/${slug}.pdf" ] || LEGAL_MISSING="${LEGAL_MISSING} ${slug}.pdf"
+done
+if [ -z "$LEGAL_MISSING" ]; then
+    ok "тексты и PDF всех шести документов на месте"
+else
+    bad "нет файлов:${LEGAL_MISSING}"
+fi
+if head -c 5 "$ROOT/platform/public/docs/legal/oferta.pdf" | grep -q '%PDF-'; then
+    ok "PDF оферты — корректный PDF-файл"
+else
+    bad "PDF оферты не читается"
+fi
+# Публичная оферта предполагает опубликованный текст: пока документ не утверждён
+# и не активирован, согласие с ним не запрашивается и не записывается.
+OFFER_CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE document_code = 'offer'")
+[ "${OFFER_CONSENTS:-0}" = "0" ] && ok "согласие с неопубликованной офертой не записывается" || bad "записано согласий с офертой: ${OFFER_CONSENTS:-0}"
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

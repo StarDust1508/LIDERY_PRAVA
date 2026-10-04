@@ -204,26 +204,38 @@ async function currentDocumentsVersion(client: pg.PoolClient): Promise<string> {
   return setting.rows[0]?.version ? String(setting.rows[0].version) : '';
 }
 
-/** Находит опубликованный документ: Положение или приложение по номеру. */
+/** Есть ли опубликованный документ указанного типа. */
+async function hasPublishedDocument(client: pg.PoolClient, type: string): Promise<boolean> {
+  const result = await client.query('SELECT 1 FROM documents WHERE type = $1 AND is_active LIMIT 1', [type]);
+  return result.rows.length > 0;
+}
+
+/**
+ * Находит опубликованный документ: Положение, оферту или приложение по номеру.
+ * Ищутся только действующие редакции: согласие фиксируется с той версией,
+ * которая опубликована на момент акцепта.
+ */
 async function resolveDocument(
   client: pg.PoolClient,
+  documentType: 'regulation' | 'offer' | 'appendix',
   appendixNumber: string | null
 ): Promise<{ id: number | null; version: string }> {
   const result =
-    appendixNumber === null
+    documentType === 'appendix'
       ? await client.query(
-          `SELECT id, version FROM documents
-            WHERE type = 'regulation' AND is_active
-            ORDER BY revision_date DESC, id DESC
-            LIMIT 1`
-        )
-      : await client.query(
           `SELECT id, version FROM documents
             WHERE type = 'appendix' AND is_active
               AND title LIKE 'Приложение № ' || $1 || '.%'
             ORDER BY id
             LIMIT 1`,
           [appendixNumber]
+        )
+      : await client.query(
+          `SELECT id, version FROM documents
+            WHERE type = $1 AND is_active
+            ORDER BY revision_date DESC, id DESC
+            LIMIT 1`,
+          [documentType]
         );
 
   const row = result.rows[0];
@@ -238,6 +250,8 @@ interface ConsentParams {
   participantId: number | null;
   mentorId: number | null;
   documentCode: string;
+  /** Тип документа в таблице documents: Положение, оферта или приложение. */
+  documentType: 'regulation' | 'offer' | 'appendix';
   appendixNumber: string | null;
   scanMediaId?: string | null;
 }
@@ -248,7 +262,7 @@ async function upsertConsent(
   context: SubmissionContext,
   params: ConsentParams
 ): Promise<void> {
-  const document = await resolveDocument(client, params.appendixNumber);
+  const document = await resolveDocument(client, params.documentType, params.appendixNumber);
 
   const existing = await client.query(
     `SELECT id FROM consents
@@ -319,8 +333,24 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
     participantId: null,
     mentorId: null,
     documentCode: 'regulation',
+    documentType: 'regulation',
     appendixNumber: null,
   });
+
+  // Подача заявки означает согласие и с офертой (п. 7.3 Положения; ТЗ 09, п. 5.7).
+  // Отметка фиксируется, только когда оферта опубликована: публичная оферта
+  // предполагает опубликованный текст. Пока документ не утверждён Ассоциацией
+  // и не активирован, согласие с ним не запрашивается и не записывается.
+  if (await hasPublishedDocument(client, 'offer')) {
+    await upsertConsent(client, context, {
+      subjectType: 'team',
+      participantId: null,
+      mentorId: null,
+      documentCode: 'offer',
+      documentType: 'offer',
+      appendixNumber: null,
+    });
+  }
 
   const participants = await client.query(
     `SELECT id, full_name, is_minor, consent_legal_representative FROM participants
@@ -345,6 +375,7 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
       participantId: Number(participant.id),
       mentorId: null,
       documentCode: isMinor ? 'appendix_11' : 'appendix_10',
+      documentType: 'appendix',
       appendixNumber: isMinor ? '11' : '10',
       scanMediaId: isMinor ? scanMediaId : null,
     });
@@ -355,6 +386,7 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
       participantId: Number(participant.id),
       mentorId: null,
       documentCode: 'appendix_13',
+      documentType: 'appendix',
       appendixNumber: '13',
     });
   }
@@ -366,6 +398,7 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
       participantId: null,
       mentorId: Number(mentor.id),
       documentCode: 'appendix_10',
+      documentType: 'appendix',
       appendixNumber: '10',
     });
   }
@@ -381,6 +414,7 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
       participantId: entry.participant_id,
       mentorId: null,
       documentCode: 'appendix_12',
+      documentType: 'appendix',
       appendixNumber: '12',
     });
 
