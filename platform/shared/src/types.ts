@@ -320,6 +320,58 @@ export interface CreateApplicationPayload {
   };
 }
 
+/** Предмет апелляции — пункт 12.2 Положения (форма Приложения № 14). */
+export const APPEAL_GROUNDS = [
+  { value: 'procedure_violation', title: 'Нарушение порядка проведения этапа' },
+  { value: 'wrongful_rejection', title: 'Необоснованный отказ в допуске по итогам технической проверки' },
+  { value: 'counting_error', title: 'Техническая ошибка при подсчёте баллов' },
+  { value: 'criteria_misapplication', title: 'Неправильное применение критериев оценки' },
+  { value: 'other', title: 'Иное основание, предусмотренное Положением' },
+] as const;
+
+export type AppealGrounds = (typeof APPEAL_GROUNDS)[number]['value'];
+
+export const APPEAL_STATUS_TITLES: Record<string, string> = {
+  submitted: 'Подана',
+  in_review: 'Рассматривается',
+  granted: 'Удовлетворена',
+  partially_granted: 'Удовлетворена частично',
+  rejected: 'Отказано',
+  withdrawn: 'Отозвана',
+};
+
+export interface Appeal {
+  id: number;
+  stage: string;
+  grounds: string | null;
+  status: string;
+  decision: string | null;
+  decision_note: string | null;
+  submitted_at: string;
+  deadline_at: string;
+  reviewed_at: string | null;
+}
+
+export interface AppealSubmissionResponse {
+  success: true;
+  id: number;
+  stage: string;
+  submitted_at: string;
+  deadline_at: string;
+}
+
+export interface WithdrawResponse {
+  success: true;
+  team_status: string;
+  message: string;
+}
+
+export interface FinalConfirmationResponse {
+  success: true;
+  speakers: string[];
+  message: string;
+}
+
 /** Тело запроса на отправку заявки. */export interface SubmitApplicationPayload {
   confirm_regulation: boolean;
   image_license: boolean;

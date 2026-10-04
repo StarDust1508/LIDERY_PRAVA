@@ -20,7 +20,13 @@ import {
   materialTypeTitle,
   sanitizeFileName,
 } from '../lib/media-content.js';
-import { isDeadlinePassed, millisecondsUntil, toDate } from '../lib/moscow-time.js';
+import {
+  addWorkingDays,
+  formatMoscowHuman,
+  isDeadlinePassed,
+  millisecondsUntil,
+  toDate,
+} from '../lib/moscow-time.js';
 import {
   PARTICIPANT_MAX_AGE,
   PARTICIPANT_MIN_AGE,
@@ -959,6 +965,196 @@ router.post(
       tech_status: 'pending',
       message: 'Заявка отправлена и поступила на техническую проверку.',
     });
+  })
+);
+
+// Предмет апелляции по пункту 12.2 Положения.
+const APPEAL_GROUNDS = [
+  'procedure_violation',
+  'wrongful_rejection',
+  'counting_error',
+  'criteria_misapplication',
+  'other',
+] as const;
+
+// POST /api/cabinet/withdraw — отказ от участия (п. 4.10 Положения).
+// Одновременно отзываются действующие согласия: по пункту 14.3 отзыв согласия
+// до завершения Конкурса прекращает участие, поэтому и статус, и согласия,
+// и ссылки доступа меняются в одной транзакции.
+router.post(
+  '/withdraw',
+  rateLimit(5, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    if (body.confirm !== true) {
+      res.status(400).json({ error: 'Подтвердите отказ от участия.' });
+      return;
+    }
+    const reason = optionalText(body.reason, 1000);
+
+    await withTransaction(async (client) => {
+      await client.query(
+        `UPDATE teams SET status = 'withdrawn', status_changed_at = now(), updated_at = now() WHERE id = $1`,
+        [context.teamId]
+      );
+      await client.query(
+        `UPDATE applications
+            SET organizer_notes = COALESCE(organizer_notes, '') || $2, updated_at = now()
+          WHERE team_id = $1`,
+        [context.teamId, reason ? `\nОтказ от участия: ${reason}` : '\nОтказ от участия без указания причины.']
+      );
+      await client.query(
+        `UPDATE consents SET revoked_at = now(), updated_at = now()
+          WHERE team_id = $1 AND revoked_at IS NULL`,
+        [context.teamId]
+      );
+      await client.query(
+        `UPDATE access_tokens SET revoked_at = now() WHERE team_id = $1 AND revoked_at IS NULL`,
+        [context.teamId]
+      );
+    });
+
+    void logAccess(context, req, 'team_withdrawn', { reason: reason ?? null });
+    res.json({
+      success: true,
+      team_status: 'withdrawn',
+      message: 'Участие отозвано. Согласия на обработку персональных данных отозваны, ссылки доступа закрыты.',
+    });
+  })
+);
+
+// POST /api/cabinet/appeals — подача апелляции по форме Приложения № 14.
+// Срок считается от фактического времени опубликования протокола этапа (п. 12.1).
+router.post(
+  '/appeals',
+  rateLimit(5, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const bundle = await loadTeamBundle(context.teamId);
+    if (!bundle) {
+      res.status(404).json({ error: 'Команда не найдена' });
+      return;
+    }
+    if (bundle.team.status === 'disqualified' || bundle.team.status === 'withdrawn') {
+      res.status(403).json({ error: 'Апелляция недоступна: участие команды прекращено.' });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const stage = String(body.stage ?? '');
+    if (stage !== 'selection' && stage !== 'stage1') {
+      res.status(400).json({
+        error: 'Апелляция подаётся по итогам отборочного или первого этапа; решения финального этапа не обжалуются (п. 12.3 Положения).',
+      });
+      return;
+    }
+    const grounds = String(body.grounds ?? '');
+    if (!(APPEAL_GROUNDS as readonly string[]).includes(grounds)) {
+      res.status(400).json({ error: 'Укажите предмет апелляции по пункту 12.2 Положения.' });
+      return;
+    }
+    const text = requiredText(body.text, 10_000);
+    if (!text) {
+      res.status(400).json({ error: 'Изложите мотивированное обоснование со ссылками на Положение.' });
+      return;
+    }
+
+    const protocol = await query(
+      `SELECT published_at
+         FROM rankings
+        WHERE season_id = $1 AND stage = $2 AND is_published
+        ORDER BY published_at DESC
+        LIMIT 1`,
+      [context.seasonId, stage]
+    );
+    const publishedAt = protocol.rows[0]?.published_at;
+    if (!publishedAt) {
+      res.status(409).json({ error: 'Протокол этапа ещё не опубликован: срок подачи апелляции не начался.' });
+      return;
+    }
+
+    const windowDays = Number(bundle.team.appeal_window_days) || 2;
+    const deadlineAt = addWorkingDays(new Date(publishedAt), windowDays);
+    if (Date.now() > deadlineAt.getTime()) {
+      res.status(403).json({ error: `Срок подачи апелляции истёк ${formatMoscowHuman(deadlineAt)}.` });
+      return;
+    }
+
+    const inserted = await query(
+      `INSERT INTO appeals (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at)
+       VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6)
+       RETURNING id, submitted_at, deadline_at`,
+      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt]
+    );
+
+    void logAccess(context, req, 'appeal_submitted', { appeal_id: inserted.rows[0].id, stage });
+    res.status(201).json({
+      success: true,
+      id: Number(inserted.rows[0].id),
+      stage,
+      submitted_at: inserted.rows[0].submitted_at,
+      deadline_at: inserted.rows[0].deadline_at,
+    });
+  })
+);
+
+// POST /api/cabinet/final-confirmation — подтверждение участия в финале (п. 9.2):
+// состав выступающих и готовность презентации.
+router.post(
+  '/final-confirmation',
+  rateLimit(5, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const bundle = await loadTeamBundle(context.teamId);
+    if (!bundle) {
+      res.status(404).json({ error: 'Команда не найдена' });
+      return;
+    }
+    if (bundle.team.status !== 'finalist' && bundle.team.status !== 'final') {
+      res.status(409).json({ error: 'Подтверждение участия доступно командам-финалистам.' });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawSpeakers = Array.isArray(body.speakers) ? body.speakers : [];
+    const speakerIds: number[] = [];
+    for (const value of rawSpeakers) {
+      const id = parsePositiveInt(value);
+      if (id === null) {
+        res.status(400).json({ error: 'Некорректный состав выступающих.' });
+        return;
+      }
+      speakerIds.push(id);
+    }
+    if (speakerIds.length === 0) {
+      res.status(400).json({ error: 'Укажите состав выступающих на финале.' });
+      return;
+    }
+
+    const participants = await query('SELECT id, full_name FROM participants WHERE team_id = $1', [
+      context.teamId,
+    ]);
+    const speakers = participants.rows.filter((row) => speakerIds.includes(Number(row.id)));
+    if (speakers.length !== speakerIds.length) {
+      res.status(403).json({ error: 'В составе выступающих указан участник другой команды.' });
+      return;
+    }
+
+    const note = optionalText(body.note, 2000);
+    const speakerNames = speakers.map((row) => String(row.full_name));
+    const notes = [note, `Выступающие: ${speakerNames.join(', ')}`].filter(Boolean).join('\n');
+
+    await query(
+      `INSERT INTO stage_participation (season_id, team_id, stage, advanced, advance_reason, notes)
+       VALUES ($1, $2, 'final', TRUE, 'подтверждение команды', $3)
+       ON CONFLICT (season_id, team_id, stage)
+       DO UPDATE SET advanced = TRUE, notes = EXCLUDED.notes, updated_at = now()`,
+      [context.seasonId, context.teamId, notes]
+    );
+
+    void logAccess(context, req, 'final_confirmed', { speakers: speakerNames.length });
+    res.json({ success: true, speakers: speakerNames, message: 'Участие в финале подтверждено.' });
   })
 );
 

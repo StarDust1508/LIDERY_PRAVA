@@ -1,4 +1,6 @@
 import type {
+  Appeal,
+  AppealSubmissionResponse,
   ApplicationCreated,
   ApplicationStatus,
   CabinetAccessResponse,
@@ -6,12 +8,14 @@ import type {
   CreateApplicationPayload,
   DeadlinesResponse,
   Direction,
+  FinalConfirmationResponse,
   Material,
   MaterialRequirementsResponse,
   SeasonResponse,
   SubmissionResponse,
   SubmitApplicationPayload,
   TeamResponse,
+  WithdrawResponse,
 } from './types';
 
 // Единый клиент API для публичной части и админки (ТЗ 03, «Что делается в каком
@@ -162,6 +166,36 @@ export const api = {
       method: 'POST',
       headers: authHeader(accessToken),
       body: JSON.stringify({ message }),
+    }),
+
+  cabinetAppeals: (accessToken?: string | null) =>
+    request<Appeal[]>('/api/cabinet/appeals', { headers: authHeader(accessToken) }),
+
+  cabinetSubmitAppeal: (
+    payload: { stage: 'selection' | 'stage1'; grounds: string; text: string },
+    accessToken?: string | null
+  ) =>
+    request<AppealSubmissionResponse>('/api/cabinet/appeals', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(payload),
+    }),
+
+  cabinetFinalConfirmation: (
+    payload: { speakers: number[]; note?: string | null },
+    accessToken?: string | null
+  ) =>
+    request<FinalConfirmationResponse>('/api/cabinet/final-confirmation', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(payload),
+    }),
+
+  cabinetWithdraw: (reason: string | null, accessToken?: string | null) =>
+    request<WithdrawResponse>('/api/cabinet/withdraw', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify({ confirm: true, reason }),
     }),
 
   /**

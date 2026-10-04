@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ApiError,
+  type Appeal,
   type DeadlinesResponse,
   type Material,
   type TeamResponse,
@@ -14,6 +15,7 @@ import {
 } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, StatusBadge } from '@/ui/primitives';
 import { saveBlob } from '@/lib/download';
+import { CabinetActions } from './CabinetActions';
 
 // Сводка личного кабинета: номер заявки, статус, состав, материалы и сроки.
 // Данные команды отдаются только по её сессии (проверка на сервере).
@@ -23,6 +25,7 @@ export function CabinetPage() {
   const [team, setTeam] = useState<TeamResponse | null>(null);
   const [deadlines, setDeadlines] = useState<DeadlinesResponse | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [appeals, setAppeals] = useState<Appeal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [formBusy, setFormBusy] = useState<'docx' | 'pdf' | null>(null);
@@ -59,6 +62,8 @@ export function CabinetPage() {
       setTeam(teamData);
       setDeadlines(deadlinesData);
       setMaterials(materialsData);
+      // Апелляции загружаем отдельно: их отсутствие не должно ломать кабинет.
+      setAppeals(await api.cabinetAppeals().catch(() => []));
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         navigate('/cabinet/access', { replace: true });
@@ -279,6 +284,8 @@ export function CabinetPage() {
           </ul>
         </SectionCard>
       ) : null}
+
+      <CabinetActions team={team} appeals={appeals} onReload={load} />
     </main>
   );
 }
