@@ -5,7 +5,9 @@ import pool, { testConnection } from './db.js';
 import { requireAdmin } from './middleware/admin-auth.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import adminRouter from './routes/admin.js';
+import applicationsRouter from './routes/applications.js';
 import authAdminRouter from './routes/auth-admin.js';
+import cabinetAccessRouter from './routes/cabinet-access.js';
 import cabinetRouter from './routes/cabinet.js';
 import leadsRouter from './routes/leads.js';
 import mediaRouter from './routes/media.js';
@@ -50,10 +52,15 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   });
 });
 
-// Публичные данные, обращения, файлы, личный кабинет.
+// Публичные данные, обращения, файлы, приём заявок и личный кабинет.
 app.use('/api', publicRouter);
 app.use('/api', leadsRouter);
 app.use('/api', mediaRouter);
+// Приём заявок с формы сайта (/apply) — единственный канал подачи.
+app.use('/api', applicationsRouter);
+// Вход в кабинет монтируется ДО cabinetRouter: сам кабинет целиком закрыт
+// requireTeam, а экран входа должен работать без сессии.
+app.use('/api/cabinet', cabinetAccessRouter);
 app.use('/api/cabinet', cabinetRouter);
 
 // Вход/выход администратора — без requireAdmin; остальные админские маршруты

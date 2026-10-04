@@ -19,10 +19,12 @@ import {
   ageOn,
   isEmail,
   isIsoDate,
+  isParticipantCategory,
   isValidExternalUrl,
   normalizeEmail,
   optionalText,
   requiredText,
+  type ParticipantCategory,
 } from '../lib/validation.js';
 import { clientIpOf } from '../middleware/admin-auth.js';
 import { rateLimit } from '../middleware/rate-limit.js';
@@ -56,9 +58,6 @@ function uploadSingle(req: Request, res: Response, next: NextFunction): void {
     res.status(415).json({ error: 'Недопустимый тип файла' });
   });
 }
-
-const PARTICIPANT_CATEGORIES = ['student', 'magistrant', 'aspirant', 'young_specialist', 'mo_leader'] as const;
-type ParticipantCategory = (typeof PARTICIPANT_CATEGORIES)[number];
 
 interface ParticipantInput {
   id: number | null;
@@ -134,7 +133,7 @@ function parseParticipant(raw: unknown, closeAt: Date | null): { value?: Partici
 
   if (!isIsoDate(item.birth_date)) return { error: `Некорректная дата рождения участника «${fullName}»` };
   const category = item.category;
-  if (typeof category !== 'string' || !PARTICIPANT_CATEGORIES.includes(category as ParticipantCategory)) {
+  if (!isParticipantCategory(category)) {
     return { error: `Некорректная категория участника «${fullName}»` };
   }
 

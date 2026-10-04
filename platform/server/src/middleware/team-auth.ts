@@ -1,14 +1,17 @@
 import crypto from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { query } from '../db.js';
+import { TEAM_SESSION_COOKIE, readCookie, verifyTeamSession } from '../lib/team-session.js';
 
 // ─── Доступ команды в личный кабинет ─────────────────────────────────────────
-// После подачи заявки через Яндекс.Форму команда получает одноразовый/срочный
-// токен доступа. В базе лежит только SHA-256 токена, поэтому утечка дампа не
-// даёт входа. Токен можно отозвать, ограничить по числу использований и сроку.
+// Команда входит двумя способами: по ссылке-токену доступа (в БД лежит только
+// SHA-256 токена) либо парой «номер заявки + адрес электронной почты капитана».
+// Оба способа обмениваются на подписанную сессионную cookie; после этого
+// кабинет работает по cookie.
 
 export interface TeamContext {
-  tokenId: number;
+  /** Токен доступа, если вход был по ссылке; для входа по номеру заявки — null. */
+  tokenId: number | null;
   teamId: number;
   teamName: string;
   teamStatus: string;
@@ -35,6 +38,34 @@ export function teamTokenFromRequest(req: Request): string | undefined {
   return undefined;
 }
 
+/** Загружает контекст команды по идентификатору (общий путь для обоих входов). */
+export async function loadTeamContext(
+  teamId: number,
+  tokenId: number | null,
+  label: string | null = null
+): Promise<TeamContext | null> {
+  try {
+    const teamResult = await query(
+      `SELECT id, name, status, season_id FROM teams WHERE id = $1 LIMIT 1`,
+      [teamId]
+    );
+    const team = teamResult.rows[0];
+    if (!team) return null;
+
+    return {
+      tokenId,
+      teamId: Number(team.id),
+      teamName: String(team.name),
+      teamStatus: String(team.status),
+      seasonId: Number(team.season_id),
+      label,
+    };
+  } catch (error) {
+    console.error('Не удалось загрузить команду:', (error as Error).message);
+    return null;
+  }
+}
+
 /**
  * Проверяет токен и атомарно увеличивает счётчик использований.
  * Возвращает контекст команды либо null.
@@ -56,25 +87,24 @@ export async function authenticateTeamToken(token: string | undefined): Promise<
     const row = result.rows[0];
     if (!row) return null;
 
-    const teamResult = await query(
-      `SELECT id, name, status, season_id FROM teams WHERE id = $1 LIMIT 1`,
-      [row.team_id]
-    );
-    const team = teamResult.rows[0];
-    if (!team) return null;
-
-    return {
-      tokenId: Number(row.id),
-      teamId: Number(team.id),
-      teamName: String(team.name),
-      teamStatus: String(team.status),
-      seasonId: Number(team.season_id),
-      label: row.label ? String(row.label) : null,
-    };
+    return loadTeamContext(Number(row.team_id), Number(row.id), row.label ? String(row.label) : null);
   } catch (error) {
     console.error('Проверка токена команды не удалась:', (error as Error).message);
     return null;
   }
+}
+
+/**
+ * Контекст команды по запросу: сначала ссылка-токен доступа, затем сессионная
+ * cookie личного кабинета.
+ */
+export async function authenticateTeam(req: Request): Promise<TeamContext | null> {
+  const token = teamTokenFromRequest(req);
+  if (token) return authenticateTeamToken(token);
+
+  const session = verifyTeamSession(readCookie(req, TEAM_SESSION_COOKIE));
+  if (!session) return null;
+  return loadTeamContext(session.teamId, session.accessTokenId);
 }
 
 /** Записывает факт обращения в журнал входов (best-effort). */
@@ -104,7 +134,7 @@ export async function logAccess(
 
 /** Middleware личного кабинета: кладёт контекст команды в res.locals.team. */
 export async function requireTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const context = await authenticateTeamToken(teamTokenFromRequest(req));
+  const context = await authenticateTeam(req);
   if (!context) {
     res.status(401).json({ error: 'Ссылка доступа недействительна, отозвана или истекла' });
     return;

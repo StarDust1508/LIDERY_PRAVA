@@ -66,6 +66,31 @@ export function formatMoscow(value: Date | string | null | undefined): string | 
   }).format(date);
 }
 
+/**
+ * Дата и время в виде, принятом для текстов интерфейса и сообщений:
+ * «11 декабря 2026 года, 23:59 (МСК)» (ТЗ 08, п. 6.4). Московское время
+ * указывается явной пометкой, а не догадкой читателя.
+ */
+export function formatMoscowHuman(value: Date | string | null | undefined): string | null {
+  const date = toDate(value);
+  if (!date) return null;
+  // День и месяц форматируются одним вызовом: в русской локали месяц тогда
+  // встаёт в родительный падеж — «11 ноября», а не «11 ноябрь».
+  const dayAndMonth = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: MOSCOW_TIMEZONE,
+    day: 'numeric',
+    month: 'long',
+  }).format(date);
+  const year = new Intl.DateTimeFormat('ru-RU', { timeZone: MOSCOW_TIMEZONE, year: 'numeric' }).format(date);
+  const time = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: MOSCOW_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+  return `${dayAndMonth} ${year} года, ${time} (МСК)`;
+}
+
 /** Добавляет к моменту заданное число рабочих дней (для апелляций, п. 12.1). */
 export function addWorkingDays(from: Date, days: number): Date {
   const result = new Date(from.getTime());

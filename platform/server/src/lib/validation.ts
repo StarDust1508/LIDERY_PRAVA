@@ -58,6 +58,30 @@ export function ageOn(birthDate: string, onDate: Date): number {
 export const PARTICIPANT_MIN_AGE = 16;
 export const PARTICIPANT_MAX_AGE = 35;
 
+/** Категории участника по п. 4.1 Положения. */
+export const PARTICIPANT_CATEGORIES = [
+  'student',
+  'magistrant',
+  'aspirant',
+  'young_specialist',
+  'mo_leader',
+] as const;
+
+export type ParticipantCategory = (typeof PARTICIPANT_CATEGORIES)[number];
+
+export function isParticipantCategory(value: unknown): value is ParticipantCategory {
+  return typeof value === 'string' && (PARTICIPANT_CATEGORIES as readonly string[]).includes(value);
+}
+
+/** Уровень акта по Приложению № 1. */
+export const ACT_LEVELS = ['federal_constitutional', 'federal', 'regional'] as const;
+
+export type ActLevel = (typeof ACT_LEVELS)[number];
+
+export function isActLevel(value: unknown): value is ActLevel {
+  return typeof value === 'string' && (ACT_LEVELS as readonly string[]).includes(value);
+}
+
 export function isValidExternalUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   try {
