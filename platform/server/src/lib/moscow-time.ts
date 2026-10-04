@@ -1,0 +1,79 @@
+// Работа со сроками конкурса. Пункт 6.2 Положения: все сроки определяются по
+// московскому времени (UTC+3), окончание срока — 23:59 последнего дня.
+//
+// Важно: в БД сроки хранятся как TIMESTAMPTZ (момент времени), поэтому сравнение
+// с текущим моментом не зависит от часового пояса сервера. Смещение +03:00
+// применяется только при разборе календарных дат из Положения.
+
+export const MOSCOW_TIMEZONE = 'Europe/Moscow';
+export const MOSCOW_UTC_OFFSET = '+03:00';
+
+/** Текущий момент времени (сам по себе не зависит от пояса). */
+export function nowInstant(): Date {
+  return new Date();
+}
+
+/** Конец московских суток для даты вида YYYY-MM-DD: 23:59:59.999 по Москве. */
+export function endOfDayMoscow(isoDate: string): Date {
+  const parsed = new Date(`${isoDate}T23:59:59.999${MOSCOW_UTC_OFFSET}`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Некорректная дата для расчёта срока: «${isoDate}»`);
+  }
+  return parsed;
+}
+
+/** Начало московских суток для даты вида YYYY-MM-DD: 00:00:00.000 по Москве. */
+export function startOfDayMoscow(isoDate: string): Date {
+  const parsed = new Date(`${isoDate}T00:00:00.000${MOSCOW_UTC_OFFSET}`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Некорректная дата для расчёта срока: «${isoDate}»`);
+  }
+  return parsed;
+}
+
+/** Приводит значение из БД (Date | строка | null) к Date. */
+export function toDate(value: Date | string | null | undefined): Date | null {
+  if (value === null || value === undefined) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Истёк ли срок. Пустой срок трактуется как «срок не ограничен» (false):
+ * так ведут себя демонстрационные сезоны без заполненного календаря.
+ */
+export function isDeadlinePassed(deadline: Date | string | null | undefined): boolean {
+  const date = toDate(deadline);
+  if (!date) return false;
+  return nowInstant().getTime() > date.getTime();
+}
+
+/** Сколько миллисекунд осталось до срока (0, если срок уже прошёл). */
+export function millisecondsUntil(deadline: Date | string | null | undefined): number {
+  const date = toDate(deadline);
+  if (!date) return 0;
+  return Math.max(0, date.getTime() - nowInstant().getTime());
+}
+
+/** Человекочитаемое представление момента в московском времени. */
+export function formatMoscow(value: Date | string | null | undefined): string | null {
+  const date = toDate(value);
+  if (!date) return null;
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: MOSCOW_TIMEZONE,
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+/** Добавляет к моменту заданное число рабочих дней (для апелляций, п. 12.1). */
+export function addWorkingDays(from: Date, days: number): Date {
+  const result = new Date(from.getTime());
+  let remaining = days;
+  while (remaining > 0) {
+    result.setUTCDate(result.getUTCDate() + 1);
+    const weekday = result.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) remaining -= 1;
+  }
+  return result;
+}

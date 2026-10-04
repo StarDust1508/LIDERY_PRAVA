@@ -1,0 +1,9 @@
+# Игнорируем зависимости, сборку, окружение и служебный кэш npm.
+node_modules/
+dist/
+.env
+.env.local
+.npm-cache/
+*.log
+.DS_Store
+._*
