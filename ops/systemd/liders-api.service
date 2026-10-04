@@ -1,0 +1,42 @@
+[Unit]
+Description=Lidery Prava platform API
+Documentation=https://github.com/StarDust1508/LIDERY_PRAVA
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=liders
+Group=liders
+WorkingDirectory=/var/www/lideryprava/api
+
+# Секреты — только из файла окружения, права 600, владелец liders.
+# В самом юните секретов НЕТ (в текущем юните сайта есть пароль-заглушка — так нельзя).
+EnvironmentFile=/etc/lideryprava/api.env
+
+ExecStart=/usr/bin/node /var/www/lideryprava/api/dist/index.js
+Restart=always
+RestartSec=5
+
+# Ограничения прав: сервис не должен уметь больше необходимого
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# Единственные каталоги, доступные на запись
+ReadWritePaths=/var/lib/lideryprava
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=liders-api
+
+[Install]
+WantedBy=multi-user.target
