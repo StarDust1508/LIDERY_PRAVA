@@ -92,12 +92,20 @@ interface MentorInput {
   consent_pdn: boolean;
 }
 
-/** Загружает команду вместе с сезоном и составом. */
+/** Загружает команду вместе с сезоном, составом и сведениями о заявке. */
 async function loadTeamBundle(teamId: number) {
   const teamResult = await query(
     `SELECT t.*, s.title AS season_title, s.application_close_at, s.stage1_to,
             s.appeal_window_days, s.timezone AS season_timezone,
-            d.code AS direction_code, d.title AS direction_title
+            d.code AS direction_code, d.title AS direction_title,
+            -- Номер заявки нужен команде для входа в кабинет и для обращения
+            -- в Оргкомитет, поэтому отдаётся вместе с карточкой команды.
+            (SELECT a.public_number FROM applications a
+              WHERE a.team_id = t.id ORDER BY a.id DESC LIMIT 1) AS public_number,
+            (SELECT a.submitted_at FROM applications a
+              WHERE a.team_id = t.id ORDER BY a.id DESC LIMIT 1) AS submitted_at,
+            (SELECT a.tech_status FROM applications a
+              WHERE a.team_id = t.id ORDER BY a.id DESC LIMIT 1) AS tech_status
        FROM teams t
        JOIN seasons s ON s.id = t.season_id
        LEFT JOIN directions d ON d.id = t.direction_id
@@ -236,6 +244,9 @@ router.get(
         : null,
       application_close_at: bundle.team.application_close_at,
       is_application_open: !isDeadlinePassed(bundle.team.application_close_at),
+      public_number: bundle.team.public_number ?? null,
+      submitted_at: bundle.team.submitted_at ?? null,
+      tech_status: bundle.team.tech_status ?? null,
       participants: bundle.participants,
       mentors: bundle.mentors,
     });

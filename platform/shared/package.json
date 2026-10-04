@@ -1,0 +1,15 @@
+{
+  "name": "liders-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Общий код публичной части и админки «Лидеры права»: типы API, клиент, форматирование дат по московскому времени",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

@@ -422,4 +422,37 @@ router.get(
   })
 );
 
+// GET /api/applications/requirements — состав комплекта конкурсных материалов.
+// Состав и сроки ведёт Оргкомитет в таблице material_requirements, поэтому
+// интерфейс получает их запросом, а не хранит собственный перечень
+// (ТЗ 04, п. 3.7).
+router.get(
+  '/applications/requirements',
+  rateLimit(60, 60_000),
+  asyncHandler(async (req, res) => {
+    const season = await loadActiveSeason();
+    if (!season) {
+      res.status(404).json({ error: 'Активный сезон конкурса не найден.' });
+      return;
+    }
+
+    const stage = String(req.query.stage ?? 'selection');
+    if (!['selection', 'stage1', 'final'].includes(stage)) {
+      res.status(400).json({ error: 'Некорректный этап конкурса.' });
+      return;
+    }
+
+    const result = await query(
+      `SELECT type, title, is_required, due_at, max_files, allowed_extensions,
+              name_template, description, sort_order
+         FROM material_requirements
+        WHERE season_id = $1 AND stage = $2 AND is_active
+        ORDER BY sort_order`,
+      [season.id, stage]
+    );
+
+    res.json({ stage, application_close_at: season.application_close_at, requirements: result.rows });
+  })
+);
+
 export default router;

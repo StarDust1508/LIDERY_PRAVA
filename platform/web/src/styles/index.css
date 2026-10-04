@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Базовый слой: только то, что не выражается утилитами Tailwind.
+   Токены подключены отдельными файлами (styles/tokens.css, styles/fonts.css)
+   в точке входа, поэтому здесь их значения уже доступны. */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-text);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+  }
+
+  /* Видимый фокус с клавиатуры — требование WCAG 2.1 AA (ТЗ 08, п. 7.1). */
+  :focus-visible {
+    outline: var(--bw-strong) solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Служебная подпись: капс с трекингом, как в дизайн-системе. */
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-mono);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tr-mono);
+    text-transform: uppercase;
+  }
+
+  /* Скрытый текст для скринридеров. */
+  .sr-only-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
