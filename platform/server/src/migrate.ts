@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,9 +27,15 @@ async function runMigrations(includeSeed: boolean): Promise<void> {
         executed_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    // Контрольная сумма применённого файла (ТЗ 04, п. 5.5). Без неё правка уже
+    // применённой миграции проходит незаметно: база остаётся в прежнем виде, а
+    // файл описывает другое состояние, и расхождение всплывает на проде.
+    await client.query(`ALTER TABLE "${schema}"._migrations ADD COLUMN IF NOT EXISTS checksum TEXT`);
 
-    const applied = await client.query(`SELECT name FROM "${schema}"._migrations ORDER BY id`);
-    const executed = new Set(applied.rows.map((row: { name: string }) => row.name));
+    const applied = await client.query(`SELECT name, checksum FROM "${schema}"._migrations ORDER BY id`);
+    const executed = new Map<string, string | null>(
+      applied.rows.map((row: { name: string; checksum: string | null }) => [row.name, row.checksum])
+    );
 
     if (!fs.existsSync(migrationsDir)) {
       throw new Error(`Каталог миграций не найден: ${migrationsDir}`);
@@ -47,17 +54,34 @@ async function runMigrations(includeSeed: boolean): Promise<void> {
       console.log('Файлы миграций не найдены — нечего применять.');
     }
 
+    const changed: string[] = [];
     for (const file of files) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+      const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+
       if (executed.has(file)) {
-        console.log(`⏭  ${file} — уже применена`);
+        const previous = executed.get(file) ?? null;
+        if (previous === null) {
+          // Миграция применена до появления контрольных сумм: фиксируем сумму
+          // текущего файла, чтобы дальше расхождения отслеживались.
+          await client.query(`UPDATE "${schema}"._migrations SET checksum = $2 WHERE name = $1`, [file, checksum]);
+          console.log(`⏭  ${file} — уже применена (сумма зафиксирована)`);
+        } else if (previous !== checksum) {
+          changed.push(file);
+          console.log(`⚠️  ${file} — файл изменён после применения`);
+        } else {
+          console.log(`⏭  ${file} — уже применена`);
+        }
         continue;
       }
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
       console.log(`▶  Применяем ${file}…`);
       try {
         await client.query('BEGIN');
         await client.query(sql);
-        await client.query(`INSERT INTO "${schema}"._migrations (name) VALUES ($1)`, [file]);
+        await client.query(`INSERT INTO "${schema}"._migrations (name, checksum) VALUES ($1, $2)`, [
+          file,
+          checksum,
+        ]);
         await client.query('COMMIT');
         console.log(`✅ ${file} применена`);
       } catch (error) {
@@ -65,6 +89,15 @@ async function runMigrations(includeSeed: boolean): Promise<void> {
         console.error(`❌ Ошибка в ${file}:`, (error as Error).message);
         throw error;
       }
+    }
+
+    if (changed.length > 0) {
+      throw new Error(
+        'Изменены уже применённые миграции: ' +
+          changed.join(', ') +
+          '. Правки в применённый файл вносить нельзя — создайте новую миграцию. ' +
+          'Если база в другом окружении ещё не знает об этом файле, расхождение всё равно останется.'
+      );
     }
 
     console.log('🎉 Миграции применены.');

@@ -136,6 +136,11 @@ fi
 TABLES=$(psql_db "SELECT count(*) FROM information_schema.tables WHERE table_schema='liders'")
 OUTSIDE=$(psql_db "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('liders','pg_catalog','information_schema')")
 [ "${TABLES:-0}" -ge 38 ] && ok "таблиц в схеме liders: $TABLES" || bad "таблиц в схеме liders: ${TABLES:-?}"
+# Контрольные суммы миграций (ТЗ 04, п. 5.5): изменение применённого файла
+# должно обнаруживаться, иначе база и файлы расходятся молча.
+CHECKSUMS=$(psql_db "SELECT count(*) FROM liders._migrations WHERE checksum IS NOT NULL")
+APPLIED_MIGRATIONS=$(psql_db "SELECT count(*) FROM liders._migrations")
+[ "${CHECKSUMS:-0}" = "${APPLIED_MIGRATIONS:-1}" ] && ok "контрольные суммы зафиксированы у всех миграций: ${CHECKSUMS}" || bad "суммы есть у ${CHECKSUMS:-0} из ${APPLIED_MIGRATIONS:-?} миграций"
 [ "${OUTSIDE:-1}" = "0" ] && ok "таблиц вне схемы liders нет" || bad "таблиц вне схемы liders: $OUTSIDE"
 
 # Окно приёма в тестовой базе открываем: в сиде оно начинается 11.11.2026.
