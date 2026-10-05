@@ -5,7 +5,7 @@ import { query } from '../db.js';
 import { asyncHandler } from '../lib/http.js';
 import { hasValidSignature, isAllowedUploadMime, sanitizeFileName } from '../lib/media-content.js';
 import { verifyMediaGrant } from '../lib/signed-links.js';
-import { bearerToken, requireAdmin, verifyAdminToken } from '../middleware/admin-auth.js';
+import { requireAdmin, verifyAdminToken } from '../middleware/admin-auth.js';
 import { authenticateTeamToken, teamTokenFromRequest } from '../middleware/team-auth.js';
 
 // Медиахранилище: файлы лежат в PostgreSQL (BYTEA). Публично отдаются только
@@ -74,8 +74,8 @@ router.get(
     let granted = Boolean(row.is_public);
 
     if (!granted) {
-      // 1. Админ-сессия.
-      if (await verifyAdminToken(bearerToken(req))) {
+      // 1. Админ-сессия (любая из ролей: обе работают с материалами заявок).
+      if (await verifyAdminToken(req)) {
         granted = true;
       }
       // 2. Токен команды, которой принадлежит материал.

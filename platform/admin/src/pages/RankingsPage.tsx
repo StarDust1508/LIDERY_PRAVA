@@ -15,7 +15,7 @@ import { Alert, Button, PageHeader, SectionCard, SelectField } from '@shared/ind
 // и публикация протокола. Публикация — единственный способ показать баллы
 // участникам и точка отсчёта срока апелляции (п. 12.1).
 
-export function RankingsPage() {
+export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
   const [seasons, setSeasons] = useState<Array<{ id: number; title: string; is_active: boolean }>>([]);
   const [seasonId, setSeasonId] = useState('');
   const [stage, setStage] = useState<string>('selection');
@@ -107,7 +107,12 @@ export function RankingsPage() {
             </Button>
             <Button
               loading={busy}
-              disabled={seasonId === '' || rows.length === 0}
+              disabled={!canPublish || seasonId === '' || rows.length === 0}
+              title={
+                canPublish
+                  ? undefined
+                  : 'Публикация протокола доступна только роли «администратор» (ТЗ 07, п. 1.3).'
+              }
               onClick={() =>
                 void run(async () => {
                   const result = await adminApi.publishRankings(Number(seasonId), stage);

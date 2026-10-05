@@ -68,6 +68,37 @@ download() {
     fi
 }
 
+# login_attempt <ожидаемый код> <логин> <пароль> <описание> [переменная для токена]
+# Вход в админку с ожиданием сброса лимита: на один адрес даётся 5 входов в
+# минуту, поэтому проверки ролей ждут окно, а не «съедают» бюджет проверки
+# перебора пароля ниже.
+login_attempt() {
+    local want="$1" login="$2" password="$3" desc="$4" var="${5:-}"
+    local code attempt retry
+    for attempt in 1 2 3; do
+        code=$(curl -s -D /tmp/lp_acc_headers.txt -o "$BODY" -w '%{http_code}' \
+            -X POST "${BASE}/api/admin/login" -H 'Content-Type: application/json' \
+            -d "{\"login\":\"${login}\",\"password\":\"${password}\"}")
+        if [ "$code" != "429" ]; then break; fi
+        retry=$(grep -i '^retry-after:' /tmp/lp_acc_headers.txt | tr -d '\r' | awk '{print $2}')
+        retry=${retry:-60}
+        printf '    · лимит входов исчерпан, ждём %s с\n' "$retry"
+        sleep $((retry + 1))
+    done
+    if [ "$code" = "$want" ]; then
+        ok "$desc → $code"
+    else
+        bad "$desc → ожидался $want, получен $code · $(head -c 160 "$BODY")"
+    fi
+    if [ -n "$var" ]; then
+        if [ "$code" = "200" ]; then
+            eval "$var=$(python3 -c "import json;print(json.load(open('$BODY')).get('token',''))")"
+        else
+            eval "$var=''"
+        fi
+    fi
+}
+
 SERVER_PID=""
 cleanup() {
     if [ -n "$SERVER_PID" ]; then
@@ -353,6 +384,97 @@ step "С8. Роли, доступ к чужому и лимиты"
 MEDIA_ID=$(psql_db "SELECT media_id FROM liders.application_materials WHERE team_id=${TEAM_ID} AND media_id IS NOT NULL LIMIT 1")
 expect "приватный файл без прав недоступен" 404 "${BASE}/api/media/file/${MEDIA_ID}"
 expect "приватный файл доступен администратору" 200 -H "$AUTH" "${BASE}/api/media/file/${MEDIA_ID}"
+# ── С8.1. Роли и пользователи админ-панели (ТЗ 07, п. 1.3, 2.17) ────────────
+step "С8.1. Роли admin/operator, управление пользователями"
+OPERATOR_PASSWORD='P1rimernyj-Parol-2027'
+ADMIN_PASSWORD_NEW='P1rimernyj-Parol-2028'
+expect "оператор создаётся администратором" 201 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"accept-operator@example.ru\",\"password\":\"${OPERATOR_PASSWORD}\",\"role\":\"operator\",\"full_name\":\"Оператор Приёмочный\"}"
+OPERATOR_ID=$(psql_db "SELECT id FROM liders.users WHERE email='accept-operator@example.ru'")
+expect "администратор создаётся администратором" 201 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"accept-admin@example.ru\",\"password\":\"${OPERATOR_PASSWORD}\",\"role\":\"admin\",\"full_name\":\"Администратор Приёмочный\"}"
+ADMIN_USER_ID=$(psql_db "SELECT id FROM liders.users WHERE email='accept-admin@example.ru'")
+expect "повтор почты отклоняется" 409 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"accept-admin@example.ru\",\"password\":\"${OPERATOR_PASSWORD}\",\"role\":\"admin\"}"
+expect "короткий пароль отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"weak@example.ru","password":"korotkij1","role":"operator"}'
+HASH=$(psql_db "SELECT password_hash FROM liders.users WHERE id=${ADMIN_USER_ID}")
+if printf '%s' "$HASH" | grep -qE '^\$2[aby]\$12\$'; then
+    ok "пароль хранится bcrypt-хэшем с cost 12"
+else
+    bad "хэш пароля не bcrypt cost 12: $(printf '%s' "$HASH" | head -c 12)"
+fi
+PLAIN=$(psql_db "SELECT count(*) FROM liders.users WHERE password_hash LIKE '%${OPERATOR_PASSWORD}%'")
+[ "${PLAIN:-1}" = "0" ] && ok "пароль в открытом виде не хранится" || bad "пароль найден в открытом виде"
+
+login_attempt 200 'accept-operator@example.ru' "$OPERATOR_PASSWORD" "вход оператора по почте и паролю" OPERATOR_TOKEN
+OPERATOR_ROLE=$(python3 -c "import json;print(json.load(open('$BODY')).get('role',''))")
+[ "$OPERATOR_ROLE" = "operator" ] && ok "сервер сообщает роль оператора" || bad "роль в ответе на вход: $OPERATOR_ROLE"
+OPERATOR_AUTH="Authorization: Bearer ${OPERATOR_TOKEN}"
+expect "оператор видит заявки" 200 -H "$OPERATOR_AUTH" "${BASE}/api/admin/applications"
+expect "оператор читает критерии для оценок" 200 -H "$OPERATOR_AUTH" "${BASE}/api/admin/criteria"
+expect "оператор не видит пользователей" 403 -H "$OPERATOR_AUTH" "${BASE}/api/admin/users"
+expect "оператор не меняет настройки" 403 -H "$OPERATOR_AUTH" -X PUT "${BASE}/api/admin/settings/contacts" \
+    -H 'Content-Type: application/json' -d '{"value":{"email":"x@example.ru"}}'
+expect "оператор не публикует протокол" 403 -H "$OPERATOR_AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+expect "оператор не выгружает персональные данные" 403 -H "$OPERATOR_AUTH" "${BASE}/api/admin/applications/export"
+expect "оператор не создаёт учётные записи" 403 -H "$OPERATOR_AUTH" -X POST "${BASE}/api/admin/users" \
+    -H 'Content-Type: application/json' -d '{"email":"x@example.ru","password":"P1rimernyj-Parol-2027","role":"admin"}'
+
+login_attempt 200 'accept-admin@example.ru' "$OPERATOR_PASSWORD" "вход администратора по почте и паролю" ADMIN_USER_TOKEN
+ADMIN_ROLE=$(python3 -c "import json;print(json.load(open('$BODY')).get('role',''))")
+[ "$ADMIN_ROLE" = "admin" ] && ok "сервер сообщает роль администратора" || bad "роль в ответе на вход: $ADMIN_ROLE"
+ADMIN_USER_AUTH="Authorization: Bearer ${ADMIN_USER_TOKEN}"
+expect "администратор видит список пользователей" 200 -H "$ADMIN_USER_AUTH" "${BASE}/api/admin/users"
+if curl -s -H "$ADMIN_USER_AUTH" "${BASE}/api/admin/users" | grep -q 'password_hash'; then
+    bad "список пользователей раскрывает хэши паролей"
+else
+    ok "список пользователей не содержит хэшей паролей"
+fi
+expect "нельзя заблокировать собственную учётную запись" 409 -H "$ADMIN_USER_AUTH" \
+    -X PATCH "${BASE}/api/admin/users/${ADMIN_USER_ID}" -H 'Content-Type: application/json' -d '{"is_active":false}'
+expect "нельзя понизить собственную роль" 409 -H "$ADMIN_USER_AUTH" \
+    -X PATCH "${BASE}/api/admin/users/${ADMIN_USER_ID}" -H 'Content-Type: application/json' -d '{"role":"operator"}'
+expect "нельзя оставить систему без администратора" 409 -H "$AUTH" \
+    -X PATCH "${BASE}/api/admin/users/${ADMIN_USER_ID}" -H 'Content-Type: application/json' -d '{"role":"operator"}'
+expect "слабый пароль при сбросе отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/password" \
+    -H 'Content-Type: application/json' -d '{"password":"korotkij1"}'
+expect "сброс пароля администратором" 200 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/password" \
+    -H 'Content-Type: application/json' -d "{\"password\":\"${ADMIN_PASSWORD_NEW}\"}"
+login_attempt 401 'accept-operator@example.ru' "$OPERATOR_PASSWORD" "старый пароль после сброса не работает"
+login_attempt 200 'accept-operator@example.ru' "$ADMIN_PASSWORD_NEW" "вход с новым паролем" OPERATOR_TOKEN2
+AUTH_VERSION=$(psql_db "SELECT auth_version FROM liders.users WHERE id=${OPERATOR_ID}")
+[ "${AUTH_VERSION:-1}" -ge 2 ] && ok "сброс пароля поднял версию авторизации (${AUTH_VERSION})" || bad "версия авторизации не изменилась: ${AUTH_VERSION:-?}"
+# Бездействие: сервер завершает сеанс, если отметка активности старше окна.
+# Первый запрос создаёт отметку — без него обновлять было бы нечего.
+curl -s -o /dev/null -H "Authorization: Bearer ${OPERATOR_TOKEN2}" "${BASE}/api/admin/applications"
+TOKEN_HASH=$(printf '%s' "$OPERATOR_TOKEN2" | shasum -a 256 | awk '{print $1}')
+MARKED=$(psql_db "SELECT count(*) FROM liders.admin_session_activity WHERE token_hash='${TOKEN_HASH}'")
+[ "${MARKED:-0}" = "1" ] && ok "активность сеанса отмечается на сервере" || bad "отметка активности сеанса не создана: ${MARKED:-0}"
+psql_db "UPDATE liders.admin_session_activity SET last_seen_at = now() - interval '61 minutes' WHERE token_hash='${TOKEN_HASH}'" >/dev/null
+IDLE_CODE=$(curl -s -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${OPERATOR_TOKEN2}" "${BASE}/api/admin/applications")
+if [ "$IDLE_CODE" = "401" ] && grep -q 'бездействие' "$BODY"; then
+    ok "сеанс завершается после 60 минут бездействия"
+else
+    bad "бездействие не завершает сеанс: $IDLE_CODE · $(head -c 160 "$BODY")"
+fi
+expect "блокировка учётной записи" 200 -H "$AUTH" -X PATCH "${BASE}/api/admin/users/${OPERATOR_ID}" \
+    -H 'Content-Type: application/json' -d '{"is_active":false,"blocked_reason":"Приёмочная проверка"}'
+login_attempt 401 'accept-operator@example.ru' "$ADMIN_PASSWORD_NEW" "заблокированный оператор не может войти"
+expect "разблокировка учётной записи" 200 -H "$AUTH" -X PATCH "${BASE}/api/admin/users/${OPERATOR_ID}" \
+    -H 'Content-Type: application/json' -d '{"is_active":true}'
+expect "завершение всех сеансов учётной записи" 200 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/revoke-sessions"
+USER_ACTIONS=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE entity='users'")
+[ "${USER_ACTIONS:-0}" -ge 5 ] && ok "действия с пользователями записаны в журнал: $USER_ACTIONS" || bad "в журнале действий с пользователями: ${USER_ACTIONS:-0}"
+AUTH_EVENTS=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event IN ('admin_login_success','admin_login_fail') AND user_id IS NOT NULL")
+[ "${AUTH_EVENTS:-0}" -ge 2 ] && ok "входы по учётным записям записаны с пользователем: $AUTH_EVENTS" || bad "входы по учётным записям не записаны: ${AUTH_EVENTS:-0}"
+
+
 LIMITED=0
 for _ in $(seq 1 12); do
     code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/api/admin/login" -H 'Content-Type: application/json' -d '{"login":"admin","password":"неверный-пароль"}')
@@ -363,8 +485,6 @@ LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_
 # Успешный вход выше уже израсходовал одну попытку из лимита 5 запросов в минуту,
 # поэтому в журнал попадает не 12 отказов, а столько, сколько пропустил лимитер.
 [ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
-gap "С8.1 (роли admin/operator) — управление пользователями админки не реализовано, роль оператора не проверить"
-
 # ── Публикация редакции 04.10.2026 ───────────────────────────────────────────
 step "Публикация Положения и Приложений редакции 04.10.2026"
 DOC_COUNT=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active")

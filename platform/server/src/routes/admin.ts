@@ -5,11 +5,22 @@ import { toCsv } from '../lib/csv.js';
 import { addWorkingDays } from '../lib/moscow-time.js';
 import { isIsoDate, optionalText, requiredText } from '../lib/validation.js';
 import { generateAccessToken, hashAccessToken } from '../middleware/team-auth.js';
-import { adminAuditActor, bearerToken, verifyTokenSignature } from '../middleware/admin-auth.js';
+import {
+  adminAuditActor,
+  bearerToken,
+  requireAdminForWrites,
+  requireAdminRole,
+  verifyTokenSignature,
+} from '../middleware/admin-auth.js';
 
 // Админские маршруты. Роутер подключается под requireAdmin (см. index.ts),
 // поэтому здесь нет повторных проверок сессии. Исключение — вход и выход,
 // они живут в отдельном роутере routes/auth-admin.ts.
+//
+// Разграничение ролей (ТЗ 07, п. 1.3): оператор ведёт заявки, материалы,
+// обращения, мастер-классы, новости и документы. Настройки, справочники,
+// эксперты, публикация протоколов и выгрузка персональных данных — только
+// администратор. Проверка стоит на маршруте, а не в интерфейсе.
 
 const router = Router();
 
@@ -361,6 +372,7 @@ router.get(
 // GET /api/admin/applications/export — выгрузка CSV (экспорт для оргкомитета).
 router.get(
   '/applications/export',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const filter = buildApplicationFilter(req);
     const result = await query(
@@ -1372,6 +1384,7 @@ router.post(
 // POST /api/admin/rankings/publish — публикация протокола этапа.
 router.post(
   '/rankings/publish',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const seasonId = parsePositiveInt(body.season_id);
@@ -1705,6 +1718,7 @@ router.patch(
 // GET /api/admin/settings — все настройки.
 router.get(
   '/settings',
+  requireAdminRole('admin'),
   asyncHandler(async (_req, res) => {
     const result = await query('SELECT key, value, description, updated_by, updated_at FROM site_settings ORDER BY key');
     res.json(result.rows);
@@ -1714,6 +1728,7 @@ router.get(
 // PUT /api/admin/settings/:key — запись настройки с сохранением ревизии.
 router.put(
   '/settings/:key',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const key = String(req.params.key).slice(0, 200);
     if (!/^[a-zA-Z0-9._-]+$/.test(key)) {
@@ -1753,6 +1768,7 @@ router.put(
 // GET /api/admin/settings/:key/revisions — история изменений настройки.
 router.get(
   '/settings/:key/revisions',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const key = String(req.params.key).slice(0, 200);
     const result = await query(
@@ -1770,6 +1786,7 @@ router.get(
 // DELETE /api/admin/settings/:key
 router.delete(
   '/settings/:key',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const key = String(req.params.key).slice(0, 200);
     const result = await query('DELETE FROM site_settings WHERE key = $1 RETURNING key', [key]);
@@ -1830,6 +1847,7 @@ router.get(
 
 router.use(
   '/seasons',
+  requireAdminForWrites,
   buildCrud({
     table: 'seasons',
     fields: [
@@ -1858,6 +1876,7 @@ router.use(
 
 router.use(
   '/directions',
+  requireAdminForWrites,
   buildCrud({
     table: 'directions',
     fields: [
@@ -1875,6 +1894,7 @@ router.use(
 
 router.use(
   '/experts',
+  requireAdminForWrites,
   buildCrud({
     table: 'experts',
     fields: [
@@ -1897,6 +1917,7 @@ router.use(
 
 router.use(
   '/jury-members',
+  requireAdminForWrites,
   buildCrud({
     table: 'jury_members',
     fields: [
@@ -1918,6 +1939,7 @@ router.use(
 
 router.use(
   '/criteria',
+  requireAdminForWrites,
   buildCrud({
     table: 'criteria',
     fields: [
@@ -1970,6 +1992,7 @@ router.use(
 
 router.use(
   '/partners',
+  requireAdminForWrites,
   buildCrud({
     table: 'partners',
     fields: [
@@ -2246,6 +2269,7 @@ router.use('/initiatives', initiativeAuthorsRouter);
 // (ТЗ 02, п. 14, правило 4).
 router.post(
   '/initiatives/:id/publish',
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {

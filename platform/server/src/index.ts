@@ -2,11 +2,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import cors from 'cors';
 import { API_HOST, API_PORT, CORS_ORIGINS, DATABASE_SCHEMA, IS_PRODUCTION, NODE_ENV } from './config.js';
 import pool, { testConnection } from './db.js';
-import { requireAdmin } from './middleware/admin-auth.js';
+import { requireAdmin, requireAdminRole } from './middleware/admin-auth.js';
 import { auditAdminMutations } from './middleware/admin-audit.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import { buildSitemap } from './lib/sitemap.js';
 import adminRouter from './routes/admin.js';
+import adminUsersRouter from './routes/admin-users.js';
 import applicationsRouter from './routes/applications.js';
 import authAdminRouter from './routes/auth-admin.js';
 import cabinetAccessRouter from './routes/cabinet-access.js';
@@ -85,6 +86,11 @@ app.use('/api/cabinet', cabinetRouter);
 // журнал действий (ТЗ 03, п. 5.6; ТЗ 07, п. 2.16–2.17).
 app.use('/api/admin', authAdminRouter);
 app.use('/api/admin', requireAdmin, auditAdminMutations, adminRouter);
+// Пользователи админ-панели — только роль `admin` (ТЗ 07, п. 1.3 и 2.17).
+// Монтируется после adminRouter, чтобы не перехватывать его маршруты.
+// Отдельный auditAdminMutations здесь не нужен: запросы уже прошли через
+// общий слой аудита выше, а сами маршруты пишут сущностные записи в журнал.
+app.use('/api/admin/users', requireAdmin, requireAdminRole('admin'), adminUsersRouter);
 
 // Неизвестный маршрут.
 app.use((_req: Request, res: Response) => {

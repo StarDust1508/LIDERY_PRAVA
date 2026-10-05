@@ -21,6 +21,8 @@ interface ScoreDraft {
   comment: string;
 }
 
+// Оценки вносят эксперты и члены Жюри; роль влияет только на публикацию
+// протокола, поэтому здесь права не различаются — публикация живёт в «Рейтинге».
 export function EvaluationPage() {
   const params = useParams();
   const [stage, setStage] = useState<string>('selection');

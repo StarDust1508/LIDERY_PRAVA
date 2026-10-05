@@ -21,6 +21,8 @@ const ENTITY_TITLES: Record<string, string> = {
   documents: 'Документы',
   winners: 'Победители',
   initiatives: 'Архив законопроектов',
+  users: 'Пользователи',
+  auth: 'Вход в админ-панель',
 };
 
 export function AuditPage() {

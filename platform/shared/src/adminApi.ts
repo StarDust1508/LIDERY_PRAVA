@@ -4,6 +4,9 @@ import type {
   AdminConsent,
   AdminDistributionConsent,
   AdminMaterial,
+  AdminSessionInfo,
+  AdminUser,
+  AdminUserRole,
   AuditRecord,
   Criterion,
   Evaluation,
@@ -111,14 +114,40 @@ export interface ApplicationQuery {
 
 export const adminApi = {
   login: (login: string, password: string) =>
-    adminRequest<{ token: string; token_type: string }>('/api/admin/login', {
+    adminRequest<{ token: string; token_type: string } & AdminSessionInfo>('/api/admin/login', {
       method: 'POST',
       body: JSON.stringify({ login, password }),
     }),
 
-  verify: () => adminRequest<{ valid: boolean }>('/api/admin/verify'),
+  verify: () => adminRequest<AdminSessionInfo>('/api/admin/verify'),
 
   logout: () => adminRequest<{ success: true }>('/api/admin/logout', { method: 'POST' }),
+
+  /** Отметка активности: продлевает сеанс, не читая данные. */
+  heartbeat: () =>
+    adminRequest<{ success: true; idle_minutes: number }>('/api/admin/sessions/heartbeat', { method: 'POST' }),
+
+  // Пользователи админ-панели — раздел только для роли `admin` (ТЗ 07, п. 2.17).
+  users: (params: { q?: string; role?: string } = {}) =>
+    adminRequest<AdminUser[]>(`/api/admin/users${queryString(params)}`),
+
+  createUser: (payload: { email: string; password: string; role: AdminUserRole; full_name?: string | null }) =>
+    adminRequest<AdminUser>('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateUser: (id: number, patch: { role?: AdminUserRole; is_active?: boolean; full_name?: string | null; blocked_reason?: string | null }) =>
+    adminRequest<AdminUser>(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  resetUserPassword: (id: number, password: string) =>
+    adminRequest<{ success: true; sessions_revoked: boolean; must_change_password: boolean }>(
+      `/api/admin/users/${id}/password`,
+      { method: 'POST', body: JSON.stringify({ password }) }
+    ),
+
+  revokeUserSessions: (id: number) =>
+    adminRequest<{ success: true; sessions_revoked: boolean; self: boolean }>(
+      `/api/admin/users/${id}/revoke-sessions`,
+      { method: 'POST' }
+    ),
 
   applications: (params: ApplicationQuery = {}) =>
     adminRequest<AdminApplicationRow[]>(`/api/admin/applications${queryString(params)}`),

@@ -125,6 +125,8 @@ export const JWT_EXPIRES_IN: string = optionalString('JWT_EXPIRES_IN', '7d');
 
 export const ADMIN_SESSION_SECRET: string = requireString('ADMIN_SESSION_SECRET', 32);
 export const ADMIN_SESSION_TTL_HOURS: number = optionalInt('ADMIN_SESSION_TTL_HOURS', 12, 1, 24);
+// Автоматический выход при бездействии (ТЗ 07, п. 1.2). По умолчанию 60 минут.
+export const ADMIN_IDLE_MINUTES: number = optionalInt('ADMIN_IDLE_MINUTES', 60, 5, 720);
 export const ADMIN_LOGIN: string | undefined = readRaw('ADMIN_LOGIN');
 export const ADMIN_PASSWORD: string = requireString('ADMIN_PASSWORD', 8);
 

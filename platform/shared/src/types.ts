@@ -498,6 +498,38 @@ export interface Criterion {
   is_active: boolean;
 }
 
+/** Роль в админ-панели (ТЗ 07, п. 1.3). */
+export type AdminUserRole = 'admin' | 'operator';
+
+/** Учётная запись админ-панели: пароль и его хэш наружу не отдаются. */
+export interface AdminUser {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: AdminUserRole;
+  is_active: boolean;
+  must_change_password: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+  blocked_at: string | null;
+  blocked_reason: string | null;
+  active_sessions: number;
+}
+
+/** Сведения о текущем сеансе: роль, срок жизни и окно бездействия. */
+export interface AdminSessionInfo {
+  valid?: boolean;
+  /** null — вход по общему паролю из окружения, учётной записи нет. */
+  user_id?: number | null;
+  role: AdminUserRole;
+  email: string | null;
+  full_name: string | null;
+  must_change_password: boolean;
+  session_ttl_hours: number;
+  idle_minutes: number;
+}
+
 export interface Expert {
   id: number;
   full_name: string;

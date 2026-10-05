@@ -1,6 +1,12 @@
 import type { Request } from 'express';
 import { query } from '../db.js';
-import { adminAuditActor, adminStablePrincipal, adminUserIdOf, clientIpOf } from '../middleware/admin-auth.js';
+import {
+  adminAuditActor,
+  adminRoleOfRequest,
+  adminStablePrincipal,
+  adminUserIdOf,
+  clientIpOf,
+} from '../middleware/admin-auth.js';
 
 // Журнал действий администраторов и операторов (таблица audit_log).
 //
@@ -46,7 +52,9 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
          (actor_type, user_id, actor_label, action, entity, entity_id, before, after, ip, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10)`,
       [
-        entry.actorType ?? 'admin',
+        // Роль берётся из сессии: журнал должен различать действия оператора и
+        // администратора (ТЗ 07, п. 1.3), иначе разбор инцидента бессмыслен.
+        entry.actorType ?? (req ? adminRoleOfRequest(req) : 'system'),
         req ? adminUserIdOf(req) : null,
         req ? (adminStablePrincipal(req) ?? adminAuditActor(req)) : 'system',
         entry.action,
