@@ -1,0 +1,11 @@
+# robots.txt конкурса «Лидеры права – 2027»
+# Служебные разделы закрыты: личный кабинет, админка и API не индексируются.
+
+User-agent: *
+Allow: /
+Disallow: /cabinet/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /apply
+
+Sitemap: https://lideryprava.ru/sitemap.xml

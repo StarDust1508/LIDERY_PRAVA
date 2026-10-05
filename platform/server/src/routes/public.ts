@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PUBLIC_BASE_URL } from '../config.js';
 import { query } from '../db.js';
-import { asyncHandler, parsePositiveInt } from '../lib/http.js';
+import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { isDeadlinePassed } from '../lib/moscow-time.js';
 
 // Публичные справочные данные сайта. Ничего персонального здесь не отдаётся:
@@ -221,6 +221,219 @@ router.get(
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Документ не найден' });
+      return;
+    }
+    res.json(result.rows[0]);
+  })
+);
+
+// GET /api/criteria — критерии оценки по этапам (раздел 10 Положения).
+// Публичные данные: участник должен видеть, по чему его оценивают.
+router.get(
+  '/criteria',
+  asyncHandler(async (req, res) => {
+    const stage = queryString(req.query.stage);
+    const params: unknown[] = [];
+    const where: string[] = ['is_active'];
+    if (stage) {
+      params.push(stage);
+      where.push(`stage = $${params.length}`);
+    }
+    const result = await query(
+      `SELECT id, stage, code, title, description, max_score, sort_order
+         FROM criteria
+        WHERE ${where.join(' AND ')}
+        ORDER BY stage, sort_order`,
+      params
+    );
+    res.json(result.rows);
+  })
+);
+
+// ─── Архив законопроектов (ТЗ 02, п. 14; ТЗ 04, п. 10) ───────────────────────
+// Публикуются только инициативы с is_published = TRUE — решение Оргкомитета, а
+// не следствие подачи заявки. Авторы и файлы отдаются лишь при соответствующих
+// согласиях: authors_public (Приложение № 12) и files_public (Приложение № 13).
+// Без согласия карточка публикуется обезличенно — «команда» без персональных
+// данных. Это проверка на сервере, а не в интерфейсе.
+
+const INITIATIVE_SELECT = `
+  SELECT i.id, i.slug, i.title, i.annotation, i.act_level, i.proposed_initiator, i.direction_id,
+         i.team_name, i.result_place, i.nomination, i.archive_year,
+         i.video_url, i.published_at, i.authors_public, i.files_public,
+         d.code AS direction_code, d.title AS direction_title,
+         CASE WHEN i.files_public
+                   AND (i.law_draft_media_id IS NOT NULL OR i.explanatory_note_media_id IS NOT NULL)
+              THEN TRUE ELSE FALSE END AS has_files
+    FROM initiatives i
+    LEFT JOIN directions d ON d.id = i.direction_id
+`;
+
+// GET /api/initiatives — список архива с фильтрами и полнотекстовым поиском.
+router.get(
+  '/initiatives',
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = ['i.is_published'];
+
+    const year = parsePositiveInt(queryString(req.query.year));
+    if (year !== null) {
+      params.push(year);
+      where.push(`i.archive_year = $${params.length}`);
+    }
+    const directionId = parsePositiveInt(queryString(req.query.direction_id));
+    if (directionId !== null) {
+      params.push(directionId);
+      where.push(`i.direction_id = $${params.length}`);
+    }
+    const actLevel = queryString(req.query.act_level);
+    if (actLevel) {
+      params.push(actLevel);
+      where.push(`i.act_level = $${params.length}`);
+    }
+    if (queryString(req.query.has_files) === 'true') {
+      where.push(`i.files_public AND (i.law_draft_media_id IS NOT NULL OR i.explanatory_note_media_id IS NOT NULL)`);
+    }
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(search);
+      where.push(
+        `to_tsvector('russian'::regconfig,
+            COALESCE(i.title, '') || ' ' || COALESCE(i.annotation, '') || ' ' || COALESCE(i.team_name, ''))
+         @@ plainto_tsquery('russian'::regconfig, $${params.length})`
+      );
+    }
+
+    const limit = Math.min(200, parsePositiveInt(queryString(req.query.limit)) ?? 50);
+    const result = await query(
+      `${INITIATIVE_SELECT} WHERE ${where.join(' AND ')}
+        ORDER BY i.archive_year DESC NULLS LAST, i.result_place NULLS LAST, i.sort_order, i.published_at DESC NULLS LAST
+        LIMIT ${limit}`,
+      params
+    );
+
+    res.json(
+      result.rows.map((row) => ({
+        ...row,
+        // Флаги согласий наружу не отдаём: клиенту важно, есть ли данные, а не
+        // внутренняя механика их сокрытия.
+        authors_public: undefined,
+        files_public: undefined,
+      }))
+    );
+  })
+);
+
+// GET /api/initiatives/:slug — карточка инициативы.
+router.get(
+  '/initiatives/:slug',
+  asyncHandler(async (req, res) => {
+    const slug = String(req.params.slug).slice(0, 200);
+    const result = await query(`${INITIATIVE_SELECT} WHERE i.is_published AND i.slug = $1 LIMIT 1`, [slug]);
+    const initiative = result.rows[0];
+    if (!initiative) {
+      res.status(404).json({ error: 'Инициатива не найдена' });
+      return;
+    }
+
+    // Авторы — только при согласии на распространение (Приложение № 12).
+    let authors: Array<Record<string, unknown>> = [];
+    if (initiative.authors_public === true) {
+      const authorsResult = await query(
+        `SELECT full_name, organization, region
+           FROM initiative_authors
+          WHERE initiative_id = $1 AND is_published
+          ORDER BY sort_order, id`,
+        [initiative.id]
+      );
+      authors = authorsResult.rows;
+    }
+
+    // Файлы — только при лицензии (Приложение № 13).
+    const files: Array<{ kind: string; title: string; url: string }> = [];
+    if (initiative.files_public === true) {
+      if (initiative.law_draft_media_id) {
+        files.push({
+          kind: 'law_draft',
+          title: 'Текст законопроекта',
+          url: `/api/media/file/${initiative.law_draft_media_id}`,
+        });
+      }
+      if (initiative.explanatory_note_media_id) {
+        files.push({
+          kind: 'explanatory_note',
+          title: 'Пояснительная записка',
+          url: `/api/media/file/${initiative.explanatory_note_media_id}`,
+        });
+      }
+    }
+
+    const related = await query(
+      `SELECT slug, title, archive_year
+         FROM initiatives
+        WHERE is_published AND id <> $1
+          AND direction_id IS NOT DISTINCT FROM $2
+        ORDER BY archive_year DESC NULLS LAST, result_place NULLS LAST
+        LIMIT 3`,
+      [initiative.id, initiative.direction_id ?? null]
+    );
+
+    res.json({
+      ...initiative,
+      authors,
+      files,
+      related: related.rows,
+      authors_public: undefined,
+      files_public: undefined,
+    });
+  })
+);
+
+// ─── Победители (ТЗ 08, п. 5) ────────────────────────────────────────────────
+// Публикуются только записи с is_published; фото и видео — при согласиях,
+// поэтому отдаются ссылками на уже опубликованные файлы (media.is_public).
+
+router.get(
+  '/winners',
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = ['w.is_published'];
+    const year = parsePositiveInt(queryString(req.query.year));
+    if (year !== null) {
+      params.push(year);
+      where.push(`w.season_year = $${params.length}`);
+    }
+
+    const result = await query(
+      `SELECT w.id, w.season_year, w.nomination, w.place, w.team_name,
+              w.participants_text, w.mentors_text, w.initiative_title,
+              w.video_url, w.announcement, w.sort_order,
+              CASE WHEN w.photo_media_id IS NOT NULL
+                   THEN '/api/media/file/' || w.photo_media_id::text ELSE NULL END AS photo_url
+         FROM winners w
+        WHERE ${where.join(' AND ')}
+        ORDER BY w.season_year DESC, w.nomination, w.place NULLS LAST, w.sort_order`,
+      params
+    );
+    res.json(result.rows);
+  })
+);
+
+// ─── Редактируемые страницы (ТЗ 08, п. 5) ───────────────────────────────────
+
+router.get(
+  '/pages/:slug',
+  asyncHandler(async (req, res) => {
+    const slug = String(req.params.slug).slice(0, 200);
+    const result = await query(
+      `SELECT slug, title, type, excerpt, body, seo_title, seo_description
+         FROM pages
+        WHERE slug = $1 AND is_published
+        LIMIT 1`,
+      [slug]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Страница не найдена' });
       return;
     }
     res.json(result.rows[0]);

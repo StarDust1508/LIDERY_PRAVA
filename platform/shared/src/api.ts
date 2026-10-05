@@ -9,14 +9,34 @@ import type {
   DeadlinesResponse,
   Direction,
   FinalConfirmationResponse,
+  InitiativeCard,
+  InitiativeListItem,
   Material,
   MaterialRequirementsResponse,
+  PublicDocument,
+  PublicCriterion,
+  PublicMasterclass,
+  PublicPage,
+  PublicPartner,
   SeasonResponse,
   SubmissionResponse,
   SubmitApplicationPayload,
   TeamResponse,
+  Winner,
   WithdrawResponse,
 } from './types';
+
+/** Строка запроса для публичных списков: пустые значения не отправляются. */
+function publicQuery(params: Record<string, unknown>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    if (value === '') continue;
+    search.set(key, String(value));
+  }
+  const encoded = search.toString();
+  return encoded === '' ? '' : `?${encoded}`;
+}
 
 // Единый клиент API для публичной части и админки (ТЗ 03, «Что делается в каком
 // порядке»: общий код живёт в platform/shared).
@@ -91,6 +111,23 @@ export const api = {
   // ── Публичные данные ───────────────────────────────────────────────────────
   season: () => request<SeasonResponse>('/api/season/current'),
   directions: () => request<Direction[]>('/api/directions'),
+
+  documents: () => request<PublicDocument[]>('/api/documents'),
+
+  criteria: (stage?: string) => request<PublicCriterion[]>(`/api/criteria${publicQuery({ stage })}`),
+
+  initiatives: (params: { year?: number; direction_id?: number; act_level?: string; has_files?: string; q?: string } = {}) =>
+    request<InitiativeListItem[]>(`/api/initiatives${publicQuery(params)}`),
+
+  initiative: (slug: string) => request<InitiativeCard>(`/api/initiatives/${encodeURIComponent(slug)}`),
+
+  winners: (year?: number) => request<Winner[]>(`/api/winners${publicQuery({ year })}`),
+
+  page: (slug: string) => request<PublicPage>(`/api/pages/${encodeURIComponent(slug)}`),
+
+  masterclasses: () => request<PublicMasterclass[]>('/api/masterclasses'),
+
+  partners: () => request<PublicPartner[]>('/api/partners'),
 
   // ── Приём заявок ───────────────────────────────────────────────────────────
   createApplication: (payload: CreateApplicationPayload, idempotencyKey: string) =>

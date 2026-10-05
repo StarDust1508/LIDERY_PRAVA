@@ -419,6 +419,39 @@ fi
 OFFER_CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE document_code = 'offer'")
 [ "${OFFER_CONSENTS:-0}" = "0" ] && ok "согласие с неопубликованной офертой не записывается" || bad "записано согласий с офертой: ${OFFER_CONSENTS:-0}"
 
+# ── Публичная часть: архив, согласия, карта сайта ────────────────────────────
+step "Публичная часть: архив инициатив, согласия и карта сайта"
+expect "критерии оценки отдаются публично" 200 "${BASE}/api/criteria?stage=selection"
+CRITERIA_COUNT=$(curl -s "${BASE}/api/criteria?stage=selection" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d) if isinstance(d,list) else len(d.get('items',[])))" 2>/dev/null || echo '0')
+[ "${CRITERIA_COUNT:-0}" -ge 5 ] 2>/dev/null && ok "в публичном API не менее пяти критериев (${CRITERIA_COUNT})" || bad "критериев в публичном API: ${CRITERIA_COUNT:-0}"
+INIT_JSON=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives" \
+    -d "{\"season_id\":1,\"team_id\":${TEAM_ID},\"slug\":\"acceptance-initiative\",\"title\":\"Приёмочная инициатива\",\"annotation\":\"Проверка архива.\",\"act_level\":\"federal\",\"team_name\":\"Приёмочная команда\",\"authors_public\":false,\"files_public\":false}")
+INIT_ID=$(printf '%s' "$INIT_JSON" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo '')
+if [ -n "$INIT_ID" ]; then ok "инициатива создана через админ-API"; else bad "не удалось создать инициативу: $INIT_JSON"; fi
+curl -s -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/authors" \
+    -d '{"full_name":"Скрытый Автор","role":"Участник","is_published":true}' >/dev/null
+expect "неопубликованная инициатива недоступна публично" 404 "${BASE}/api/initiatives/acceptance-initiative"
+INIT_PUBLIC=$(curl -s "${BASE}/api/initiatives" | grep -c 'acceptance-initiative' || true)
+[ "${INIT_PUBLIC:-0}" = "0" ] && ok "неопубликованной инициативы нет в публичном списке" || bad "неопубликованная инициатива попала в публичный список"
+expect "публикация инициативы" 200 -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/publish" -d '{}'
+AUTHORS_HIDDEN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('authors',[])))" 2>/dev/null || echo '?')
+[ "$AUTHORS_HIDDEN" = "0" ] && ok "без согласия авторов на распространение персональные данные скрыты" || bad "авторы раскрыты без согласия: $AUTHORS_HIDDEN"
+curl -s -H "$AUTH" -H 'Content-Type: application/json' -X PATCH "${BASE}/api/admin/initiatives/${INIT_ID}" -d '{"authors_public":true}' >/dev/null
+AUTHORS_SHOWN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('authors',[])))" 2>/dev/null || echo '?')
+[ "$AUTHORS_SHOWN" = "1" ] && ok "после полученного согласия автор публикуется" || bad "автор не опубликован после согласия: $AUTHORS_SHOWN"
+if curl -s "${BASE}/api/initiatives" | python3 -c "import sys,json;d=json.load(sys.stdin);items=d if isinstance(d,list) else d.get('items',[]);print('ok' if all('authors_public' not in i and 'files_public' not in i for i in items) else 'leak')" 2>/dev/null | grep -q ok; then
+    ok "публичный список не раскрывает служебные флаги согласий"
+else
+    bad "публичный список раскрывает служебные флаги согласий"
+fi
+expect "карта сайта отдаётся" 200 "${BASE}/sitemap.xml"
+if curl -s "${BASE}/sitemap.xml" | grep -q 'acceptance-initiative'; then ok "опубликованная инициатива попала в карту сайта"; else bad "инициативы нет в карте сайта"; fi
+if curl -s "${BASE}/sitemap.xml" | grep -q '<urlset'; then ok "карта сайта в формате urlset"; else bad "карта сайта не в формате urlset"; fi
+if grep -q 'Disallow: /cabinet/' "$ROOT/platform/public/robots.txt" 2>/dev/null; then ok "robots.txt закрывает служебные разделы"; else bad "robots.txt не закрывает служебные разделы"; fi
+psql_db "UPDATE liders.teams SET status='disqualified' WHERE id=${TEAM_ID}" >/dev/null
+expect "инициатива дисквалифицированной команды не публикуется" 409 -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/publish" -d '{}'
+psql_db "UPDATE liders.teams SET status='allowed' WHERE id=${TEAM_ID}" >/dev/null
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

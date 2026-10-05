@@ -575,6 +575,125 @@ export function evaluationStageTitle(value: string | null | undefined): string {
   return EVALUATION_STAGES.find((stage) => stage.value === value)?.title ?? '—';
 }
 
+// ── Публичные разделы сайта ──────────────────────────────────────────────────
+
+export interface PublicDocument {
+  id: number;
+  type: string;
+  title: string;
+  version: string;
+  revision_date: string;
+  external_url: string | null;
+  media_id: string | null;
+  requires_acceptance: boolean;
+  file_url: string | null;
+}
+
+/** Подписи разделов документов на странице «Документы». */
+export const DOCUMENT_TYPE_TITLES: Record<string, string> = {
+  regulation: 'Положение о конкурсе',
+  appendix: 'Приложения к Положению',
+  offer: 'Оферта',
+  privacy_policy: 'Обработка персональных данных',
+  terms: 'Пользовательское соглашение',
+  cookies_policy: 'Использование cookie',
+  jury_regulations: 'Регламент Жюри',
+  mailing_consent: 'Согласие на рассылку',
+  license_terms: 'Лицензия на материалы',
+  appeal_form: 'Апелляционное заявление',
+  other: 'Прочее',
+};
+
+/** Критерий оценки для публичной страницы (раздел 10 Положения). */
+export interface PublicCriterion {
+  id: number;
+  stage: string;
+  code: string;
+  title: string;
+  description: string | null;
+  max_score: number;
+  sort_order: number;
+}
+
+export interface InitiativeListItem {
+  id: number;
+  slug: string;
+  title: string;
+  annotation: string | null;
+  act_level: string | null;
+  proposed_initiator: string | null;
+  team_name: string | null;
+  result_place: number | null;
+  nomination: string | null;
+  archive_year: number | null;
+  video_url: string | null;
+  published_at: string | null;
+  direction_code: string | null;
+  direction_title: string | null;
+  has_files: boolean;
+}
+
+export interface InitiativeAuthor {
+  full_name: string;
+  organization: string | null;
+  region: string | null;
+}
+
+export interface InitiativeCard extends InitiativeListItem {
+  authors: InitiativeAuthor[];
+  files: Array<{ kind: string; title: string; url: string }>;
+  related: Array<{ slug: string; title: string; archive_year: number | null }>;
+}
+
+export interface Winner {
+  id: number;
+  season_year: number;
+  nomination: string;
+  place: number | null;
+  team_name: string | null;
+  participants_text: string | null;
+  mentors_text: string | null;
+  initiative_title: string | null;
+  video_url: string | null;
+  announcement: string | null;
+  photo_url: string | null;
+}
+
+export interface PublicPage {
+  slug: string;
+  title: string;
+  type: string;
+  excerpt: string | null;
+  body: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+}
+
+export interface PublicMasterclass {
+  id: number;
+  title: string;
+  speaker: string;
+  speaker_info: string | null;
+  description: string | null;
+  status: string;
+  starts_at: string | null;
+  place: string | null;
+  recording_url: string | null;
+  media_id: string | null;
+  sort_order: number;
+}
+
+export interface PublicPartner {
+  id: number;
+  name: string;
+  url: string | null;
+  partner_type: string;
+  description: string | null;
+  logo_media_id: string | null;
+  logo_url: string | null;
+  sort_order: number;
+}
+
 /** Тело запроса на отправку заявки. */export interface SubmitApplicationPayload {
   confirm_regulation: boolean;
   image_license: boolean;

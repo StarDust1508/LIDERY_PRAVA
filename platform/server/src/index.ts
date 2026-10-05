@@ -5,6 +5,7 @@ import pool, { testConnection } from './db.js';
 import { requireAdmin } from './middleware/admin-auth.js';
 import { auditAdminMutations } from './middleware/admin-audit.js';
 import { securityHeaders } from './middleware/security-headers.js';
+import { buildSitemap } from './lib/sitemap.js';
 import adminRouter from './routes/admin.js';
 import applicationsRouter from './routes/applications.js';
 import authAdminRouter from './routes/auth-admin.js';
@@ -51,6 +52,21 @@ app.get('/api/health', async (_req: Request, res: Response) => {
     environment: NODE_ENV,
     time: new Date().toISOString(),
   });
+});
+
+// GET /sitemap.xml — карта сайта собирается из базы: архив законопроектов,
+// победители по годам и действующие редакции документов появляются по мере
+// работы Оргкомитета. nginx направляет этот путь в API.
+app.get('/sitemap.xml', async (_req: Request, res: Response) => {
+  try {
+    const xml = await buildSitemap();
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (error) {
+    console.error('Не удалось собрать sitemap.xml:', (error as Error).message);
+    res.status(503).type('text/plain').send('Карта сайта временно недоступна');
+  }
 });
 
 // Публичные данные, обращения, файлы, приём заявок и личный кабинет.

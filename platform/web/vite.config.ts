@@ -34,6 +34,10 @@ export default defineConfig({
       },
     },
   },
+  // Публичные файлы (PDF Положения и Приложений, юридические документы) лежат в
+  // platform/public и попадают в сборку как статика: адрес /docs/… должен
+  // работать и в разработке, и на проде.
+  publicDir: path.resolve(__dirname, '../public'),
   build: {
     outDir: 'dist',
     sourcemap: false,

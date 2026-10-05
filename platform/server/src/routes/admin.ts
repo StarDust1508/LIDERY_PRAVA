@@ -2029,6 +2029,267 @@ router.use(
   })
 );
 
+// ─── Победители, страницы и архив законопроектов (ТЗ 07) ─────────────────────
+
+router.use(
+  '/winners',
+  buildCrud({
+    table: 'winners',
+    fields: [
+      { name: 'season_id', type: 'int' },
+      { name: 'season_year', type: 'int' },
+      { name: 'nomination', type: 'text', maxLength: 200 },
+      { name: 'place', type: 'int' },
+      { name: 'team_id', type: 'int' },
+      { name: 'team_name', type: 'text', maxLength: 200 },
+      { name: 'participants_text', type: 'text', maxLength: 2000 },
+      { name: 'mentors_text', type: 'text', maxLength: 2000 },
+      { name: 'initiative_title', type: 'text', maxLength: 300 },
+      { name: 'photo_media_id', type: 'text', maxLength: 64 },
+      { name: 'video_url', type: 'text', maxLength: 2000 },
+      { name: 'announcement', type: 'text', maxLength: 4000 },
+      { name: 'is_published', type: 'bool' },
+      { name: 'sort_order', type: 'int' },
+    ],
+    orderBy: 'season_year DESC, nomination, place NULLS LAST, sort_order',
+    filters: ['nomination'],
+    searchFields: ['team_name', 'nomination', 'initiative_title'],
+  })
+);
+
+router.use(
+  '/pages',
+  buildCrud({
+    table: 'pages',
+    fields: [
+      { name: 'slug', type: 'text', maxLength: 200 },
+      { name: 'title', type: 'text', maxLength: 300 },
+      { name: 'type', type: 'text', maxLength: 32 },
+      { name: 'excerpt', type: 'text', maxLength: 1000 },
+      { name: 'body', type: 'text', maxLength: 100000 },
+      { name: 'seo_title', type: 'text', maxLength: 200 },
+      { name: 'seo_description', type: 'text', maxLength: 400 },
+      { name: 'og_media_id', type: 'text', maxLength: 64 },
+      { name: 'is_published', type: 'bool' },
+      { name: 'sort_order', type: 'int' },
+    ],
+    orderBy: 'sort_order, title',
+    filters: ['type'],
+    searchFields: ['title', 'slug'],
+  })
+);
+
+router.use(
+  '/initiatives',
+  buildCrud({
+    table: 'initiatives',
+    fields: [
+      { name: 'season_id', type: 'int' },
+      { name: 'team_id', type: 'int' },
+      { name: 'direction_id', type: 'int' },
+      { name: 'slug', type: 'text', maxLength: 200 },
+      { name: 'title', type: 'text', maxLength: 300 },
+      { name: 'annotation', type: 'text', maxLength: 1000 },
+      { name: 'act_level', type: 'text', maxLength: 32 },
+      { name: 'proposed_initiator', type: 'text', maxLength: 300 },
+      { name: 'team_name', type: 'text', maxLength: 200 },
+      { name: 'result_place', type: 'int' },
+      { name: 'nomination', type: 'text', maxLength: 200 },
+      { name: 'law_draft_media_id', type: 'text', maxLength: 64 },
+      { name: 'explanatory_note_media_id', type: 'text', maxLength: 64 },
+      { name: 'video_url', type: 'text', maxLength: 2000 },
+      { name: 'is_published', type: 'bool' },
+      { name: 'authors_public', type: 'bool' },
+      { name: 'files_public', type: 'bool' },
+      { name: 'archive_year', type: 'int' },
+      { name: 'sort_order', type: 'int' },
+      // published_at выставляется автоматически при публикации, вручную не
+      // редактируется: от него считается порядок и ссылки в sitemap.
+    ],
+    orderBy: 'archive_year DESC NULLS LAST, sort_order, title',
+    filters: ['slug', 'act_level'],
+    searchFields: ['title', 'team_name', 'annotation'],
+  })
+);
+
+/**
+ * Авторы инициативы. Публикуются выборочно: `is_published` у автора
+ * соответствует согласию по категориям Приложения № 12, поэтому Оргкомитет
+ * отмечает каждого автора отдельно, а не всех сразу.
+ */
+const initiativeAuthorsRouter = Router();
+
+initiativeAuthorsRouter.get(
+  '/:id/authors',
+  asyncHandler(async (req, res) => {
+    const initiativeId = parsePositiveInt(req.params.id);
+    if (initiativeId === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор инициативы' });
+      return;
+    }
+    const result = await query(
+      `SELECT id, full_name, organization, region, is_published, sort_order
+         FROM initiative_authors WHERE initiative_id = $1 ORDER BY sort_order, id`,
+      [initiativeId]
+    );
+    res.json(result.rows);
+  })
+);
+
+initiativeAuthorsRouter.post(
+  '/:id/authors',
+  asyncHandler(async (req, res) => {
+    const initiativeId = parsePositiveInt(req.params.id);
+    if (initiativeId === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор инициативы' });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const fullName = optionalText(body.full_name, 200);
+    if (!fullName) {
+      res.status(400).json({ error: 'Укажите фамилию, имя и отчество автора' });
+      return;
+    }
+    const inserted = await query(
+      `INSERT INTO initiative_authors (initiative_id, full_name, organization, region, is_published, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, full_name, organization, region, is_published, sort_order`,
+      [
+        initiativeId,
+        fullName,
+        optionalText(body.organization, 300),
+        optionalText(body.region, 200),
+        body.is_published === true,
+        Number.isFinite(Number(body.sort_order)) ? Number(body.sort_order) : 0,
+      ]
+    );
+    res.status(201).json(inserted.rows[0]);
+  })
+);
+
+initiativeAuthorsRouter.patch(
+  '/:initiativeId/authors/:authorId',
+  asyncHandler(async (req, res) => {
+    const initiativeId = parsePositiveInt(req.params.initiativeId);
+    const authorId = parsePositiveInt(req.params.authorId);
+    if (initiativeId === null || authorId === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор' });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const assignments: string[] = [];
+    const values: unknown[] = [];
+
+    for (const [field, maxLength] of [
+      ['full_name', 200],
+      ['organization', 300],
+      ['region', 200],
+    ] as const) {
+      if (body[field] === undefined) continue;
+      values.push(optionalText(body[field], maxLength));
+      assignments.push(`${field} = $${values.length}`);
+    }
+    if (body.is_published !== undefined) {
+      values.push(body.is_published === true);
+      assignments.push(`is_published = $${values.length}`);
+    }
+    if (body.sort_order !== undefined) {
+      values.push(Number(body.sort_order) || 0);
+      assignments.push(`sort_order = $${values.length}`);
+    }
+    if (assignments.length === 0) {
+      res.status(400).json({ error: 'Не передано ни одного поля для изменения' });
+      return;
+    }
+
+    values.push(initiativeId, authorId);
+    const result = await query(
+      `UPDATE initiative_authors SET ${assignments.join(', ')}
+        WHERE initiative_id = $${values.length - 1} AND id = $${values.length}
+        RETURNING id, full_name, organization, region, is_published, sort_order`,
+      values
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Автор не найден' });
+      return;
+    }
+    res.json(result.rows[0]);
+  })
+);
+
+initiativeAuthorsRouter.delete(
+  '/:initiativeId/authors/:authorId',
+  asyncHandler(async (req, res) => {
+    const initiativeId = parsePositiveInt(req.params.initiativeId);
+    const authorId = parsePositiveInt(req.params.authorId);
+    if (initiativeId === null || authorId === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор' });
+      return;
+    }
+    const result = await query(
+      'DELETE FROM initiative_authors WHERE initiative_id = $1 AND id = $2 RETURNING id',
+      [initiativeId, authorId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Автор не найден' });
+      return;
+    }
+    res.json({ success: true });
+  })
+);
+
+router.use('/initiatives', initiativeAuthorsRouter);
+
+// POST /api/admin/initiatives/:id/publish — публикация в архив.
+// Публикация — только решение Оргкомитета, а не следствие подачи заявки.
+// Команды, отстранённые или отозвавшие участие, в архив не попадают
+// (ТЗ 02, п. 14, правило 4).
+router.post(
+  '/initiatives/:id/publish',
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор инициативы' });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const publish = body.is_published !== false;
+
+    const initiative = await query(
+      `SELECT i.id, i.is_published, t.status AS team_status, t.name AS team_name
+         FROM initiatives i
+         LEFT JOIN teams t ON t.id = i.team_id
+        WHERE i.id = $1
+        LIMIT 1`,
+      [id]
+    );
+    const row = initiative.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Инициатива не найдена' });
+      return;
+    }
+
+    if (publish && (row.team_status === 'disqualified' || row.team_status === 'withdrawn')) {
+      res.status(409).json({
+        error:
+          'Публикация невозможна: команда дисквалифицирована или отозвала участие, такие работы в архив не попадают (п. 7.4, раздел 13 Положения).',
+      });
+      return;
+    }
+
+    const result = await query(
+      `UPDATE initiatives
+          SET is_published = $1,
+              published_at = CASE WHEN $1 THEN now() ELSE NULL END,
+              updated_at = now()
+        WHERE id = $2
+        RETURNING id, is_published, published_at`,
+      [publish, id]
+    );
+    res.json(result.rows[0]);
+  })
+);
+
 // GET /api/admin/audit — журнал действий: кто, что и когда изменил.
 // Записи создаёт middleware auditAdminMutations для каждого успешного
 // изменяющего запроса; здесь — только чтение с фильтрами.
