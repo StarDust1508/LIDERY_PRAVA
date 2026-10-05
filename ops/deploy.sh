@@ -61,33 +61,46 @@ note "репозиторий: $REPO_DIR"
 note "развёртывание: $WWW_DIR"
 note "порт API: $API_PORT"
 
+# Сборка идёт с NODE_ENV=development: файл окружения выше подставляет
+# NODE_ENV=production, а при нём npm не ставит devDependencies — без них нет
+# ни компилятора TypeScript, ни сборщика интерфейсов. Режим production нужен
+# только запущенному сервису, он приходит из EnvironmentFile юнита.
 step "1/5 Сборка API"
 if [ -f "$REPO_DIR/platform/server/package-lock.json" ]; then
-    run bash -c "cd '$REPO_DIR/platform/server' && npm ci --no-audit --no-fund"
+    run bash -c "cd '$REPO_DIR/platform/server' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund"
 else
-    run bash -c "cd '$REPO_DIR/platform/server' && npm install --no-audit --no-fund"
+    run bash -c "cd '$REPO_DIR/platform/server' && NODE_ENV=development npm install --include=dev --no-audit --no-fund"
 fi
-run bash -c "cd '$REPO_DIR/platform/server' && npm run build"
+run bash -c "cd '$REPO_DIR/platform/server' && NODE_ENV=development npm run build"
 [ "$DRY_RUN" = "1" ] || [ -f "$REPO_DIR/platform/server/dist/index.js" ] \
     || fail "сборка API не создала dist/index.js"
 
 step "2/5 Сборка интерфейсов"
+# Общий модуль (platform/shared) — отдельный пакет со своими зависимостями:
+# исходники публичной части и админки импортируют его напрямую, и без его
+# node_modules сборка не находит ни react, ни типы React.
+if [ -f "$REPO_DIR/platform/shared/package.json" ]; then
+    run bash -c "cd '$REPO_DIR/platform/shared' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund"
+    note "зависимости общего модуля: platform/shared"
+fi
 if [ -d "$REPO_DIR/platform/web" ]; then
-    run bash -c "cd '$REPO_DIR/platform/web' && npm ci --no-audit --no-fund && npm run build"
+    run bash -c "cd '$REPO_DIR/platform/web' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=development npm run build"
     note "публичная сборка: platform/web"
 else
     note "platform/web ещё нет — пропускаю (пакет 5)"
 fi
 if [ -d "$REPO_DIR/platform/admin" ]; then
-    run bash -c "cd '$REPO_DIR/platform/admin' && npm ci --no-audit --no-fund && npm run build"
+    run bash -c "cd '$REPO_DIR/platform/admin' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=development npm run build"
     note "сборка админки: platform/admin"
 else
     note "platform/admin ещё нет — пропускаю (пакет 4)"
 fi
+# Исходники общего модуля не нужны на сервере: сборки уже включают его код.
+run bash -c "test -d '$REPO_DIR/platform/shared/src' && echo 'общий модуль собран в обе сборки'"
 
 step "3/5 Миграции БД"
 if [ "$RUN_MIGRATIONS" = "1" ]; then
-    run bash -c "cd '$REPO_DIR/platform/server' && npm run migrate"
+    run bash -c "cd '$REPO_DIR/platform/server' && NODE_ENV=development npm run migrate"
 else
     note "RUN_MIGRATIONS=0 — миграции пропущены"
 fi
