@@ -626,6 +626,12 @@ expect "состав Жюри отдаётся" 200 "${BASE}/api/jury"
 expect "новости отдаются" 200 "${BASE}/api/news"
 expect "мастер-классы отдаются" 200 "${BASE}/api/masterclasses"
 expect "несуществующая страница не отдаётся" 404 "${BASE}/api/pages/net-takoy-stranicy"
+# Редактируемые тексты раздела «О конкурсе» (ТЗ 08, п. 2.1: источник — pages).
+PAGES_SEEDED=$(psql_db "SELECT count(*) FROM liders.pages WHERE slug IN ('about','about-partners','about-history','about-organizers','about-regulations','about-faq') AND is_published AND length(COALESCE(body,'')) > 300")
+[ "${PAGES_SEEDED:-0}" = "6" ] && ok "тексты раздела «О конкурсе» заведены и опубликованы: ${PAGES_SEEDED}" || bad "опубликованных текстов раздела «О конкурсе»: ${PAGES_SEEDED:-0}"
+expect "текст страницы «О конкурсе» отдаётся публично" 200 "${BASE}/api/pages/about"
+PAGE_BODY=$(curl -s "${BASE}/api/pages/about" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('body') or ''))" 2>/dev/null || echo 0)
+[ "${PAGE_BODY:-0}" -ge 300 ] && ok "текст «О конкурсе» непустой: ${PAGE_BODY} знаков" || bad "текст «О конкурсе» пуст"
 # Человекочитаемый адрес формируется из названия (ТЗ 08, п. 2.4.5).
 expect "мастер-класс создаётся без адреса" 201 -H "$AUTH" -X POST "${BASE}/api/admin/masterclasses" \
     -H 'Content-Type: application/json' \
