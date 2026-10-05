@@ -4,7 +4,6 @@ import {
   AdminApiError,
   adminApi,
   formatMoscowHuman,
-  pluralize,
   TEAM_STATUS_TITLES,
   teamStatusTitle,
 } from '@shared/index';
@@ -663,13 +662,14 @@ export function TeamsPage() {
                     </div>
                     {isOpen ? (
                       <div id={`team-card-access-${team.id}`} className="mt-4 flex flex-col gap-4 border border-border p-4">
-                        <p className="text-muted">
-                          Доступов выпущено: {pluralize((tokens[team.id] ?? []).length, ['ссылка', 'ссылки', 'ссылок'])}.
-                          Полный список доступов с отзывом удобнее смотреть на широком экране.
-                        </p>
+                        {tokensLoading === team.id ? <p role="status">Загружаем доступы…</p> : null}
                         {issued[team.id] ? (
                           <Alert tone="warning" title="Ссылка доступа показывается один раз">
-                            <p className="break-all font-mono">{issued[team.id]?.access_url}</p>
+                            <p>
+                              Передайте её команде сейчас: в панели ссылка больше не появится. Действует до{' '}
+                              {formatMoscowHuman(issued[team.id]?.expires_at)}.
+                            </p>
+                            <p className="mt-2 break-all font-mono">{issued[team.id]?.access_url}</p>
                             <div className="mt-3 flex flex-wrap gap-3">
                               <Button
                                 type="button"
@@ -681,9 +681,85 @@ export function TeamsPage() {
                             </div>
                           </Alert>
                         ) : null}
+                        <TextField
+                          id={`token-card-label-${team.id}`}
+                          label="Пометка о получателе"
+                          value={tokenLabel}
+                          maxLength={200}
+                          onChange={(event) => setTokenLabel(event.target.value)}
+                          hint="Необязательно: например, «капитан команды»."
+                        />
+                        <SelectField
+                          id={`token-card-days-${team.id}`}
+                          label="Срок действия"
+                          value={tokenDays}
+                          options={TOKEN_DAYS}
+                          onChange={(event) => setTokenDays(event.target.value)}
+                        />
                         <Button type="button" loading={busy} onClick={() => void issueToken(team.id)}>
                           Выдать ссылку доступа
                         </Button>
+                        {(tokens[team.id] ?? []).length === 0 && tokensLoading !== team.id ? (
+                          <p className="text-muted">
+                            Доступы не выпускались. Команда не сможет войти в личный кабинет, пока вы не выдадите ссылку.
+                          </p>
+                        ) : null}
+                        {(tokens[team.id] ?? []).length > 0 ? (
+                          <ul className="flex flex-col gap-3">
+                            {(tokens[team.id] ?? []).map((token) => {
+                              const state = tokenState(token);
+                              return (
+                                <li key={`token-card-${token.id}`} className="border border-border p-3">
+                                  <p className="mono-label text-muted">
+                                    {token.label ?? 'без пометки'} · {state.title}
+                                  </p>
+                                  <p className="mt-1">Выдан {formatMoscowHuman(token.created_at)}</p>
+                                  <p className="mt-1 text-muted">
+                                    Действует до {formatMoscowHuman(token.expires_at)} · использований:{' '}
+                                    {token.max_uses === 0
+                                      ? `${token.used_count} (без ограничения)`
+                                      : `${token.used_count} из ${token.max_uses}`}
+                                  </p>
+                                  <div className="mt-2">
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      className="border-danger text-danger"
+                                      disabled={!state.active}
+                                      title={
+                                        state.active ? undefined : 'Отозвать можно только действующий доступ'
+                                      }
+                                      onClick={() => setConfirmRevoke({ teamId: team.id, tokenId: token.id })}
+                                    >
+                                      Отозвать
+                                    </Button>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
+                        {confirmRevoke !== null && confirmRevoke.teamId === team.id ? (
+                          <Alert tone="danger" title="Отозвать доступ?">
+                            <p>
+                              Ссылка перестанет работать сразу: команда потеряет вход в личный кабинет и не сможет
+                              загрузить материалы до выпуска новой ссылки.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-3">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                loading={busy}
+                                onClick={() => void revokeToken(confirmRevoke.teamId, confirmRevoke.tokenId)}
+                              >
+                                Отозвать доступ
+                              </Button>
+                              <Button type="button" variant="quiet" onClick={() => setConfirmRevoke(null)}>
+                                Оставить
+                              </Button>
+                            </div>
+                          </Alert>
+                        ) : null}
                       </div>
                     ) : null}
                   </li>

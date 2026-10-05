@@ -6,7 +6,7 @@
   "description": "Публичная сборка платформы конкурса «Лидеры права – 2027»: мастер подачи заявки и личный кабинет",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/prerender.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

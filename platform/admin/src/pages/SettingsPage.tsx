@@ -15,7 +15,8 @@ import { Alert, Button, PageHeader, SectionCard, TextAreaField } from '@shared/i
 interface SettingRow {
   key: string;
   value: unknown;
-  revision: number;
+  /** Номер ревизии приходит только в истории изменений. */
+  revision?: number;
   updated_at: string;
 }
 

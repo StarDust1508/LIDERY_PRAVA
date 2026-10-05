@@ -358,7 +358,7 @@ export function ApplicationPage() {
                         void run(async () => {
                           await adminApi.reviewMaterial(material.id, {
                             status: draft.status,
-                            reviewer_comment: draft.comment.trim() || null,
+                            comment: draft.comment.trim() || null,
                             fix_deadline: draft.deadline ? new Date(draft.deadline).toISOString() : null,
                           });
                           return `Решение по материалу «${title}» сохранено.`;

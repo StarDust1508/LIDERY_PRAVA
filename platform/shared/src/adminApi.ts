@@ -185,9 +185,10 @@ export const adminApi = {
   materials: (params: { status?: string; team_id?: number } = {}) =>
     adminRequest<AdminMaterial[]>(`/api/admin/materials${queryString(params)}`),
 
+  // Сервер читает поле `comment` (routes/admin.ts, POST /materials/:id/review).
   reviewMaterial: (
     id: number,
-    payload: { status: string; reviewer_comment?: string | null; fix_deadline?: string | null }
+    payload: { status: string; comment?: string | null; fix_deadline?: string | null }
   ) =>
     adminRequest<AdminMaterial>(`/api/admin/materials/${id}/review`, {
       method: 'POST',
@@ -316,13 +317,23 @@ export const adminApi = {
 
   appeals: (params: { status?: string; stage?: string } = {}) => adminRequest<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
 
+  // Поля решения по апелляции: статус, решение, обоснование и ссылка на протокол
+  // (routes/admin.ts, PATCH /appeals/:id).
   decideAppeal: (
     id: number,
-    payload: { decision: string; decision_reason?: string | null; decision_protocol_media_id?: string | null }
+    payload: {
+      status?: string;
+      decision?: string | null;
+      decision_note?: string | null;
+      protocol_url?: string | null;
+    }
   ) =>
     adminRequest<AdminAppeal>(`/api/admin/appeals/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
-  settings: () => adminRequest<Array<{ key: string; value: unknown; revision: number; updated_at: string }>>('/api/admin/settings'),
+  settings: () =>
+    adminRequest<Array<{ key: string; value: unknown; description: string | null; updated_by: number | null; updated_at: string }>>(
+      '/api/admin/settings'
+    ),
 
   saveSetting: (key: string, value: unknown) =>
     adminRequest<{ key: string; value: unknown; revision: number }>(`/api/admin/settings/${encodeURIComponent(key)}`, {
@@ -331,11 +342,21 @@ export const adminApi = {
     }),
 
   settingRevisions: (key: string) =>
-    adminRequest<Array<{ revision: number; value: unknown; author: string | null; created_at: string }>>(
+    adminRequest<Array<{ id: number; key: string; value: unknown; actor: string | null; created_at: string }>>(
       `/api/admin/settings/${encodeURIComponent(key)}/revisions`
     ),
 
   // ── Команды и доступы (ТЗ 07, п. 2.5) ─────────────────────────────────────
+  /** Смена статуса команды: допуск, этапы, дисквалификация (ТЗ 07, п. 2.5). */
+  updateTeam: (
+    teamId: number,
+    payload: { status?: string; disqualification_reason?: string | null; organization?: string | null; city?: string | null }
+  ) =>
+    adminRequest<{ id: number; name: string; status: string }>(`/api/admin/teams/${teamId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
   teamTokens: (teamId: number) =>
     adminRequest<Array<{ id: number; label: string | null; created_at: string; expires_at: string; revoked_at: string | null; used_count: number; max_uses: number }>>(
       `/api/admin/teams/${teamId}/tokens`

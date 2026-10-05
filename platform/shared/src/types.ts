@@ -467,6 +467,8 @@ export interface AdminMaterial {
   file_name: string | null;
   file_type: string | null;
   file_size: number | null;
+  /** Команда-владелец материала: сервер отдаёт имя вместе со строкой. */
+  team_name?: string | null;
 }
 
 export interface AdminApplicationCard {
@@ -801,7 +803,11 @@ export interface AdminAppeal {
   text: string;
   status?: string;
   decision: string | null;
-  decision_reason: string | null;
+  /** Обоснование решения: как его отдаёт сервер (decision_note). */
+  decision_note?: string | null;
+  /** Ссылка на протокол заседания апелляционной комиссии. */
+  protocol_url?: string | null;
+  reviewed_at?: string | null;
   deadline_at: string | null;
   created_at: string;
 }

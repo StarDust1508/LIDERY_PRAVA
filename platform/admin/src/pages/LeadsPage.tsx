@@ -124,6 +124,27 @@ export function LeadsPage() {
     }
   }
 
+  async function closeLead(lead: AdminLead) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      // Отдельное действие «Закрыть» — один запрос, как и обычное сохранение.
+      await adminApi.updateLead(lead.id, {
+        status: 'closed',
+        admin_comment: commentDraft.trim() === '' ? null : commentDraft.trim(),
+      });
+      setStatusDraft('closed');
+      setNotice(`Обращение № ${lead.id} закрыто.`);
+      await load();
+      if (status !== '' && status !== 'closed') setSelectedId(null);
+    } catch (caught) {
+      setError(explain(caught, 'Не удалось закрыть обращение.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const counts = LEAD_STATUS_ORDER.map((value) => ({
     value,
     count: rows.filter((lead) => lead.status === value).length,
@@ -322,9 +343,10 @@ export function LeadsPage() {
             <Button
               type="button"
               variant="secondary"
+              loading={busy}
               disabled={selected.status === 'closed'}
-              title={selected.status === 'closed' ? 'Обращение уже закрыто' : undefined}
-              onClick={() => setStatusDraft('closed')}
+              title={selected.status === 'closed' ? 'Обращение уже закрыто' : 'Закрыть обращение с текущим комментарием'}
+              onClick={() => void closeLead(selected)}
             >
               Закрыть обращение
             </Button>
