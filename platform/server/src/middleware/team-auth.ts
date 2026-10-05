@@ -42,15 +42,18 @@ export function teamTokenFromRequest(req: Request): string | undefined {
 export async function loadTeamContext(
   teamId: number,
   tokenId: number | null,
-  label: string | null = null
+  label: string | null = null,
+  sessionEpoch: number | null = null
 ): Promise<TeamContext | null> {
   try {
     const teamResult = await query(
-      `SELECT id, name, status, season_id FROM teams WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, status, season_id, session_epoch FROM teams WHERE id = $1 LIMIT 1`,
       [teamId]
     );
     const team = teamResult.rows[0];
     if (!team) return null;
+    // Сессия выдана до «Завершить все сеансы» — она больше не действует.
+    if (sessionEpoch !== null && Number(team.session_epoch ?? 1) !== sessionEpoch) return null;
 
     return {
       tokenId,
@@ -104,7 +107,7 @@ export async function authenticateTeam(req: Request): Promise<TeamContext | null
 
   const session = verifyTeamSession(readCookie(req, TEAM_SESSION_COOKIE));
   if (!session) return null;
-  return loadTeamContext(session.teamId, session.accessTokenId);
+  return loadTeamContext(session.teamId, session.accessTokenId, null, session.epoch);
 }
 
 /** Записывает факт обращения в журнал входов (best-effort). */

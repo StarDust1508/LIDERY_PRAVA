@@ -1,10 +1,14 @@
 import type {
+  AdminAppeal,
   AdminApplicationCard,
   AdminApplicationRow,
   AdminConsent,
   AdminDistributionConsent,
   AdminMaterial,
+  AdminLead,
+  AdminLegacyApplication,
   AdminSessionInfo,
+  AdminStats,
   AdminUser,
   AdminUserRole,
   AuditRecord,
@@ -257,4 +261,92 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ season_id: seasonId, stage }),
     }),
+
+  /** Архив заявок сезона 2026 из прежней системы: только чтение (ТЗ 10, п. 3.1). */
+  legacyApplications: (params: { q?: string; status?: string } = {}) =>
+    adminRequest<AdminLegacyApplication[]>(`/api/admin/legacy-applications${queryString(params)}`),
+
+  // ── Сводка и счётчики внимания (ТЗ 07, п. 1.7 и 2.1) ───────────────────────
+  stats: (params: { season_id?: number } = {}) => adminRequest<AdminStats>(`/api/admin/stats${queryString(params)}`),
+
+  // ── Массовые операции с предпросмотром (ТЗ 07, п. 3.3) ─────────────────────
+  bulkApplications: (payload: {
+    ids: number[];
+    patch: { tech_status?: string; tech_rejection_reason?: string | null; organizer_notes?: string | null };
+    dry_run?: boolean;
+  }) =>
+    adminRequest<{ dry_run: boolean; affected: number; preview: Array<Record<string, unknown>> }>(
+      '/api/admin/applications/bulk',
+      { method: 'POST', body: JSON.stringify(payload) }
+    ),
+
+  bulkMaterials: (payload: {
+    ids: number[];
+    action: 'accept' | 'request_fix';
+    comment?: string | null;
+    dry_run?: boolean;
+  }) =>
+    adminRequest<{ dry_run: boolean; affected: number; preview: Array<Record<string, unknown>> }>(
+      '/api/admin/materials/bulk',
+      { method: 'POST', body: JSON.stringify(payload) }
+    ),
+
+  // ── Универсальный CRUD справочников и контента (ТЗ 07, п. 2.3–2.14) ────────
+  // Один набор методов на все разделы: сервер уже отдаёт их через buildCrud,
+  // поэтому интерфейс описывает раздел конфигурацией, а не отдельным экраном.
+  resourceList: <T>(resource: string, params: Record<string, string | number | boolean | undefined> = {}) =>
+    adminRequest<T[]>(`/api/admin/${resource}${queryString(params)}`),
+
+  resourceCreate: <T>(resource: string, payload: Record<string, unknown>) =>
+    adminRequest<T>(`/api/admin/${resource}`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  resourceUpdate: <T>(resource: string, id: number, payload: Record<string, unknown>) =>
+    adminRequest<T>(`/api/admin/${resource}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  resourceGet: <T>(resource: string, id: number) => adminRequest<T>(`/api/admin/${resource}/${id}`),
+
+  resourceDelete: (resource: string, id: number) =>
+    adminRequest<{ success: true }>(`/api/admin/${resource}/${id}`, { method: 'DELETE' }),
+
+  // ── Обращения, апелляции, настройки ───────────────────────────────────────
+  leads: (params: { status?: string; q?: string } = {}) => adminRequest<AdminLead[]>(`/api/admin/leads${queryString(params)}`),
+
+  updateLead: (id: number, payload: { status?: string; admin_comment?: string | null }) =>
+    adminRequest<AdminLead>(`/api/admin/leads/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  appeals: (params: { status?: string; stage?: string } = {}) => adminRequest<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
+
+  decideAppeal: (
+    id: number,
+    payload: { decision: string; decision_reason?: string | null; decision_protocol_media_id?: string | null }
+  ) =>
+    adminRequest<AdminAppeal>(`/api/admin/appeals/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  settings: () => adminRequest<Array<{ key: string; value: unknown; revision: number; updated_at: string }>>('/api/admin/settings'),
+
+  saveSetting: (key: string, value: unknown) =>
+    adminRequest<{ key: string; value: unknown; revision: number }>(`/api/admin/settings/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
+
+  settingRevisions: (key: string) =>
+    adminRequest<Array<{ revision: number; value: unknown; author: string | null; created_at: string }>>(
+      `/api/admin/settings/${encodeURIComponent(key)}/revisions`
+    ),
+
+  // ── Команды и доступы (ТЗ 07, п. 2.5) ─────────────────────────────────────
+  teamTokens: (teamId: number) =>
+    adminRequest<Array<{ id: number; label: string | null; created_at: string; expires_at: string; revoked_at: string | null; used_count: number; max_uses: number }>>(
+      `/api/admin/teams/${teamId}/tokens`
+    ),
+
+  issueTeamToken: (teamId: number, payload: { label?: string | null; days?: number } = {}) =>
+    adminRequest<{ token: string; access_url: string; expires_at: string }>(`/api/admin/teams/${teamId}/tokens`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  revokeTeamToken: (tokenId: number) =>
+    adminRequest<{ success: true }>(`/api/admin/tokens/${tokenId}/revoke`, { method: 'POST' }),
 };

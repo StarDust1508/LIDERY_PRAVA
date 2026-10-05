@@ -15,7 +15,12 @@ import type {
   MaterialRequirementsResponse,
   PublicDocument,
   PublicCriterion,
+  PublicExpert,
   PublicMasterclass,
+  PublicNews,
+  PublicNewsItem,
+  LeadPayload,
+  LeadResult,
   PublicPage,
   PublicPartner,
   SeasonResponse,
@@ -125,7 +130,23 @@ export const api = {
 
   page: (slug: string) => request<PublicPage>(`/api/pages/${encodeURIComponent(slug)}`),
 
-  masterclasses: () => request<PublicMasterclass[]>('/api/masterclasses'),
+  masterclasses: (params: { status?: 'announced' | 'past' } = {}) =>
+    request<PublicMasterclass[]>(`/api/masterclasses${publicQuery(params)}`),
+
+  masterclass: (slug: string) =>
+    request<PublicMasterclass>(`/api/masterclasses/${encodeURIComponent(slug)}`),
+
+  experts: () => request<PublicExpert[]>('/api/experts'),
+
+  /** Жюри финального этапа: отдельный справочник со своим составом. */
+  jury: () => request<PublicExpert[]>('/api/jury'),
+
+  news: (params: { type?: 'news' | 'video' } = {}) => request<PublicNews[]>(`/api/news${publicQuery(params)}`),
+
+  newsItem: (slug: string) => request<PublicNewsItem>(`/api/news/${encodeURIComponent(slug)}`),
+
+  createLead: (payload: LeadPayload) =>
+    request<LeadResult>('/api/leads', { method: 'POST', body: JSON.stringify(payload) }),
 
   partners: () => request<PublicPartner[]>('/api/partners'),
 
@@ -198,11 +219,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  cabinetContact: (message: string, accessToken?: string | null) =>
+  cabinetContact: (message: string, topic?: string | null, accessToken?: string | null) =>
     request<{ success: true; lead_id: number }>('/api/cabinet/contact', {
       method: 'POST',
       headers: authHeader(accessToken),
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, topic: topic ?? null }),
     }),
 
   cabinetAppeals: (accessToken?: string | null) =>
@@ -226,6 +247,12 @@ export const api = {
       method: 'POST',
       headers: authHeader(accessToken),
       body: JSON.stringify(payload),
+    }),
+
+  cabinetRevokeSessions: (accessToken?: string | null) =>
+    request<{ success: true; message?: string }>('/api/cabinet/revoke-sessions', {
+      method: 'POST',
+      headers: authHeader(accessToken),
     }),
 
   cabinetWithdraw: (reason: string | null, accessToken?: string | null) =>

@@ -255,17 +255,23 @@ export function SectionCard({
   description,
   children,
   footer,
+  actions,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  /** Панель действий раздела: справа от заголовка (ТЗ 07, п. 1.4). */
+  actions?: ReactNode;
 }) {
   return (
     <section className="border border-border bg-raised">
-      <header className="border-b border-border px-5 py-4">
-        <h2 className="text-h2 font-semibold">{title}</h2>
-        {description ? <p className="mt-1 max-w-measure text-sm text-muted">{description}</p> : null}
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-5 py-4">
+        <div>
+          <h2 className="text-h2 font-semibold">{title}</h2>
+          {description ? <p className="mt-1 max-w-measure text-sm text-muted">{description}</p> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
       </header>
       <div className="px-5 py-5">{children}</div>
       {footer ? <footer className="border-t border-border px-5 py-4">{footer}</footer> : null}

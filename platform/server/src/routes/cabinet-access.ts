@@ -106,7 +106,11 @@ router.post(
       return;
     }
 
-    setTeamSessionCookie(res, signTeamSession(context.teamId, context.tokenId));
+    const epochRow = await query('SELECT session_epoch FROM teams WHERE id = $1 LIMIT 1', [context.teamId]);
+    setTeamSessionCookie(
+      res,
+      signTeamSession(context.teamId, context.tokenId, Number(epochRow.rows[0]?.session_epoch ?? 1))
+    );
     void logAccess(context, req, token ? 'cabinet_login_by_token' : 'cabinet_login_by_number');
 
     res.json({

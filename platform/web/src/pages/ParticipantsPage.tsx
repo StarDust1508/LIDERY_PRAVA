@@ -1,28 +1,65 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  type MaterialRequirement,
+  type MaterialRequirementsResponse,
   PARTICIPANT_CATEGORIES,
   api,
   formatMoscowHuman,
+  formatTimeLeft,
   pluralize,
 } from '@shared/index';
 import { Alert, SectionCard } from '@shared/index';
+import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
+import { useSeason } from '@/lib/season';
 
-// Страница «Участникам»: кто может участвовать, как подать заявку и что нужно
-// приложить. Состав комплекта берётся из material_requirements — того же
-// справочника, по которому сервер проверяет заявку, поэтому страница и приём
-// не могут разойтись.
+// Раздел «Участникам» — хаб «Как участвовать» (ТЗ 08, п. 2.1).
+//
+// Страница отвечает на первый вопрос будущей команды: что её ждёт по шагам и
+// куда идти дальше. Подробности живут на подстраницах, а сроки берутся из
+// активного сезона и из состава комплекта конкурсных материалов, поэтому хаб не
+// расходится с приёмом заявок.
+
+const PATH_STEPS = [
+  {
+    title: 'Заявка',
+    text: 'Капитан команды заполняет мастер подачи на сайте: сведения о команде, законотворческой инициативе, участниках и наставниках. Заявка подаётся только через форму на сайте — внешние формы и почта не используются.',
+  },
+  {
+    title: 'Конкурсные материалы',
+    text: 'К заявке прикладываются конкурсные материалы отборочного этапа: текст законопроекта с экономическим обоснованием и пояснительная записка.',
+  },
+  {
+    title: 'Техническая проверка',
+    text: 'Оргкомитет проверяет комплект, сроки и соответствие требованиям к участникам. Устранимые недостатки оформления предлагается исправить один раз.',
+  },
+  {
+    title: 'Экспертиза',
+    text: 'Конкурсная комиссия оценивает законотворческие инициативы по критериям отборочного этапа: не менее трёх членов комиссии оценивают каждую работу независимо друг от друга.',
+  },
+  {
+    title: 'Протокол',
+    text: 'Протокол итогов отборочного этапа публикуется на сайте. Срок подачи апелляций — два рабочих дня с момента опубликования протокола.',
+  },
+  {
+    title: 'Первый этап',
+    text: 'Команда публикует видеоролик о своей инициативе во «ВКонтакте», Конкурсная комиссия оценивает видеопрезентации и материалы первого этапа.',
+  },
+  {
+    title: 'Второй (финальный) этап',
+    text: 'Команды-финалисты выступают очно в Москве: групповые выступления, дебаты и Гранд-финал перед Жюри.',
+  },
+];
 
 export function ParticipantsPage() {
-  const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
+  const { data } = useSeason();
+  const [selection, setSelection] = useState<MaterialRequirementsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useSeo({
     title: 'Как участвовать',
     description:
-      'Требования к участникам конкурса «Лидеры права – 2027»: возраст от 16 до 35 лет, команда от 2 до 4 человек, состав конкурсных материалов и порядок подачи заявки.',
+      'Путь команды в конкурсе «Лидеры права – 2027»: заявка на сайте, конкурсные материалы отборочного этапа, техническая проверка, экспертиза, первый этап и финал в Москве. Требования к участникам и срокам.',
     path: '/participants',
     jsonLd: breadcrumbs([
       { name: 'Главная', path: '/' },
@@ -35,9 +72,9 @@ export function ParticipantsPage() {
     void (async () => {
       try {
         const data = await api.materialRequirements('selection');
-        if (active) setRequirements(data.requirements);
+        if (active) setSelection(data);
       } catch {
-        if (active) setError('Не удалось загрузить состав конкурсных материалов.');
+        if (active) setError('Не удалось загрузить состав конкурсных материалов. Часть сроков может быть недоступна.');
       }
     })();
     return () => {
@@ -45,24 +82,127 @@ export function ParticipantsPage() {
     };
   }, []);
 
-  const required = requirements.filter(
+  const season = data?.season ?? null;
+  const closeAt = season?.application_close_at ?? selection?.application_close_at ?? null;
+  const closeTimestamp = closeAt ? new Date(closeAt).getTime() : null;
+  const timeLeft = closeTimestamp === null ? null : formatTimeLeft(closeTimestamp - Date.now());
+
+  const required = (selection?.requirements ?? []).filter(
     (item) => item.is_required && !['application_form', 'consent_pdn', 'consent_legal_rep'].includes(item.type)
   );
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
-      <header className="border-b border-border pb-6">
-        <p className="mono-label text-muted">Участникам</p>
-        <h1 className="mt-2 text-h1 font-semibold tracking-[var(--tr-heading)]">Как участвовать</h1>
-        <p className="mt-3 max-w-measure text-muted">
-          Заявка подаётся только на этом сайте. Ничего дополнительно отправлять и никуда ехать для регистрации не нужно:
-          мастер проведёт по шагам, а заполненный бланк заявки система сформирует сама.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Участникам"
+        title="Как участвовать"
+        lead="Команда разрабатывает законотворческую инициативу, проходит отборочный и первый этапы дистанционно и защищает работу перед Жюри в Москве. Заявка подаётся только на этом сайте."
+        actions={
+          <>
+            <ActionLink to="/apply">Подать заявку</ActionLink>
+            <ActionLink to="/participants/requirements" variant="secondary">
+              Требования к участникам
+            </ActionLink>
+          </>
+        }
+      />
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
-      <SectionCard title="Кто может участвовать" description="Раздел 4 Положения.">
+      <SectionCard title="Сроки приёма заявок" description="Все сроки указаны по московскому времени.">
+        <dl className="grid gap-5 text-sm md:grid-cols-3">
+          <div>
+            <dt className="mono-label text-muted">Начало приёма</dt>
+            <dd className="mt-1">{season ? formatMoscowHuman(season.application_open_at) : '—'}</dd>
+          </div>
+          <div>
+            <dt className="mono-label text-muted">Окончание приёма</dt>
+            <dd className="mt-1">{closeAt ? formatMoscowHuman(closeAt) : '—'}</dd>
+          </div>
+          <div>
+            <dt className="mono-label text-muted">Осталось</dt>
+            <dd className="mt-1">
+              {season?.is_application_open === false
+                ? 'приём заявок завершён'
+                : (timeLeft ?? 'срок определяется Оргкомитетом')}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-4 max-w-measure text-sm text-muted">
+          Дата подачи заявки — дата поступления материалов в электронную форму. Даты могут быть изменены решением
+          Оргкомитета с публикацией не позднее чем за 5 календарных дней.
+        </p>
+      </SectionCard>
+
+      <SectionCard title="Путь команды" description="Семь шагов от заявки до финала.">
+        <ol className="flex flex-col gap-5">
+          {PATH_STEPS.map((step, index) => (
+            <li
+              key={step.title}
+              className="flex gap-4 border-b border-border pb-4 last:border-b-0 last:pb-0"
+            >
+              <span className="mono-label text-muted" aria-hidden="true">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <h3 className="text-h3 font-semibold">{step.title}</h3>
+                <p className="mt-1 max-w-measure text-sm text-muted">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </SectionCard>
+
+      <SectionCard title="Что читать дальше" description="Подстраницы раздела «Участникам».">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="border border-border p-5">
+            <h3 className="text-h3 font-semibold">Требования к участникам</h3>
+            <p className="mt-2 text-sm text-muted">
+              Возраст, категории участников, состав команды, наставники и ограничения. Что система проверяет
+              автоматически, а что — Оргкомитет.
+            </p>
+            <p className="mt-3">
+              <ActionLink to="/participants/requirements" variant="secondary">
+                Открыть
+              </ActionLink>
+            </p>
+          </div>
+          <div className="border border-border p-5">
+            <h3 className="text-h3 font-semibold">Конкурсные материалы</h3>
+            <p className="mt-2 text-sm text-muted">
+              Состав комплекта по трём этапам, требования к форматам и объёму файлов, правила приёма и сроки.
+            </p>
+            <p className="mt-3">
+              <ActionLink to="/participants/materials" variant="secondary">
+                Открыть
+              </ActionLink>
+            </p>
+          </div>
+          <div className="border border-border p-5">
+            <h3 className="text-h3 font-semibold">Требования к видеоролику</h3>
+            <p className="mt-2 text-sm text-muted">
+              Что показать в видеоролике первого этапа, где его публиковать во «ВКонтакте» и по каким критериям его
+              оценивает Конкурсная комиссия.
+            </p>
+            <p className="mt-3">
+              <ActionLink to="/participants/video-requirements" variant="secondary">
+                Открыть
+              </ActionLink>
+            </p>
+          </div>
+          <div className="border border-border p-5">
+            <h3 className="text-h3 font-semibold">Подать заявку</h3>
+            <p className="mt-2 text-sm text-muted">
+              Мастер подачи на сайте: команда и инициатива, участники, наставники, конкурсные материалы и согласия.
+            </p>
+            <p className="mt-3">
+              <ActionLink to="/apply">Подать заявку</ActionLink>
+            </p>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Кто может участвовать" description="Коротко — о требованиях к участникам.">
         <ul className="flex flex-col gap-3 text-sm">
           <li>Возраст — от 16 до 35 лет включительно на дату окончания приёма заявок.</li>
           <li>
@@ -74,69 +214,57 @@ export function ParticipantsPage() {
             </ul>
           </li>
           <li>Юридическое образование не требуется: участвовать могут студенты и специалисты любых направлений.</li>
-          <li>Команда — от 2 до 4 человек; единоличное участие допускается по согласованию с Оргкомитетом.</li>
-          <li>Один участник может входить только в одну команду сезона; от команды принимается одна инициатива.</li>
+          <li>Команда — от 2 до 4 человек; первым в заявке указывается капитан команды.</li>
+          <li>Наставников может быть не более двух; наставники не являются участниками команды.</li>
           <li>
-            Участники младше 18 лет допускаются при наличии согласия законного представителя (Приложение № 11):
-            электронная отметка и скан подписанного бланка.
+            Участники младше 18 лет допускаются при наличии согласия законного представителя (Приложение № 11).
           </li>
         </ul>
-      </SectionCard>
-
-      <SectionCard title="Как подать заявку" description="Мастер подачи на сайте — единственный канал.">
-        <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
-          <li>Заполните сведения о команде и законотворческой инициативе (шаг 1).</li>
-          <li>Добавьте участников: первым указывается капитан команды.</li>
-          <li>Укажите наставников — не более двух.</li>
-          <li>Приложите конкурсные материалы отборочного этапа.</li>
-          <li>Отметьте согласия: обработка персональных данных, распространение и лицензия на материалы.</li>
-          <li>Проверьте сведения и отправьте заявку — она поступит на техническую проверку.</li>
-        </ol>
         <p className="mt-4 text-sm">
-          <Link to="/apply" className="text-accent underline underline-offset-2">
-            Перейти к подаче заявки
+          <Link to="/participants/requirements" className="text-accent underline underline-offset-2">
+            Полные требования к участникам
           </Link>
         </p>
       </SectionCard>
 
-      <SectionCard
-        title={`Конкурсные материалы (${pluralize(required.length, ['обязательный', 'обязательных', 'обязательных'])})`}
-        description="Комплект отборочного этапа по пункту 7.2 Положения. Ссылки на облачные хранилища допускаются только на российские сервисы."
-      >
-        <ul className="flex flex-col gap-4 text-sm">
-          {requirements
-            .filter((item) => item.type !== 'application_form' && item.type !== 'consent_pdn')
-            .map((item) => (
-              <li key={item.type} className="border-b border-border pb-3">
-                <p className="font-medium">
-                  {item.title}
-                  {item.is_required ? '' : ' — необязательно'}
-                </p>
-                {item.description ? <p className="mt-1 text-muted">{item.description}</p> : null}
-                <p className="mt-1 text-muted">
-                  Срок: {formatMoscowHuman(item.due_at)}
-                  {item.name_template ? ` · имя файла: ${item.name_template}` : ''}
-                  {item.allowed_extensions.length > 0 ? ` · форматы: ${item.allowed_extensions.join(', ')}` : ''}
-                </p>
-              </li>
-            ))}
-        </ul>
-      </SectionCard>
+      <div className="grid gap-6 md:grid-cols-2">
+        <SectionCard title="Участие бесплатное" description="Организационный взнос не взимается.">
+          <Prose>
+            <p className="text-sm">
+              Участие в конкурсе добровольное и бесплатное: организационный взнос не взимается. Отдельной платы за
+              подачу заявки Положением не предусмотрено.
+            </p>
+          </Prose>
+        </SectionCard>
 
-      <SectionCard title="Требования к оформлению" description="Приложения № 3–7 к Положению.">
-        <ul className="flex flex-col gap-2 text-sm">
-          <li>Приложение № 3 — требования к тексту законопроекта и образец первой страницы.</li>
-          <li>Приложение № 4 — требования к пояснительной записке с экономическим обоснованием.</li>
-          <li>Приложение № 5 — перечень актов и сравнительная таблица.</li>
-          <li>Приложение № 6 — технические требования: форматы .docx и .pdf, шаблон имени файла «Команда_Документ».</li>
-          <li>Приложение № 7 — требования к видеоролику (до 5 минут) и презентации.</li>
-        </ul>
-        <p className="mt-4 text-sm">
-          <Link to="/documents" className="text-accent underline underline-offset-2">
-            Открыть Приложения № 1–14
-          </Link>
-        </p>
-      </SectionCard>
+        <SectionCard
+          title={`Обязательные материалы (${required.length})`}
+          description="Комплект отборочного этапа по пункту 7.2 Положения."
+        >
+          <p className="mb-4 text-sm text-muted">
+            В комплекте: {pluralize(required.length, ['обязательный материал', 'обязательных материала', 'обязательных материалов'])}.
+          </p>
+          {required.length === 0 ? (
+            <p className="text-sm text-muted">Состав комплекта отборочного этапа загружается.</p>
+          ) : (
+            <>
+              <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+                {required.map((item) => (
+                  <li key={item.type}>
+                    {item.title}
+                    {item.due_at ? ` — до ${formatMoscowHuman(item.due_at)}` : ''}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm">
+                <Link to="/participants/materials" className="text-accent underline underline-offset-2">
+                  Требования к конкурсным материалам
+                </Link>
+              </p>
+            </>
+          )}
+        </SectionCard>
+      </div>
     </main>
   );
 }

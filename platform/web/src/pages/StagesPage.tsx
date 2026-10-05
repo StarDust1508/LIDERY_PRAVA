@@ -1,45 +1,81 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  type PublicCriterion,
-  type Season,
-  api,
-  evaluationStageTitle,
-  formatMoscowHuman,
-} from '@shared/index';
+import { type PublicCriterion, EVALUATION_STAGES, api, formatMoscowDate, pluralize } from '@shared/index';
 import { Alert, SectionCard } from '@shared/index';
+import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
+import { useSeason } from '@/lib/season';
 
-// Этапы, календарь и критерии (ТЗ 08, п. 2.1 и раздел 10 Положения).
-// Календарь берётся из активного сезона, критерии — из справочника критериев:
-// правки Оргкомитета в админке сразу видны на сайте.
+// Раздел «Этапы»: обзорная страница-хаб (ТЗ 08, п. 2.1 и п. 3.1).
+//
+// Здесь только ориентир: три этапа, общий календарь, критерии и апелляции.
+// Подробности живут на отдельных страницах, поэтому на экране одна мысль и
+// крупные ссылки-действия. Сроки берутся из активного сезона, критерии — из
+// справочника: правки Оргкомитета в админке сразу видны на сайте.
+
+const BREADCRUMBS = breadcrumbs([
+  { name: 'Главная', path: '/' },
+  { name: 'Этапы', path: '/stages' },
+]);
+
+/**
+ * Редактируемый текст страницы из админки (раздел «Страницы»).
+ *
+ * Пока Оргкомитет не завёл строку, запрос отвечает ошибкой — тогда страница
+ * показывает свой текст по умолчанию, а не пустой блок. Хелпер объявлен в
+ * странице-хабе раздела: отдельный служебный модуль за пределами разрешённых
+ * файлов не создаётся.
+ */
+export function useOrganizerText(slug: string): string | null {
+  const [body, setBody] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const page = await api.page(slug);
+        if (active && page.body && page.body.trim() !== '') setBody(page.body);
+      } catch {
+        // Строки ещё нет в админке — остаётся текст по умолчанию.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [slug]);
+
+  return body;
+}
+
+/** «11 ноября 2026 года — 11 декабря 2026 года»; без данных — прочерк. */
+export function formatPeriod(from: string | null | undefined, to: string | null | undefined): string {
+  if (!from || !to) return '—';
+  return `${formatMoscowDate(from)} — ${formatMoscowDate(to)}`;
+}
 
 export function StagesPage() {
-  const [season, setSeason] = useState<Season | null>(null);
+  const { data: seasonData, error: seasonError } = useSeason();
+  const season = seasonData?.season ?? null;
+
   const [criteria, setCriteria] = useState<PublicCriterion[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [criteriaError, setCriteriaError] = useState<string | null>(null);
+  const organizerText = useOrganizerText('stages');
 
   useSeo({
-    title: 'Этапы, календарь и критерии',
+    title: 'Этапы конкурса',
     description:
-      'Три этапа конкурса «Лидеры права – 2027»: отборочный, первый (видеопрезентация) и финальный в Москве. Календарь по московскому времени и критерии оценки по этапам.',
+      'Три этапа конкурса «Лидеры права – 2027»: отборочный, первый и второй (финальный) в Москве. Формат, сроки по московскому времени, календарь, критерии оценки и апелляции.',
     path: '/stages',
-    jsonLd: breadcrumbs([
-      { name: 'Главная', path: '/' },
-      { name: 'Этапы', path: '/stages' },
-    ]),
+    jsonLd: BREADCRUMBS,
   });
 
   useEffect(() => {
     let active = true;
     void (async () => {
       try {
-        const [seasonData, criteriaData] = await Promise.all([api.season(), api.criteria()]);
-        if (!active) return;
-        setSeason(seasonData.season);
-        setCriteria(criteriaData);
+        const data = await api.criteria();
+        if (active) setCriteria(data);
       } catch {
-        if (active) setError('Не удалось загрузить календарь и критерии.');
+        if (active) setCriteriaError('Не удалось загрузить критерии оценки.');
       }
     })();
     return () => {
@@ -47,130 +83,163 @@ export function StagesPage() {
     };
   }, []);
 
-  const byStage = useMemo(() => {
-    const map = new Map<string, PublicCriterion[]>();
-    for (const criterion of criteria) {
-      const list = map.get(criterion.stage) ?? [];
-      list.push(criterion);
-      map.set(criterion.stage, list);
-    }
-    return [...map.entries()];
-  }, [criteria]);
+  const criteriaByStage = useMemo(
+    () =>
+      EVALUATION_STAGES.map((stage) => {
+        const items = criteria.filter((criterion) => criterion.stage === stage.value);
+        const total = items.reduce((sum, criterion) => sum + Number(criterion.max_score), 0);
+        return { stage, items, total };
+      }).filter((group) => group.items.length > 0),
+    [criteria]
+  );
 
-  const calendar: Array<[string, string]> = season
-    ? [
-        ['Приём заявок и материалов', `${formatMoscowHuman(season.application_open_at)} — ${formatMoscowHuman(season.application_close_at)}`],
-        ['Техническая проверка материалов', `${formatMoscowHuman(season.tech_check_from)} — ${formatMoscowHuman(season.tech_check_to)}`],
-        ['Первый этап: видеопрезентации', `${formatMoscowHuman(season.stage1_from)} — ${formatMoscowHuman(season.stage1_to)}`],
-        ['Второй (финальный) этап', `${formatMoscowHuman(season.final_from)} — ${formatMoscowHuman(season.final_to)}`],
-        ['Срок подачи апелляций', `${season.appeal_window_days} рабочих дня с момента опубликования протокола этапа`],
-      ]
-    : [];
+  const stages = [
+    {
+      key: 'selection',
+      format: 'Дистанционно',
+      title: 'Отборочный этап',
+      essence:
+        'Экспертиза законотворческих инициатив: команда представляет текст законопроекта и пояснительную записку.',
+      periodLabel: 'Приём заявок и конкурсных материалов',
+      period: formatPeriod(season?.application_open_at, season?.application_close_at),
+      path: '/stages/selection',
+      action: 'Об отборочном этапе',
+    },
+    {
+      key: 'stage1',
+      format: 'Дистанционно',
+      title: 'Первый этап',
+      essence:
+        'Видеопрезентация инициативы и команды: видеоролик публикуется во «ВКонтакте», затем оцениваются видеоролик и конкурсные материалы.',
+      periodLabel: 'Этап проходит',
+      period: formatPeriod(season?.stage1_from, season?.stage1_to),
+      path: '/stages/first',
+      action: 'О первом этапе',
+    },
+    {
+      key: 'final',
+      format: 'Очно, Москва',
+      title: 'Второй (финальный) этап',
+      essence: 'Групповые выступления команд, дебаты, Гранд-финал с голосованием зала и награждение.',
+      periodLabel: 'Этап проходит',
+      period: formatPeriod(season?.final_from, season?.final_to),
+      path: '/stages/final',
+      action: 'О втором (финальном) этапе',
+    },
+  ];
+
+  const appealWindow = season
+    ? `${pluralize(season.appeal_window_days, ['рабочий день', 'рабочих дня', 'рабочих дней'])} с момента опубликования протокола этапа`
+    : 'срок, установленный Положением о конкурсе';
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
-      <header className="border-b border-border pb-6">
-        <p className="mono-label text-muted">Порядок и сроки</p>
-        <h1 className="mt-2 text-h1 font-semibold tracking-[var(--tr-heading)]">Этапы конкурса</h1>
-        <p className="mt-3 max-w-measure text-muted">
-          Конкурс проводится в три этапа. Все сроки определяются по московскому времени; окончание срока — 23:59
-          последнего дня (п. 6.2 Положения).
-        </p>
-      </header>
-
-      {error ? <Alert tone="warning">{error}</Alert> : null}
-
-      <SectionCard title="Этапы" description="Формат этапов установлен разделом 6 Положения.">
-        <ol className="flex flex-col gap-4 text-sm">
-          <li>
-            <strong>Отборочный этап (заочный).</strong> Экспертиза законотворческих инициатив онлайн-комиссией. Участники
-            прикладывают текст законопроекта и пояснительную записку.
-          </li>
-          <li>
-            <strong>Первый этап (дистанционный).</strong> Видеопрезентация инициативы и команды: публикация во
-            «ВКонтакте» с хэштегом <span className="font-mono">#Лидеры_права_2027</span>.
-          </li>
-          <li>
-            <strong>Второй (финальный) этап (очный, Москва).</strong> Групповые выступления, дебаты и Гранд-финал перед
-            Жюри. Решения финального этапа апелляции не подлежат (п. 9.6).
-          </li>
-        </ol>
-      </SectionCard>
-
-      <SectionCard title="Календарный план" description={`Сезон: ${season?.title ?? '—'}`}>
-        {calendar.length === 0 ? (
-          <p className="text-sm text-muted">Календарь загружается…</p>
-        ) : (
+      <PageHeader
+        eyebrow="Этапы"
+        title="Этапы конкурса"
+        lead={
           <>
-            <div className="hidden md:block">
-              <table className="w-full border-collapse text-sm">
-                <caption className="sr-only-text">Календарный план конкурса</caption>
-                <thead>
-                  <tr className="border-b border-border-strong text-left">
-                    <th scope="col" className="py-2 pr-4">Мероприятие</th>
-                    <th scope="col" className="py-2">Срок</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calendar.map(([title, value]) => (
-                    <tr key={title} className="border-b border-border">
-                      <td className="py-2 pr-4">{title}</td>
-                      <td className="py-2">{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* На мобильных таблица превращается в карточки (ТЗ 08, п. 3.6). */}
-            <ul className="flex flex-col gap-3 md:hidden">
-              {calendar.map(([title, value]) => (
-                <li key={`card-${title}`} className="border border-border p-4 text-sm">
-                  <p className="mono-label text-muted">{title}</p>
-                  <p className="mt-1">{value}</p>
-                </li>
-              ))}
-            </ul>
+            Конкурс «Лидеры&nbsp;права&nbsp;– 2027» проводится в три этапа. Отборочный и первый этапы — дистанционно,
+            второй (финальный) — очно в Москве. Все сроки указываются по московскому времени.
           </>
-        )}
-        <p className="mt-4 text-sm text-muted">
-          Даты могут быть изменены решением Оргкомитета с публикацией информации на официальных ресурсах не позднее чем
-          за 5 календарных дней.
-        </p>
-      </SectionCard>
+        }
+        actions={
+          <>
+            {season?.is_application_open ? <ActionLink to="/apply">Подать заявку</ActionLink> : null}
+            <ActionLink to="/stages/calendar" variant="secondary">
+              Календарь этапов
+            </ActionLink>
+          </>
+        }
+      />
 
-      <SectionCard title="Критерии оценки" description="Максимум баллов указан для одного члена комиссии (раздел 10 Положения).">
-        {byStage.length === 0 ? (
+      {seasonError ? <Alert tone="warning">Не удалось загрузить сроки активного сезона. Повторить запрос можно на странице календаря.</Alert> : null}
+
+      <ol className="grid gap-4 md:grid-cols-3">
+        {stages.map((stage) => (
+          <li key={stage.key} className="flex flex-col gap-3 border border-border bg-raised p-5">
+            <p className="mono-label text-muted">{stage.format}</p>
+            <h2 className="text-h3 font-semibold">{stage.title}</h2>
+            <p className="text-sm text-muted">{stage.essence}</p>
+            <dl className="mt-auto flex flex-col gap-1 border-t border-border pt-3 text-sm">
+              <dt className="mono-label text-muted">{stage.periodLabel}</dt>
+              <dd className="mt-1">{stage.period}</dd>
+            </dl>
+            <div>
+              <ActionLink to={stage.path} variant="secondary">
+                {stage.action}
+              </ActionLink>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 border border-border bg-raised px-5 py-4">
+        <div>
+          <p className="mono-label text-muted">Общий календарь</p>
+          <p className="mt-1 max-w-measure text-sm text-muted">
+            Приём заявок, техническая проверка, этапы и подача апелляций — единым списком. Все даты — по московскому
+            времени (МСК, UTC+3).
+          </p>
+        </div>
+        <ActionLink to="/stages/calendar" variant="secondary">
+          Календарь этапов
+        </ActionLink>
+      </div>
+
+      <SectionCard
+        title="Критерии оценки"
+        description="Раздел 10 Положения: у каждого этапа свои критерии и максимум баллов."
+      >
+        {criteriaError ? <Alert tone="warning">{criteriaError}</Alert> : null}
+        {criteriaByStage.length === 0 ? (
           <p className="text-sm text-muted">Критерии загружаются…</p>
         ) : (
-          <div className="flex flex-col gap-6">
-            {byStage.map(([stage, items]) => (
-              <div key={stage}>
-                <h3 className="text-h3 font-semibold">{evaluationStageTitle(stage)}</h3>
-                <p className="mt-1 text-sm text-muted">
-                  Итого:{' '}
-                  {items.reduce((sum, item) => sum + Number(item.max_score), 0)} баллов
-                </p>
-                <ul className="mt-3 flex flex-col gap-2 text-sm">
-                  {items.map((item) => (
-                    <li key={item.id} className="flex flex-wrap justify-between gap-3 border-b border-border pb-2">
-                      <span>
-                        {item.title}
-                        {item.description ? <span className="block text-muted">{item.description}</span> : null}
-                      </span>
-                      <span className="font-mono">{Number(item.max_score)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <ul className="flex flex-col gap-3 text-sm">
+            {criteriaByStage.map(({ stage, items, total }) => (
+              <li
+                key={stage.value}
+                className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border pb-2"
+              >
+                <span>{stage.title}</span>
+                <span className="font-mono">
+                  {pluralize(items.length, ['критерий', 'критерия', 'критериев'])} · максимум {total} баллов
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-        <p className="mt-4 text-sm">
-          <Link to="/participants/materials" className="text-accent underline underline-offset-2">
-            Требования к конкурсным материалам
-          </Link>
-        </p>
+        <div className="mt-5">
+          <ActionLink to="/stages/criteria" variant="secondary">
+            Критерии по этапам
+          </ActionLink>
+        </div>
       </SectionCard>
+
+      <SectionCard
+        title="Апелляции"
+        description="Итоги отборочного и первого этапов можно обжаловать; решения второго (финального) этапа — нет."
+      >
+        <Prose>
+          <p>
+            Апелляцию подаёт капитан команды через личный кабинет: {appealWindow}. Основания, порядок подачи и срок
+            рассмотрения собраны на отдельной странице.
+          </p>
+        </Prose>
+        <div className="mt-5">
+          <ActionLink to="/stages/appeals" variant="secondary">
+            Порядок подачи апелляции
+          </ActionLink>
+        </div>
+      </SectionCard>
+
+      {organizerText ? (
+        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+          <Prose>
+            <p className="whitespace-pre-line">{organizerText}</p>
+          </Prose>
+        </SectionCard>
+      ) : null}
     </main>
   );
 }

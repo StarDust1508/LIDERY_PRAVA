@@ -58,6 +58,20 @@ router.get(
         stage1_to: season.stage1_to,
         final_from: season.final_from,
         final_to: season.final_to,
+        // Календарный план Положения (ТЗ 02, п. 2): экспертиза, протоколы,
+        // видеоролики, мастер-классы и мероприятия после финала.
+        expertise_from: season.expertise_from,
+        expertise_to: season.expertise_to,
+        protocol_selection_at: season.protocol_selection_at,
+        video_publication_from: season.video_publication_from,
+        video_publication_to: season.video_publication_to,
+        stage1_evaluation_from: season.stage1_evaluation_from,
+        stage1_evaluation_to: season.stage1_evaluation_to,
+        protocol_stage1_at: season.protocol_stage1_at,
+        masterclasses_from: season.masterclasses_from,
+        masterclasses_to: season.masterclasses_to,
+        post_final_from: season.post_final_from,
+        post_final_to: season.post_final_to,
         appeal_window_days: season.appeal_window_days,
         timezone: season.timezone,
         description: season.description,
@@ -112,12 +126,83 @@ router.get(
       where = 'WHERE m.status = $1';
     }
     const result = await query(
-      `SELECT m.id, m.season_id, m.title, m.speaker, m.speaker_info, m.description,
-              m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.sort_order
+      `SELECT m.id, m.slug, m.topic, m.season_id, m.title, m.speaker, m.speaker_info, m.description,
+              m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.sort_order,
+              CASE WHEN m.media_id IS NOT NULL
+                   THEN '/api/media/file/' || m.media_id::text
+                   ELSE NULL END AS recording_file_url,
+              s.slug AS season_slug, s.title AS season_title
          FROM masterclasses m
+         LEFT JOIN seasons s ON s.id = m.season_id
          ${where}
         ORDER BY m.starts_at DESC NULLS LAST, m.sort_order`,
       params
+    );
+    res.json(result.rows);
+  })
+);
+
+// GET /api/masterclasses/:slug — мастер-класс по человекочитаемому адресу
+// (ТЗ 08, п. 2.1). Служебный адрес вида `masterclass-12` тоже принимается: он
+// остаётся у записей, заведённых до появления адресации.
+router.get(
+  '/masterclasses/:slug',
+  asyncHandler(async (req, res) => {
+    const slug = String(req.params.slug).slice(0, 200);
+    const result = await query(
+      `SELECT m.id, m.slug, m.season_id, m.title, m.topic, m.speaker, m.speaker_info,
+              m.description, m.status, m.starts_at, m.place, m.recording_url, m.media_id,
+              CASE WHEN m.media_id IS NOT NULL
+                   THEN '/api/media/file/' || m.media_id::text
+                   ELSE NULL END AS recording_file_url,
+              s.slug AS season_slug, s.title AS season_title
+         FROM masterclasses m
+         LEFT JOIN seasons s ON s.id = m.season_id
+        WHERE m.slug = $1 OR m.slug = 'masterclass-' || $2
+        LIMIT 1`,
+      [slug, /^\d+$/.test(slug) ? slug : '0']
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Мастер-класс не найден' });
+      return;
+    }
+    res.json(result.rows[0]);
+  })
+);
+
+// GET /api/jury — Жюри финального этапа из отдельного справочника. Состав Жюри
+// ведётся в таблице jury_members, поэтому страница «Оргкомитет и эксперты»
+// получает его отдельно от экспертов.
+router.get(
+  '/jury',
+  asyncHandler(async (_req, res) => {
+    const result = await query(
+      `SELECT j.id, j.full_name, j.organization, j.position, j.role, j.stage, j.about,
+              CASE WHEN j.photo_media_id IS NOT NULL
+                   THEN '/api/media/file/' || j.photo_media_id::text
+                   ELSE NULL END AS photo_url
+         FROM jury_members j
+        WHERE j.is_active AND j.is_public
+        ORDER BY j.role DESC, j.full_name`
+    );
+    res.json(result.rows);
+  })
+);
+
+// GET /api/experts — члены Конкурсной комиссии, Жюри и эксперты (ТЗ 08, п. 2.1).
+// Отдаются только публичные поля: без почты, телефона и заметок Оргкомитета.
+router.get(
+  '/experts',
+  asyncHandler(async (_req, res) => {
+    const result = await query(
+      `SELECT e.id, e.full_name, e.organization, e.position, e.degree, e.role, e.stage,
+              e.about,
+              CASE WHEN e.photo_media_id IS NOT NULL
+                   THEN '/api/media/file/' || e.photo_media_id::text
+                   ELSE NULL END AS photo_url
+         FROM experts e
+        WHERE e.is_active AND e.is_public
+        ORDER BY e.stage, e.role DESC, e.full_name`
     );
     res.json(result.rows);
   })

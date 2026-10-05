@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#2C2722"/>
+  <rect x="0" y="0" width="18" height="630" fill="#E5231C"/>
+  <g transform="translate(96, 120)">
+    <rect width="84" height="84" fill="#F5F1E9"/>
+    <rect x="16" y="18" width="8" height="40" fill="#2C2722"/>
+    <rect x="30" y="18" width="38" height="8" fill="#2C2722"/>
+    <rect x="30" y="33" width="27" height="8" fill="#2C2722"/>
+    <rect x="30" y="48" width="33" height="8" fill="#2C2722"/>
+    <rect x="16" y="65" width="52" height="6" fill="#B81A14"/>
+  </g>
+  <text x="96" y="330" font-family="Helvetica, Arial, sans-serif" font-size="78" font-weight="700" fill="#F5F1E9">Лидеры права – 2027</text>
+  <text x="96" y="392" font-family="Helvetica, Arial, sans-serif" font-size="27" fill="#ECE6DA">Десятый ежегодный федеральный научно-образовательный конкурс</text>
+  <text x="96" y="432" font-family="Helvetica, Arial, sans-serif" font-size="27" fill="#ECE6DA">среди студентов и молодых специалистов</text>
+  <rect x="96" y="478" width="180" height="6" fill="#E5231C"/>
+  <text x="96" y="540" font-family="Helvetica, Arial, sans-serif" font-size="27" fill="#F5F1E9">11 ноября 2026 — 30 июня 2027 · lideryprava.ru</text>
+</svg>

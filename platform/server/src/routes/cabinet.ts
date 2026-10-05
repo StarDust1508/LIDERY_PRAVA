@@ -14,6 +14,7 @@ import {
   type SubmissionContext,
 } from '../lib/application-submission.js';
 import { buildApplicationFormDocx, loadApplicationFormData } from '../lib/application-form.js';
+import { clearTeamSessionCookie } from '../lib/team-session.js';
 import { convertDocxToPdf } from '../lib/docx-to-pdf.js';
 import {
   LINK_ONLY_MATERIAL_TYPES,
@@ -571,12 +572,16 @@ router.get(
     const result = await query(
       `SELECT m.id, m.application_id, m.type, m.media_id, m.external_url, m.version, m.status,
               m.reviewer_comment, m.reviewed_at, m.fix_deadline, m.created_at, m.updated_at,
+              m.reviewed_by,
+              -- Кто из Оргкомитета оставил замечание: требование ТЗ 06, п. 2.
+              reviewer.full_name AS reviewer_name,
               media.file_name, media.file_type, media.file_size,
               CASE WHEN m.media_id IS NOT NULL
                    THEN '/api/media/file/' || m.media_id::text
                    ELSE NULL END AS file_url
          FROM application_materials m
          LEFT JOIN media ON media.id = m.media_id
+         LEFT JOIN users reviewer ON reviewer.id = m.reviewed_by
         WHERE m.team_id = $1
         ORDER BY m.type, m.version DESC, m.created_at DESC`,
       [context.teamId]
@@ -981,6 +986,28 @@ const APPEAL_GROUNDS = [
   'criteria_misapplication',
   'other',
 ] as const;
+
+// POST /api/cabinet/revoke-sessions — «Завершить все сеансы» (ТЗ 06, п. 7.4).
+// Увеличивает эпоху сессий команды: все выданные cookie перестают действовать,
+// ссылка доступа остаётся у Оргкомитета и может быть выдана заново.
+router.post(
+  '/revoke-sessions',
+  rateLimit(10, 60_000),
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    await query(
+      `UPDATE teams SET session_epoch = session_epoch + 1, updated_at = now() WHERE id = $1`,
+      [context.teamId]
+    );
+    clearTeamSessionCookie(res);
+    void logAccess(context, req, 'team_sessions_revoked', {});
+    res.json({
+      success: true,
+      message:
+        'Все сеансы кабинета завершены. Чтобы войти снова, воспользуйтесь ссылкой доступа или запросите её у Оргкомитета.',
+    });
+  })
+);
 
 // POST /api/cabinet/withdraw — отказ от участия (п. 4.10 Положения).
 // Одновременно отзываются действующие согласия: по пункту 14.3 отзыв согласия

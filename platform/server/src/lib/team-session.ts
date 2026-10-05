@@ -16,10 +16,15 @@ export interface TeamSessionPayload {
   teamId: number;
   /** Токен доступа, которым воспользовалась команда (если вход был по ссылке). */
   accessTokenId: number | null;
+  /**
+   * Эпоха сессий команды на момент входа. Увеличение `teams.session_epoch`
+   * (кнопка «Завершить все сеансы») делает прежние cookie недействительными.
+   */
+  epoch: number;
 }
 
-export function signTeamSession(teamId: number, accessTokenId: number | null): string {
-  const payload: TeamSessionPayload = { scope: 'team:session', teamId, accessTokenId };
+export function signTeamSession(teamId: number, accessTokenId: number | null, epoch = 1): string {
+  const payload: TeamSessionPayload = { scope: 'team:session', teamId, accessTokenId, epoch };
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: TEAM_SESSION_TTL as jwt.SignOptions['expiresIn'],
   });
@@ -34,6 +39,7 @@ export function verifyTeamSession(token: string | undefined): TeamSessionPayload
       scope: 'team:session',
       teamId: decoded.teamId,
       accessTokenId: typeof decoded.accessTokenId === 'number' ? decoded.accessTokenId : null,
+      epoch: typeof decoded.epoch === 'number' ? decoded.epoch : 1,
     };
   } catch {
     return null;

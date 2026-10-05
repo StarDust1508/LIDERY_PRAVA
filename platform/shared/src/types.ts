@@ -17,6 +17,19 @@ export interface Season {
   stage1_to: string | null;
   final_from: string | null;
   final_to: string | null;
+  /** Календарный план Положения: экспертиза, протоколы, видеоролики и финал. */
+  expertise_from?: string | null;
+  expertise_to?: string | null;
+  protocol_selection_at?: string | null;
+  video_publication_from?: string | null;
+  video_publication_to?: string | null;
+  stage1_evaluation_from?: string | null;
+  stage1_evaluation_to?: string | null;
+  protocol_stage1_at?: string | null;
+  masterclasses_from?: string | null;
+  masterclasses_to?: string | null;
+  post_final_from?: string | null;
+  post_final_to?: string | null;
   appeal_window_days: number;
   timezone: string;
   description: string | null;
@@ -148,6 +161,8 @@ export interface Material {
   type_title: string;
   is_deadline_passed: boolean;
   can_delete: boolean;
+  /** Кто из Оргкомитета оставил замечание (ТЗ 06, п. 2). */
+  reviewer_name?: string | null;
 }
 
 export interface DeadlinesResponse {
@@ -633,6 +648,12 @@ export const DOCUMENT_TYPE_TITLES: Record<string, string> = {
   mailing_consent: 'Согласие на рассылку',
   license_terms: 'Лицензия на материалы',
   appeal_form: 'Апелляционное заявление',
+  // Приложения, которые одновременно являются согласиями (ТЗ 02, п. 13):
+  // страницы /legal/pdn-consent и подобные ведут именно на них.
+  appendix_10: 'Согласие на обработку персональных данных',
+  appendix_11: 'Согласие законного представителя',
+  appendix_12: 'Согласие на распространение персональных данных',
+  appendix_13: 'Лицензия на конкурсные материалы',
   other: 'Прочее',
 };
 
@@ -701,9 +722,127 @@ export interface PublicPage {
   seo_description: string | null;
 }
 
+/** Публикация новостей и видеосюжетов (ТЗ 08, п. 5.3). */
+export interface PublicNews {
+  id: number;
+  slug: string;
+  title: string;
+  type: 'news' | 'video' | string;
+  excerpt: string | null;
+  video_url: string | null;
+  published_at: string | null;
+  cover_media_id: string | null;
+  cover_url: string | null;
+}
+
+export interface PublicNewsItem extends PublicNews {
+  body: string | null;
+}
+
+/** Заявка сезона 2026 из прежней системы: архив, только чтение (ТЗ 10, п. 3.1). */
+export interface AdminLegacyApplication {
+  id: number;
+  legacy_id: number;
+  legacy_source: string;
+  season_year: number;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  organization: string | null;
+  status: string | null;
+  admin_notes: string | null;
+  consent_pdn: boolean;
+  consent_terms: boolean;
+  consent_marketing: boolean;
+  consent_at: string | null;
+  source_ip: string | null;
+  submitted_at: string | null;
+  imported_at: string;
+}
+
+/** Сводка админ-панели: состояние сезона и счётчики внимания (ТЗ 07, п. 2.1). */
+export interface AdminStats {
+  teams_by_status: Array<{ status: string; count: number }>;
+  applications_by_status: Array<{ tech_status: string; count: number }>;
+  leads_by_status: Array<{ status: string; count: number }>;
+  materials_by_status: Array<{ status: string; count: number }>;
+  rankings_by_stage: Array<{ stage: string; count: number; needs_chair_review: number }>;
+  attention: {
+    applications_pending: number;
+    materials_needs_fix: number;
+    appeals_open: number;
+    leads_new: number;
+  };
+}
+
+/** Обращение Оргкомитету из формы сайта или личного кабинета. */
+export interface AdminLead {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  topic: string | null;
+  message: string;
+  source: string;
+  status: string;
+  team_id: number | null;
+  admin_comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Апелляция команды по итогам этапа (раздел 12 Положения). */
+export interface AdminAppeal {
+  id: number;
+  team_id: number;
+  team_name?: string | null;
+  stage: string;
+  grounds: string;
+  text: string;
+  status?: string;
+  decision: string | null;
+  decision_reason: string | null;
+  deadline_at: string | null;
+  created_at: string;
+}
+
+/** Эксперт, член Конкурсной комиссии или Жюри: только публичные поля. */
+export interface PublicExpert {
+  id: number;
+  full_name: string;
+  organization: string | null;
+  position: string | null;
+  degree: string | null;
+  role: string;
+  stage: string;
+  about: string | null;
+  photo_url: string | null;
+}
+
+/** Обращение с публичной формы или из кабинета (таблица leads). */
+export interface LeadPayload {
+  name: string;
+  email: string;
+  phone?: string | null;
+  topic?: string | null;
+  message: string;
+  source?: string | null;
+  consent_pdn: boolean;
+  /** Скрытое поле-ловушка: заполняют только автоматические отправители. */
+  website?: string;
+}
+
+export interface LeadResult {
+  id: number;
+  created_at: string;
+  message?: string;
+}
+
 export interface PublicMasterclass {
   id: number;
+  slug?: string;
   title: string;
+  topic?: string | null;
   speaker: string;
   speaker_info: string | null;
   description: string | null;
@@ -711,8 +850,11 @@ export interface PublicMasterclass {
   starts_at: string | null;
   place: string | null;
   recording_url: string | null;
+  recording_file_url?: string | null;
   media_id: string | null;
-  sort_order: number;
+  sort_order?: number;
+  season_slug?: string | null;
+  season_title?: string | null;
 }
 
 export interface PublicPartner {
@@ -726,9 +868,16 @@ export interface PublicPartner {
   sort_order: number;
 }
 
-/** Тело запроса на отправку заявки. */export interface SubmitApplicationPayload {
+/** Тело запроса на отправку заявки. */
+export interface SubmitApplicationPayload {
   confirm_regulation: boolean;
   image_license: boolean;
+  /**
+   * Необязательное согласие на информационные сообщения (ст. 18 38-ФЗ).
+   * Запрашивается только когда текст согласия опубликован; отказ не влияет
+   * на участие в конкурсе.
+   */
+  marketing_consent?: boolean;
   distribution?: Array<{
     participant_id: number;
     categories: Partial<Record<DistributionCategoryCode, boolean>>;

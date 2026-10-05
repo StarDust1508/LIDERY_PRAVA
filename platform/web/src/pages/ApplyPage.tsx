@@ -172,6 +172,10 @@ export function ApplyPage() {
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [confirmRegulation, setConfirmRegulation] = useState(false);
   const [imageLicense, setImageLicense] = useState(false);
+  // Согласие на информационные сообщения (ст. 18 38-ФЗ): необязательное и
+  // показывается только тогда, когда текст согласия опубликован.
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [mailingConsentAvailable, setMailingConsentAvailable] = useState(false);
   const [distribution, setDistribution] = useState<Record<number, Partial<Record<DistributionCategoryCode, boolean>>>>({});
   const [distributionConditions, setDistributionConditions] = useState('');
   const [submitted, setSubmitted] = useState<{ public_number: string; submitted_at: string } | null>(null);
@@ -186,6 +190,16 @@ export function ApplyPage() {
         if (!active) return;
         setSeason(seasonResponse.season);
         setDirections(directionsResponse);
+        // Текст согласия на рассылку утверждается отдельно: пока документ не
+        // опубликован, согласие не запрашивается (иначе согласие берётся с
+        // несуществующего текста).
+        try {
+          const documents = await api.documents();
+          if (!active) return;
+          setMailingConsentAvailable(documents.some((item) => item.type === 'mailing_consent'));
+        } catch {
+          // Список документов недоступен — согласие на рассылку не показываем.
+        }
       } catch (caught) {
         if (active) setError(caught instanceof ApiError ? caught.message : 'Не удалось загрузить данные конкурса.');
       } finally {
@@ -578,6 +592,7 @@ export function ApplyPage() {
         {
           confirm_regulation: confirmRegulation,
           image_license: imageLicense,
+          marketing_consent: marketingConsent,
           distribution: participants
             .filter((participant) => participant.id !== null)
             .map((participant) => ({
@@ -1004,6 +1019,14 @@ export function ApplyPage() {
                   checked={imageLicense}
                   onChange={setImageLicense}
                 />
+                {mailingConsentAvailable ? (
+                  <CheckboxField
+                    id="marketing-consent"
+                    label="Согласен получать информационные и новостные сообщения о конкурсе. Согласие необязательное: отказ не влияет на участие, отказаться можно в любой момент письмом в Оргкомитет"
+                    checked={marketingConsent}
+                    onChange={setMarketingConsent}
+                  />
+                ) : null}
 
                 <div className="flex flex-col gap-4">
                   <h3 className="text-h3 font-semibold">Согласие на распространение персональных данных (Приложение № 12)</h3>
@@ -1090,6 +1113,9 @@ export function ApplyPage() {
                       <li>Согласие на обработку персональных данных участников: {participants.every((p) => p.consent_pdn) ? 'да' : 'нет'}</li>
                       <li>Ознакомление с Положением: {confirmRegulation ? 'да' : 'нет'}</li>
                       <li>Согласие на изображение и лицензия: {imageLicense ? 'да' : 'нет'}</li>
+                      {mailingConsentAvailable ? (
+                        <li>Информационные сообщения о конкурсе: {marketingConsent ? 'да' : 'нет'}</li>
+                      ) : null}
                     </ul>
                   </div>
 

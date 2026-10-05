@@ -572,6 +572,57 @@ psql_db "UPDATE liders.teams SET status='disqualified' WHERE id=${TEAM_ID}" >/de
 expect "инициатива дисквалифицированной команды не публикуется" 409 -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/publish" -d '{}'
 psql_db "UPDATE liders.teams SET status='allowed' WHERE id=${TEAM_ID}" >/dev/null
 
+# ── Публичный контент и новые разделы админки ────────────────────────────────
+step "Публичный контент: новости, мастер-классы, эксперты, архив 2026"
+APP_ID=$(psql_db "SELECT id FROM liders.applications WHERE public_number='${PUBLIC_NUMBER}'")
+MATERIAL_ID=$(psql_db "SELECT id FROM liders.application_materials WHERE team_id=${TEAM_ID} AND media_id IS NOT NULL ORDER BY id LIMIT 1")
+expect "публичные эксперты отдаются" 200 "${BASE}/api/experts"
+expect "состав Жюри отдаётся" 200 "${BASE}/api/jury"
+expect "новости отдаются" 200 "${BASE}/api/news"
+expect "мастер-классы отдаются" 200 "${BASE}/api/masterclasses"
+expect "несуществующая страница не отдаётся" 404 "${BASE}/api/pages/net-takoy-stranicy"
+# Человекочитаемый адрес формируется из названия (ТЗ 08, п. 2.4.5).
+expect "мастер-класс создаётся без адреса" 201 -H "$AUTH" -X POST "${BASE}/api/admin/masterclasses" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Мастер-класс о дебатах","speaker":"Иванов Иван Иванович","status":"announced","topic":"Дебаты"}'
+MASTER_SLUG=$(psql_db "SELECT slug FROM liders.masterclasses WHERE title='Мастер-класс о дебатах'")
+[ "$MASTER_SLUG" = "master-klass-o-debatah" ] && ok "адрес собран из названия: $MASTER_SLUG" || bad "адрес мастер-класса: ${MASTER_SLUG:-нет}"
+expect "карточка мастер-класса отдаётся по адресу" 200 "${BASE}/api/masterclasses/${MASTER_SLUG}"
+expect "несуществующий мастер-класс — 404" 404 "${BASE}/api/masterclasses/net-takogo"
+expect "новость создаётся" 201 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Приёмочная новость","type":"news","excerpt":"Проверка публикации.","is_published":true,"published_at":"2026-11-20T12:00:00+03:00"}'
+NEWS_SLUG=$(psql_db "SELECT slug FROM liders.news WHERE title='Приёмочная новость'")
+[ -n "$NEWS_SLUG" ] && ok "адрес новости: $NEWS_SLUG" || bad "новость не получила адрес"
+expect "публикация отдаётся по адресу" 200 "${BASE}/api/news/${NEWS_SLUG}"
+# Массовая техническая проверка: сначала предпросмотр, потом изменение.
+BULK_DRY=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/applications/bulk" \
+    -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"accepted\"},\"dry_run\":true}")
+if printf '%s' "$BULK_DRY" | grep -q '"dry_run":true'; then
+    ok "предпросмотр массовой проверки отдаётся"
+else
+    bad "предпросмотр массовой проверки не отдаётся: $(printf '%s' "$BULK_DRY" | head -c 120)"
+fi
+expect "массовая проверка применяется" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/applications/bulk" \
+    -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"organizer_notes\":\"Массовая проверка приёмки.\"}}"
+expect "возврат материала без замечания отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/materials/bulk" -d "{\"ids\":[${MATERIAL_ID:-0}],\"action\":\"request_fix\"}"
+expect "массовый возврат материала с замечанием" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/materials/bulk" \
+    -d "{\"ids\":[${MATERIAL_ID:-0}],\"action\":\"request_fix\",\"comment\":\"Уточните расчёты.\"}"
+MATERIAL_STATUS=$(psql_db "SELECT status FROM liders.application_materials WHERE id=${MATERIAL_ID:-0}")
+[ "$MATERIAL_STATUS" = "needs_fix" ] && ok "материал переведён в «нужны исправления»" || bad "статус материала: ${MATERIAL_STATUS:-?}"
+curl -s -o /dev/null -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/materials/bulk" \
+    -d "{\"ids\":[${MATERIAL_ID:-0}],\"action\":\"accept\"}"
+# Архив заявок 2026 (ТЗ 10, п. 3.1): только чтение.
+LEGACY_TABLE=$(psql_db "SELECT count(*) FROM information_schema.tables WHERE table_schema='liders' AND table_name='legacy_applications'")
+[ "${LEGACY_TABLE:-0}" = "1" ] && ok "таблица архива заявок 2026 существует" || bad "таблицы архива заявок нет"
+expect "архив заявок 2026 доступен администратору" 200 -H "$AUTH" "${BASE}/api/admin/legacy-applications"
+# Календарный план сезона: сроки экспертизы и протоколов отдаются публично.
+SEASON_CALENDAR=$(curl -s "${BASE}/api/season/current" | grep -c 'expertise_from')
+[ "${SEASON_CALENDAR:-0}" -ge 1 ] && ok "календарный план сезона отдаётся публично" || bad "в ответе сезона нет сроков экспертизы"
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

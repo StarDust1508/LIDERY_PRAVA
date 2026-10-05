@@ -28,6 +28,8 @@ export interface DistributionEntry {
 export interface SubmissionInput {
   confirm_regulation: boolean;
   image_license: boolean;
+  /** Необязательное согласие на рассылку (ст. 18 38-ФЗ). */
+  marketing_consent: boolean;
   distribution: DistributionEntry[];
 }
 
@@ -85,7 +87,14 @@ export function parseSubmission(raw: unknown): { value?: SubmissionInput; error?
     });
   }
 
-  return { value: { confirm_regulation: true, image_license: true, distribution } };
+  return {
+    value: {
+      confirm_regulation: true,
+      image_license: true,
+      marketing_consent: body.marketing_consent === true,
+      distribution,
+    },
+  };
 }
 
 /**
@@ -217,7 +226,7 @@ async function hasPublishedDocument(client: pg.PoolClient, type: string): Promis
  */
 async function resolveDocument(
   client: pg.PoolClient,
-  documentType: 'regulation' | 'offer' | 'appendix',
+  documentType: 'regulation' | 'offer' | 'appendix' | 'mailing_consent',
   appendixNumber: string | null
 ): Promise<{ id: number | null; version: string }> {
   const result =
@@ -250,8 +259,8 @@ interface ConsentParams {
   participantId: number | null;
   mentorId: number | null;
   documentCode: string;
-  /** Тип документа в таблице documents: Положение, оферта или приложение. */
-  documentType: 'regulation' | 'offer' | 'appendix';
+  /** Тип документа в таблице documents: Положение, оферта, приложение или рассылка. */
+  documentType: 'regulation' | 'offer' | 'appendix' | 'mailing_consent';
   appendixNumber: string | null;
   scanMediaId?: string | null;
 }
@@ -350,6 +359,29 @@ export async function recordConsents(client: pg.PoolClient, context: SubmissionC
       documentType: 'offer',
       appendixNumber: null,
     });
+  }
+
+  // Согласие на информационные сообщения — отдельное и необязательное
+  // (ст. 18 Федерального закона № 38-ФЗ «О рекламе»). Запрашивается и
+  // записывается только когда текст согласия опубликован: согласие с
+  // неопубликованным текстом юридически бессмысленно. Отказ не влияет на
+  // участие в конкурсе.
+  if (context.input.marketing_consent && (await hasPublishedDocument(client, 'mailing_consent'))) {
+    const captain = await client.query(
+      `SELECT id FROM participants WHERE team_id = $1 AND role = 'captain' ORDER BY id LIMIT 1`,
+      [context.teamId]
+    );
+    const captainId = captain.rows[0]?.id ? Number(captain.rows[0].id) : null;
+    if (captainId !== null) {
+      await upsertConsent(client, context, {
+        subjectType: 'participant',
+        participantId: captainId,
+        mentorId: null,
+        documentCode: 'mailing_consent',
+        documentType: 'mailing_consent',
+        appendixNumber: null,
+      });
+    }
   }
 
   const participants = await client.query(

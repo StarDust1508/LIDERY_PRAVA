@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { toCsv } from '../lib/csv.js';
+import { writeAudit } from '../lib/audit.js';
+import { slugify, uniqueSlug } from '../lib/slugify.js';
 import { addWorkingDays } from '../lib/moscow-time.js';
 import { isIsoDate, optionalText, requiredText } from '../lib/validation.js';
 import { generateAccessToken, hashAccessToken } from '../middleware/team-auth.js';
@@ -69,6 +71,11 @@ interface CrudField {
 interface CrudConfig {
   table: string;
   fields: CrudField[];
+  /**
+   * Поле-источник человекочитаемого адреса. Если в таблице есть `slug` и он не
+   * заполнен, адрес формируется из этого поля (ТЗ 08, п. 2.4.5).
+   */
+  slugFrom?: string;
   orderBy: string;
   searchFields?: string[];
   filters?: string[];
@@ -185,6 +192,27 @@ function buildCrud(config: CrudConfig): Router {
         return;
       }
 
+      // Адрес формируется из названия, если его не задали вручную: пустой slug
+      // ломает и ссылки, и карту сайта.
+      if (config.slugFrom && config.fields.some((field) => field.name === 'slug')) {
+        const provided = String(record.slug ?? '').trim();
+        const source = String(record[config.slugFrom] ?? '').trim();
+        if (provided === '' && source !== '') {
+          const base = slugify(source);
+          record.slug = await uniqueSlug(base, async (candidate) => {
+            const taken = await query(`SELECT 1 FROM ${table} WHERE slug = $1 LIMIT 1`, [candidate]);
+            return taken.rows.length > 0;
+          });
+          const slugIndex = columns.indexOf('slug');
+          if (slugIndex === -1) {
+            columns.push('slug');
+            values.push(record.slug);
+          } else {
+            values[slugIndex] = record.slug;
+          }
+        }
+      }
+
       const validationError = config.validate?.(record, 'create');
       if (validationError) {
         res.status(400).json({ error: validationError });
@@ -234,6 +262,30 @@ function buildCrud(config: CrudConfig): Router {
       if (assignments.length === 0) {
         res.status(400).json({ error: 'Не передано ни одного поля для изменения' });
         return;
+      }
+
+      if (config.slugFrom && config.fields.some((field) => field.name === 'slug')) {
+        const provided = String(patch.slug ?? '').trim();
+        const source = String(patch[config.slugFrom] ?? '').trim();
+        if (provided === '' && source !== '') {
+          const base = slugify(source);
+          const generated = await uniqueSlug(base, async (candidate) => {
+            const taken = await query(`SELECT 1 FROM ${table} WHERE slug = $1 AND id <> $2 LIMIT 1`, [
+              candidate,
+              id,
+            ]);
+            return taken.rows.length > 0;
+          });
+          patch.slug = generated;
+          const slugIndex = assignments.findIndex((item) => item.startsWith('slug = '));
+          if (slugIndex === -1) {
+            values.push(generated);
+            assignments.push(`slug = $${values.length}`);
+          } else {
+            const placeholder = Number(assignments[slugIndex].split('$')[1]);
+            values[placeholder - 1] = generated;
+          }
+        }
       }
 
       if (config.validate) {
@@ -575,6 +627,131 @@ router.patch(
   })
 );
 
+// POST /api/admin/applications/bulk — массовая техническая проверка (ТЗ 07, п. 3.3).
+// Одно действие — один запрос, но с предпросмотром: при `dry_run` возвращается
+// список того, что именно изменится, и только затем Оргкомитет подтверждает.
+router.post(
+  '/applications/bulk',
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawIds = Array.isArray(body.ids) ? body.ids : [];
+    const ids: number[] = [];
+    for (const value of rawIds) {
+      const id = parsePositiveInt(value);
+      if (id === null) {
+        res.status(400).json({ error: 'Некорректный список заявок' });
+        return;
+      }
+      ids.push(id);
+    }
+    if (ids.length === 0) {
+      res.status(400).json({ error: 'Отметьте хотя бы одну заявку' });
+      return;
+    }
+    if (ids.length > 200) {
+      res.status(400).json({ error: 'За одно действие можно обработать не более 200 заявок' });
+      return;
+    }
+
+    const patch = (body.patch ?? {}) as Record<string, unknown>;
+    const status = patch.tech_status === undefined ? null : String(patch.tech_status);
+    if (status !== null && !(TECH_STATUSES as readonly string[]).includes(status)) {
+      res.status(400).json({ error: `Недопустимый статус технической проверки: ${status}` });
+      return;
+    }
+    const rejectionReason = optionalText(patch.tech_rejection_reason, 2000);
+    if (status === 'rejected' && !rejectionReason) {
+      res.status(400).json({ error: 'При отклонении укажите причину: команда увидит её в личном кабинете.' });
+      return;
+    }
+    const notes = optionalText(patch.organizer_notes, 4000);
+    if (status === null && notes === null) {
+      res.status(400).json({ error: 'Не передано ни одного изменения' });
+      return;
+    }
+
+    const before = await query(
+      `SELECT a.id, a.public_number, a.tech_status, t.name AS team_name
+         FROM applications a
+         LEFT JOIN teams t ON t.id = a.team_id
+        WHERE a.id = ANY($1::int[])
+        ORDER BY a.id`,
+      [ids]
+    );
+    if (before.rows.length !== ids.length) {
+      const found = new Set(before.rows.map((row) => Number(row.id)));
+      const missing = ids.filter((id) => !found.has(id));
+      res.status(404).json({ error: `Заявки не найдены: ${missing.join(', ')}` });
+      return;
+    }
+
+    const preview = before.rows.map((row) => ({
+      id: Number(row.id),
+      public_number: row.public_number,
+      team_name: row.team_name,
+      tech_status_before: row.tech_status,
+      tech_status_after: status ?? row.tech_status,
+    }));
+
+    if (body.dry_run === true) {
+      res.json({ dry_run: true, affected: preview.length, preview });
+      return;
+    }
+
+    await withTransaction(async (client) => {
+      for (const row of before.rows) {
+        const id = Number(row.id);
+        if (status !== null) {
+          await client.query(
+            `UPDATE applications
+                SET tech_status = $1,
+                    tech_rejection_reason = CASE WHEN $1 = 'rejected' THEN $2 ELSE NULL END,
+                    tech_checked_at = now(),
+                    tech_checked_by = $3,
+                    updated_at = now()
+              WHERE id = $4`,
+            [status, rejectionReason, adminUserId(req), id]
+          );
+          if (status === 'accepted') {
+            await client.query(
+              `UPDATE teams SET status = 'allowed', status_changed_at = now(), updated_at = now()
+                WHERE id = (SELECT team_id FROM applications WHERE id = $1)
+                  AND status IN ('submitted', 'tech_check')`,
+              [id]
+            );
+          }
+          if (status === 'rejected') {
+            await client.query(
+              `UPDATE teams SET status = 'tech_rejected', status_changed_at = now(), updated_at = now()
+                WHERE id = (SELECT team_id FROM applications WHERE id = $1)`,
+              [id]
+            );
+          }
+        }
+        if (notes !== null) {
+          await client.query(
+            `UPDATE applications
+                SET organizer_notes = COALESCE(organizer_notes, '') || $1, updated_at = now()
+              WHERE id = $2`,
+            [notes, id]
+          );
+        }
+      }
+    });
+
+    await writeAudit({
+      action: 'applications_bulk_review',
+      entity: 'applications',
+      entityId: ids.join(','),
+      before: before.rows,
+      after: { tech_status: status, organizer_notes: notes },
+      req,
+    });
+
+    res.json({ dry_run: false, affected: preview.length, preview });
+  })
+);
+
 // ─── Материалы заявок ────────────────────────────────────────────────────────
 
 // GET /api/admin/materials — материалы с фильтрами.
@@ -661,6 +838,92 @@ router.post(
       return;
     }
     res.json(result.rows[0]);
+  })
+);
+
+// POST /api/admin/materials/bulk — массовая проверка материалов (ТЗ 07, п. 3.3).
+router.post(
+  '/materials/bulk',
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rawIds = Array.isArray(body.ids) ? body.ids : [];
+    const ids: number[] = [];
+    for (const value of rawIds) {
+      const id = parsePositiveInt(value);
+      if (id === null) {
+        res.status(400).json({ error: 'Некорректный список материалов' });
+        return;
+      }
+      ids.push(id);
+    }
+    if (ids.length === 0) {
+      res.status(400).json({ error: 'Отметьте хотя бы один материал' });
+      return;
+    }
+    if (ids.length > 200) {
+      res.status(400).json({ error: 'За одно действие можно обработать не более 200 материалов' });
+      return;
+    }
+
+    const action = String(body.action ?? '');
+    if (action !== 'accept' && action !== 'request_fix') {
+      res.status(400).json({ error: 'Действие указывается явно: «принять» или «вернуть на доработку».' });
+      return;
+    }
+    const status = action === 'accept' ? 'accepted' : 'needs_fix';
+    const comment = optionalText(body.comment, 3000);
+    if (action === 'request_fix' && !comment) {
+      res.status(400).json({ error: 'При возврате на доработку укажите, что исправить: команда увидит замечание.' });
+      return;
+    }
+
+    const before = await query(
+      `SELECT m.id, m.type, m.status, t.name AS team_name
+         FROM application_materials m
+         JOIN teams t ON t.id = m.team_id
+        WHERE m.id = ANY($1::int[])
+        ORDER BY m.id`,
+      [ids]
+    );
+    if (before.rows.length !== ids.length) {
+      const found = new Set(before.rows.map((row) => Number(row.id)));
+      const missing = ids.filter((id) => !found.has(id));
+      res.status(404).json({ error: `Материалы не найдены: ${missing.join(', ')}` });
+      return;
+    }
+
+    const preview = before.rows.map((row) => ({
+      id: Number(row.id),
+      type: row.type,
+      team_name: row.team_name,
+      status_before: row.status,
+      status_after: status,
+    }));
+
+    if (body.dry_run === true) {
+      res.json({ dry_run: true, affected: preview.length, preview });
+      return;
+    }
+
+    const fixDeadline = action === 'request_fix' ? addWorkingDays(new Date(), 2).toISOString() : null;
+    await query(
+      `UPDATE application_materials
+          SET status = $1, reviewer_comment = $2, fix_deadline = $3,
+              reviewed_by = $4, reviewed_at = now(), updated_at = now()
+        WHERE id = ANY($5::int[])`,
+      [status, comment, fixDeadline, adminUserId(req), ids]
+    );
+
+    await writeAudit({
+      action: 'materials_bulk_review',
+      entity: 'materials',
+      entityId: ids.join(','),
+      before: before.rows,
+      after: { status, comment },
+      req,
+    });
+
+    res.json({ dry_run: false, affected: preview.length, preview });
   })
 );
 
@@ -1833,13 +2096,65 @@ router.get(
       teamParams
     );
 
+    // Счётчики внимания ведут в отфильтрованные списки (ТЗ 07, п. 1.7):
+    // сколько заявок не обработано, материалов с замечаниями, апелляций в сроке
+    // и обращений без ответа.
+    const attention = await query(
+      `SELECT
+         (SELECT count(*)::int FROM applications WHERE tech_status IN ('pending', 'in_review')) AS applications_pending,
+         (SELECT count(*)::int FROM application_materials WHERE status = 'needs_fix') AS materials_needs_fix,
+         (SELECT count(*)::int FROM appeals
+           WHERE decision IS NULL
+             AND (deadline_at IS NULL OR deadline_at > now())) AS appeals_open,
+         (SELECT count(*)::int FROM leads WHERE status = 'new') AS leads_new`
+    );
+
     res.json({
       teams_by_status: teamsByStatus.rows,
       applications_by_status: applications.rows,
       leads_by_status: leads.rows,
       materials_by_status: materials.rows,
       rankings_by_stage: rankings.rows,
+      attention: attention.rows[0] ?? {
+        applications_pending: 0,
+        materials_needs_fix: 0,
+        appeals_open: 0,
+        leads_new: 0,
+      },
     });
+  })
+);
+
+// GET /api/admin/legacy-applications — архив заявок сезона 2026 (ТЗ 10, п. 3.1).
+// Таблица заведена миграцией 018; записи переносятся импортёром
+// (ops/import-legacy.sh) и не участвуют в работе конкурса: только чтение и
+// выгрузка.
+router.get(
+  '/legacy-applications',
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = [];
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(
+        `(full_name ILIKE $${params.length} OR COALESCE(email, '') ILIKE $${params.length}
+          OR COALESCE(organization, '') ILIKE $${params.length})`
+      );
+    }
+    const status = queryString(req.query.status);
+    if (status) {
+      params.push(status);
+      where.push(`status = $${params.length}`);
+    }
+    const result = await query(
+      `SELECT * FROM legacy_applications
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY submitted_at DESC NULLS LAST, legacy_id DESC
+        LIMIT 1000`,
+      params
+    );
+    res.json(result.rows);
   })
 );
 
@@ -1864,6 +2179,18 @@ router.use(
       { name: 'stage1_to', type: 'timestamptz' },
       { name: 'final_from', type: 'timestamptz' },
       { name: 'final_to', type: 'timestamptz' },
+      { name: 'expertise_from', type: 'timestamptz' },
+      { name: 'expertise_to', type: 'timestamptz' },
+      { name: 'protocol_selection_at', type: 'timestamptz' },
+      { name: 'video_publication_from', type: 'timestamptz' },
+      { name: 'video_publication_to', type: 'timestamptz' },
+      { name: 'stage1_evaluation_from', type: 'timestamptz' },
+      { name: 'stage1_evaluation_to', type: 'timestamptz' },
+      { name: 'protocol_stage1_at', type: 'timestamptz' },
+      { name: 'masterclasses_from', type: 'timestamptz' },
+      { name: 'masterclasses_to', type: 'timestamptz' },
+      { name: 'post_final_from', type: 'timestamptz' },
+      { name: 'post_final_to', type: 'timestamptz' },
       { name: 'appeal_window_days', type: 'int' },
       { name: 'timezone', type: 'text', maxLength: 64 },
       { name: 'description', type: 'text', maxLength: 5000 },
@@ -1908,9 +2235,14 @@ router.use(
       { name: 'phone', type: 'text', maxLength: 32 },
       { name: 'is_active', type: 'bool' },
       { name: 'notes', type: 'text', maxLength: 3000 },
+      // Публикация на сайте (ТЗ 08, п. 2.1): Оргкомитет решает, показывать ли
+      // человека в разделе «Оргкомитет и эксперты», и задаёт фото и описание.
+      { name: 'is_public', type: 'bool' },
+      { name: 'photo_media_id', type: 'text', maxLength: 64 },
+      { name: 'about', type: 'text', maxLength: 4000 },
     ],
-    orderBy: 'full_name',
-    filters: ['stage'],
+    orderBy: 'stage, role DESC, full_name',
+    filters: ['stage', 'role', 'is_active', 'is_public'],
     searchFields: ['full_name', 'organization'],
   })
 );
@@ -1930,9 +2262,12 @@ router.use(
       { name: 'phone', type: 'text', maxLength: 32 },
       { name: 'is_active', type: 'bool' },
       { name: 'notes', type: 'text', maxLength: 3000 },
+      { name: 'is_public', type: 'bool' },
+      { name: 'photo_media_id', type: 'text', maxLength: 64 },
+      { name: 'about', type: 'text', maxLength: 4000 },
     ],
-    orderBy: 'full_name',
-    filters: ['stage'],
+    orderBy: 'role DESC, full_name',
+    filters: ['stage', 'role'],
     searchFields: ['full_name', 'organization'],
   })
 );
@@ -1961,7 +2296,10 @@ router.use(
   '/masterclasses',
   buildCrud({
     table: 'masterclasses',
+    slugFrom: 'title',
     fields: [
+      { name: 'slug', type: 'text', maxLength: 200 },
+      { name: 'topic', type: 'text', maxLength: 200 },
       { name: 'season_id', type: 'int' },
       { name: 'title', type: 'text', maxLength: 300 },
       { name: 'speaker', type: 'text', maxLength: 300 },
@@ -2014,6 +2352,7 @@ router.use(
   '/news',
   buildCrud({
     table: 'news',
+    slugFrom: 'title',
     fields: [
       { name: 'slug', type: 'text', maxLength: 200 },
       { name: 'title', type: 'text', maxLength: 300 },
@@ -2084,6 +2423,7 @@ router.use(
   '/pages',
   buildCrud({
     table: 'pages',
+    slugFrom: 'title',
     fields: [
       { name: 'slug', type: 'text', maxLength: 200 },
       { name: 'title', type: 'text', maxLength: 300 },
@@ -2106,6 +2446,7 @@ router.use(
   '/initiatives',
   buildCrud({
     table: 'initiatives',
+    slugFrom: 'title',
     fields: [
       { name: 'season_id', type: 'int' },
       { name: 'team_id', type: 'int' },
