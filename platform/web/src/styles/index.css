@@ -51,3 +51,57 @@
     border: 0;
   }
 }
+
+/* ── Печать (ТЗ 08, п. 3.7) ───────────────────────────────────────────────────
+   Положение, критерии и календарь печатаются читаемо: навигация, подвал, кнопки
+   и служебные подписи не попадают на бумагу, фон становится белым, таблицы не
+   разрываются посередине, а внешние ссылки показываются адресом — иначе в
+   распечатке невозможно понять, куда ведёт ссылка. */
+@media print {
+  header,
+  footer,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  table {
+    page-break-inside: avoid;
+    border-collapse: collapse;
+  }
+
+  tr,
+  img,
+  figure {
+    page-break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}
