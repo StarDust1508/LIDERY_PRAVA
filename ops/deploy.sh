@@ -56,7 +56,7 @@ if [ -f "$ENV_FILE" ]; then
 else
     note "файл $ENV_FILE не найден — беру переменные из текущего окружения"
 fi
-API_PORT="${API_PORT:-8091}"
+API_PORT="${API_PORT:-8100}"
 note "репозиторий: $REPO_DIR"
 note "развёртывание: $WWW_DIR"
 note "порт API: $API_PORT"
@@ -111,6 +111,14 @@ run install -d "$WWW_DIR/api/dist"
 # dist перезаписываем целиком: старые файлы сборки не должны оставаться.
 run rsync -a --delete "$REPO_DIR/platform/server/dist/" "$WWW_DIR/api/dist/"
 run cp "$REPO_DIR/platform/server/package.json" "$WWW_DIR/api/package.json"
+# Зависимости времени выполнения ставятся рядом с собранным API: сервис не может
+# импортировать express и pg из каталога сборки репозитория.
+if [ -f "$REPO_DIR/platform/server/package-lock.json" ]; then
+    run cp "$REPO_DIR/platform/server/package-lock.json" "$WWW_DIR/api/package-lock.json"
+    run bash -c "cd '$WWW_DIR/api' && NODE_ENV=production npm ci --omit=dev --no-audit --no-fund"
+else
+    run bash -c "cd '$WWW_DIR/api' && NODE_ENV=production npm install --omit=dev --no-audit --no-fund"
+fi
 # PDF Положения и Приложений — часть публичной статики.
 [ -d "$REPO_DIR/platform/public" ] && run rsync -a "$REPO_DIR/platform/public/" "$WWW_DIR/public/"
 # Публичная сборка и админка — без --delete: старые файлы удаляются осознанно,
@@ -123,6 +131,16 @@ if [ -d "$REPO_DIR/platform/admin/dist" ]; then
 fi
 if [ "$DRY_RUN" != "1" ] && [ "$(id -u)" = "0" ]; then
     chown -R "$APP_USER:$APP_USER" "$WWW_DIR/api"
+    # Статика отдаётся nginx под пользователем www-data, поэтому права
+    # выставляются явно: перенос исходников сохраняет режим файлов сборки, а
+    # каталог, закрытый для чтения, превращается в 403 на живом сайте.
+    if id -u www-data >/dev/null 2>&1; then
+        run chown -R www-data:www-data "$WWW_DIR/public" "$WWW_DIR/admin"
+    fi
+    run find "$WWW_DIR/public" "$WWW_DIR/admin" -type d -exec chmod 755 {} +
+    run find "$WWW_DIR/public" "$WWW_DIR/admin" -type f -exec chmod 644 {} +
+    # Служебные файлы macOS (._имя) не нужны на сервере.
+    run find "$WWW_DIR/public" "$WWW_DIR/admin" -name '._*' -delete
 fi
 
 step "5/5 Перезапуск и проверка"

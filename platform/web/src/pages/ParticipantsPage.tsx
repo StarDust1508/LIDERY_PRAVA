@@ -123,7 +123,9 @@ export function ParticipantsPage() {
             <dt className="mono-label text-muted">Осталось</dt>
             <dd className="mt-1">
               {season?.is_application_open === false
-                ? 'приём заявок завершён'
+                ? season.application_not_started
+                  ? 'приём заявок ещё не открыт'
+                  : 'приём заявок завершён'
                 : (timeLeft ?? 'срок определяется Оргкомитетом')}
             </dd>
           </div>

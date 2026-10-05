@@ -33,7 +33,10 @@ export interface Season {
   appeal_window_days: number;
   timezone: string;
   description: string | null;
+  /** Приём заявок идёт прямо сейчас. */
   is_application_open: boolean;
+  /** Приём ещё не открывался: подпись «завершён» в этом случае неверна. */
+  application_not_started?: boolean;
 }
 
 export interface SeasonResponse {

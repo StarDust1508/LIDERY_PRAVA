@@ -48,6 +48,23 @@ export function isDeadlinePassed(deadline: Date | string | null | undefined): bo
   return nowInstant().getTime() > date.getTime();
 }
 
+/**
+ * Окно приёма заявок: до открытия, открыто или закрыто.
+ * Различать эти состояния обязательно: до 11 ноября 2026 года приём ещё не
+ * начался, и подпись «приём завершён» была бы неверной.
+ */
+export function applicationWindowState(
+  openAt: Date | string | null | undefined,
+  closeAt: Date | string | null | undefined
+): 'before' | 'open' | 'closed' {
+  const open = toDate(openAt);
+  const close = toDate(closeAt);
+  const now = nowInstant().getTime();
+  if (open && now < open.getTime()) return 'before';
+  if (close && now > close.getTime()) return 'closed';
+  return 'open';
+}
+
 /** Сколько миллисекунд осталось до срока (0, если срок уже прошёл). */
 export function millisecondsUntil(deadline: Date | string | null | undefined): number {
   const date = toDate(deadline);

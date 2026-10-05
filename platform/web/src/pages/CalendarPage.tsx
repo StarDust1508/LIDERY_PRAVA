@@ -206,7 +206,9 @@ export function CalendarPage() {
           </p>
           {season && !season.is_application_open ? (
             <p className="text-muted">
-              Приём заявок завершён — {formatMoscowHuman(season.application_close_at)}.
+              {season.application_not_started
+                ? `Приём заявок откроется ${formatMoscowHuman(season.application_open_at)}.`
+                : `Приём заявок завершён — ${formatMoscowHuman(season.application_close_at)}.`}
             </p>
           ) : null}
         </Prose>

@@ -10,6 +10,10 @@ DB_PORT="${DB_PORT:-5432}"
 BACKUP_DIR="${BACKUP_DIR:-/root/db-backups/lideryprava}"
 KEEP="${KEEP:-30}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
+
+# Пароль берём из того же файла окружения, что и сервис API: systemd передаёт
+# DATABASE_PASSWORD, а pg_dump читает PGPASSWORD.
+export PGPASSWORD="${PGPASSWORD:-${DATABASE_PASSWORD:-}}"
 FILE="${BACKUP_DIR}/liders-${STAMP}.dump"
 
 install -d -m 700 "${BACKUP_DIR}"

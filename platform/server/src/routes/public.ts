@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PUBLIC_BASE_URL } from '../config.js';
 import { query } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
-import { isDeadlinePassed } from '../lib/moscow-time.js';
+import { applicationWindowState } from '../lib/moscow-time.js';
 
 // Публичные справочные данные сайта. Ничего персонального здесь не отдаётся:
 // только сезон, направления, партнёры, мастер-классы, новости и документы.
@@ -75,7 +75,9 @@ router.get(
         appeal_window_days: season.appeal_window_days,
         timezone: season.timezone,
         description: season.description,
-        is_application_open: !isDeadlinePassed(season.application_close_at),
+        is_application_open: applicationWindowState(season.application_open_at, season.application_close_at) === 'open',
+        application_not_started:
+          applicationWindowState(season.application_open_at, season.application_close_at) === 'before',
       },
       settings,
     });

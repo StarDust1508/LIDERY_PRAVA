@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ACT_LEVELS,
   ApiError,
@@ -628,6 +629,7 @@ export function ApplyPage() {
   }
 
   const applicationClosed = season ? !season.is_application_open : false;
+  const applicationNotStarted = season?.application_not_started === true;
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
@@ -645,10 +647,22 @@ export function ApplyPage() {
       ) : null}
 
       {applicationClosed && !submitted ? (
-        <Alert tone="warning" title="Приём заявок закрыт">
-          Срок приёма заявок истёк {formatMoscowHuman(season?.application_close_at)}. Напишите в Оргкомитет, если нужна помощь:
-          Тажибов Арслан Азизович, 8 (966) 789-76-05, ssla_av@mail.ru.
-        </Alert>
+        applicationNotStarted ? (
+          <Alert tone="info" title="Приём заявок ещё не открыт">
+            Приём заявок откроется {formatMoscowHuman(season?.application_open_at)}. Мастер заполнения можно открыть
+            заранее: черновик сохраняется в браузере, а отправить заявку получится с начала приёма. Условия участия —
+            в{' '}
+            <Link to="/about/regulations" className="text-accent underline underline-offset-2">
+              Положении о конкурсе
+            </Link>
+            .
+          </Alert>
+        ) : (
+          <Alert tone="warning" title="Приём заявок закрыт">
+            Срок приёма заявок истёк {formatMoscowHuman(season?.application_close_at)}. Напишите в Оргкомитет, если
+            нужна помощь: Тажибов Арслан Азизович, 8 (966) 789-76-05, ssla_av@mail.ru.
+          </Alert>
+        )
       ) : null}
 
       {error ? (

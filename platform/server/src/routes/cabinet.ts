@@ -27,6 +27,7 @@ import {
 } from '../lib/media-content.js';
 import {
   addWorkingDays,
+  applicationWindowState,
   formatMoscowHuman,
   isDeadlinePassed,
   millisecondsUntil,
@@ -298,7 +299,10 @@ router.get(
         ? { id: bundle.team.direction_id, code: bundle.team.direction_code, title: bundle.team.direction_title }
         : null,
       application_close_at: bundle.team.application_close_at,
-      is_application_open: !isDeadlinePassed(bundle.team.application_close_at),
+      is_application_open:
+        applicationWindowState(bundle.team.application_open_at, bundle.team.application_close_at) === 'open',
+      application_not_started:
+        applicationWindowState(bundle.team.application_open_at, bundle.team.application_close_at) === 'before',
       public_number: bundle.team.public_number ?? null,
       submitted_at: bundle.team.submitted_at ?? null,
       tech_status: bundle.team.tech_status ?? null,
@@ -798,7 +802,10 @@ router.get(
       application_close_at: bundle.team.application_close_at,
       stage1_to: bundle.team.stage1_to,
       appeal_window_days: bundle.team.appeal_window_days,
-      is_application_open: !isDeadlinePassed(bundle.team.application_close_at),
+      is_application_open:
+        applicationWindowState(bundle.team.application_open_at, bundle.team.application_close_at) === 'open',
+      application_not_started:
+        applicationWindowState(bundle.team.application_open_at, bundle.team.application_close_at) === 'before',
       milliseconds_left: millisecondsUntil(bundle.team.application_close_at),
       fix_deadlines: fixes.rows.map((row) => ({
         material_id: row.id,

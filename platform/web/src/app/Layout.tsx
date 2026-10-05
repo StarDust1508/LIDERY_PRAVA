@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { formatMoscowHuman } from '@shared/index';
+import { formatMoscowDate, formatMoscowHuman } from '@shared/index';
 import { NAV_SECTIONS, type NavSection } from '@/app/nav';
 import { Breadcrumbs, BreadcrumbsProvider } from '@/components/Breadcrumbs';
 import { Logo, LogoMark } from '@/components/Logo';
@@ -206,7 +206,9 @@ export function Layout() {
 
   const season = data?.season ?? null;
   const applicationOpen = season ? season.is_application_open : true;
+  const notStarted = season?.application_not_started === true;
   const closeAt = season?.application_close_at ?? null;
+  const openAt = season?.application_open_at ?? null;
 
   return (
     <BreadcrumbsProvider>
@@ -250,6 +252,15 @@ export function Layout() {
                 >
                   Подать заявку
                 </Link>
+              ) : notStarted && openAt ? (
+                // До открытия приёма подпись «завершён» была бы неверной.
+                <Link
+                  to="/apply"
+                  className="mono-label border border-border-strong px-4 py-2 hover:border-accent hover:text-accent"
+                  title={`Приём заявок откроется ${formatMoscowHuman(openAt)}`}
+                >
+                  Приём с {formatMoscowDate(openAt)}
+                </Link>
               ) : (
                 <Link
                   to="/apply"
@@ -271,9 +282,13 @@ export function Layout() {
             </div>
           </div>
 
-          {!applicationOpen && closeAt ? (
+          {!applicationOpen ? (
             <p className="border-t border-border bg-sand px-6 py-2 text-center text-sm text-muted">
-              Приём заявок завершён {formatMoscowHuman(closeAt)}
+              {notStarted && openAt
+                ? `Приём заявок откроется ${formatMoscowHuman(openAt)}`
+                : closeAt
+                  ? `Приём заявок завершён ${formatMoscowHuman(closeAt)}`
+                  : 'Приём заявок закрыт'}
             </p>
           ) : null}
         </header>
@@ -292,7 +307,11 @@ export function Layout() {
                 Личный кабинет
               </Link>
               <Link to="/apply" className="mono-label bg-accent-solid px-4 py-3 text-center text-on-accent">
-                {applicationOpen ? 'Подать заявку' : 'Приём заявок завершён'}
+                {applicationOpen
+                  ? 'Подать заявку'
+                  : notStarted
+                    ? 'Приём заявок ещё не открыт'
+                    : 'Приём заявок завершён'}
               </Link>
             </div>
           </div>
