@@ -686,6 +686,20 @@ fi
 expect "массовая проверка применяется" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/applications/bulk" \
     -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"organizer_notes\":\"Массовая проверка приёмки.\"}}"
+# Массовое отклонение требует причины: без неё решение не принимается (п. 3.3).
+expect "массовое отклонение без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/applications/bulk" -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"rejected\"}}"
+expect "массовое отклонение с причиной" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/applications/bulk" \
+    -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"rejected\",\"tech_rejection_reason\":\"Приёмочная проверка массовой операции.\"}}"
+BULK_STATUS=$(psql_db "SELECT tech_status FROM liders.applications WHERE id=${APP_ID:-0}")
+[ "$BULK_STATUS" = "rejected" ] && ok "статус заявки после массовой операции: отклонена" || bad "статус заявки: ${BULK_STATUS:-?}"
+BULK_JOURNAL=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='applications_bulk_review'")
+[ "${BULK_JOURNAL:-0}" -ge 1 ] && ok "массовая операция записана в журнал: ${BULK_JOURNAL}" || bad "массовая операция не записана в журнал"
+# Возвращаем заявку в рабочее состояние, чтобы не мешать остальным проверкам.
+curl -s -o /dev/null -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/applications/bulk" \
+    -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"accepted\"}}"
 expect "возврат материала без замечания отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/materials/bulk" -d "{\"ids\":[${MATERIAL_ID:-0}],\"action\":\"request_fix\"}"
 expect "массовый возврат материала с замечанием" 200 -H "$AUTH" -H 'Content-Type: application/json' \

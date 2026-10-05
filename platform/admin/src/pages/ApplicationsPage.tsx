@@ -21,6 +21,13 @@ export function ApplicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  // Массовая техническая проверка (ТЗ 07, п. 3.3): выбор строк, предпросмотр,
+  // подтверждение. Предпросмотр обязателен — Оргкомитет видит, что изменится.
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState('accepted');
+  const [bulkReason, setBulkReason] = useState('');
+  const [bulkPreview, setBulkPreview] = useState<{ affected: number; rows: Array<Record<string, unknown>> } | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +45,72 @@ export function ApplicationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  function toggleRow(id: number) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setBulkPreview(null);
+  }
+
+  function toggleAll() {
+    setSelected((current) => (current.size === rows.length ? new Set() : new Set(rows.map((row) => row.id))));
+    setBulkPreview(null);
+  }
+
+  /** Предпросмотр: сервер отвечает, что именно изменится (ТЗ 07, п. 3.3). */
+  async function loadBulkPreview() {
+    if (selected.size === 0) return;
+    if (bulkStatus === 'rejected' && bulkReason.trim().length < 5) {
+      setError('При отклонении укажите причину: команда увидит её в личном кабинете.');
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const result = await adminApi.bulkApplications({
+        ids: [...selected],
+        patch: {
+          tech_status: bulkStatus,
+          ...(bulkStatus === 'rejected' ? { tech_rejection_reason: bulkReason.trim() } : {}),
+        },
+        dry_run: true,
+      });
+      setBulkPreview({ affected: result.affected, rows: result.preview });
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось подготовить предпросмотр.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function confirmBulk() {
+    if (!bulkPreview || selected.size === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const result = await adminApi.bulkApplications({
+        ids: [...selected],
+        patch: {
+          tech_status: bulkStatus,
+          ...(bulkStatus === 'rejected' ? { tech_rejection_reason: bulkReason.trim() } : {}),
+        },
+      });
+      setBulkPreview(null);
+      setSelected(new Set());
+      setBulkReason('');
+      await load();
+      setError(null);
+      window.alert(`Обработано заявок: ${result.affected}.`);
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Массовая проверка не выполнена.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function exportCsv() {
     setExporting(true);
@@ -109,6 +182,109 @@ export function ApplicationsPage() {
         </form>
       </SectionCard>
 
+      {selected.size > 0 ? (
+        <SectionCard
+          title={`Массовая техническая проверка: выбрано ${selected.size}`}
+          description="Сначала предпросмотр — что именно изменится, затем подтверждение. Каждое действие попадает в журнал."
+          actions={
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="secondary" loading={bulkBusy} onClick={() => void loadBulkPreview()}>
+                Предпросмотр
+              </Button>
+              <Button
+                type="button"
+                variant="quiet"
+                onClick={() => {
+                  setSelected(new Set());
+                  setBulkPreview(null);
+                }}
+              >
+                Снять выделение
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-end">
+            <div className="md:w-72">
+              <SelectField
+                id="bulk-tech-status"
+                label="Новое состояние технической проверки"
+                value={bulkStatus}
+                onChange={(event) => {
+                  setBulkStatus(event.target.value);
+                  setBulkPreview(null);
+                }}
+                options={Object.entries(TECH_STATUS_TITLES).map(([value, title]) => ({ value, title }))}
+              />
+            </div>
+            {bulkStatus === 'rejected' ? (
+              <div className="md:flex-1">
+                <TextField
+                  id="bulk-reason"
+                  label="Причина отклонения"
+                  required
+                  value={bulkReason}
+                  onChange={(event) => setBulkReason(event.target.value)}
+                  hint="Команда увидит причину в личном кабинете."
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {bulkPreview ? (
+            <div className="mt-5 border border-border p-4">
+              <p className="font-medium">Будет обработано заявок: {bulkPreview.affected}</p>
+              <div className="mt-3 hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted">
+                      <th scope="col" className="py-2 pr-4">№</th>
+                      <th scope="col" className="py-2 pr-4">Команда</th>
+                      <th scope="col" className="py-2 pr-4">Было</th>
+                      <th scope="col" className="py-2">Станет</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkPreview.rows.map((row) => (
+                      <tr key={String(row.id)} className="border-b border-border">
+                        <td className="py-2 pr-4 font-mono">{String(row.public_number ?? row.id)}</td>
+                        <td className="py-2 pr-4">{String(row.team_name ?? '—')}</td>
+                        <td className="py-2 pr-4">
+                          {TECH_STATUS_TITLES[String(row.tech_status_before ?? '')] ?? String(row.tech_status_before ?? '—')}
+                        </td>
+                        <td className="py-2">
+                          {TECH_STATUS_TITLES[String(row.tech_status_after ?? '')] ?? String(row.tech_status_after ?? '—')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="mt-3 flex flex-col gap-2 text-sm md:hidden">
+                {bulkPreview.rows.map((row) => (
+                  <li key={`card-${String(row.id)}`} className="border border-border p-3">
+                    <p className="font-mono">{String(row.public_number ?? row.id)}</p>
+                    <p>{String(row.team_name ?? '—')}</p>
+                    <p className="text-muted">
+                      {TECH_STATUS_TITLES[String(row.tech_status_before ?? '')] ?? '—'} →{' '}
+                      {TECH_STATUS_TITLES[String(row.tech_status_after ?? '')] ?? '—'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button type="button" loading={bulkBusy} onClick={() => void confirmBulk()}>
+                  Применить к {bulkPreview.affected} заявкам
+                </Button>
+                <Button type="button" variant="quiet" onClick={() => setBulkPreview(null)}>
+                  Отменить
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Заявки" description="Нажмите на команду, чтобы открыть карточку заявки целиком.">
         {rows.length === 0 && !loading ? (
           <p className="text-sm text-muted">По этим условиям заявок нет.</p>
@@ -119,6 +295,15 @@ export function ApplicationsPage() {
               <caption className="sr-only-text">Список заявок конкурса</caption>
               <thead>
                 <tr className="border-b border-border-strong text-left">
+                  <th scope="col" className="py-2 pr-2">
+                    <input
+                      type="checkbox"
+                      aria-label="Выбрать все заявки в списке"
+                      checked={rows.length > 0 && selected.size === rows.length}
+                      onChange={toggleAll}
+                      className="h-4 w-4"
+                    />
+                  </th>
                   <th scope="col" className="py-2 pr-4">№</th>
                   <th scope="col" className="py-2 pr-4">Команда</th>
                   <th scope="col" className="py-2 pr-4">Направление</th>
@@ -132,6 +317,15 @@ export function ApplicationsPage() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} className="border-b border-border align-top">
+                    <td className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`Выбрать заявку ${row.team_name}`}
+                        checked={selected.has(row.id)}
+                        onChange={() => toggleRow(row.id)}
+                        className="h-4 w-4"
+                      />
+                    </td>
                     <td className="py-2 pr-4 font-mono">{row.id}</td>
                     <td className="py-2 pr-4">
                       <Link to={`/applications/${row.id}`} className="text-accent underline underline-offset-2">
@@ -158,6 +352,15 @@ export function ApplicationsPage() {
             <ul className="flex flex-col gap-4 md:hidden">
               {rows.map((row) => (
                 <li key={`card-${row.id}`} className="border border-border p-4 text-sm">
+                  <label className="mb-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-muted">Выбрать для массовой проверки</span>
+                  </label>
                   <Link to={`/applications/${row.id}`} className="text-accent underline underline-offset-2">
                     {row.team_name}
                   </Link>
