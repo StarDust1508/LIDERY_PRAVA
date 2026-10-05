@@ -5,6 +5,9 @@ import path from 'node:path';
 // Отдельная сборка админ-панели: свои права, свой бандл, закрыта от индексации
 // (ТЗ 03, «Почему две сборки, а не одна»). Общий код — в platform/shared.
 export default defineConfig({
+  // Админка отдаётся с префиксом /admin/ (см. ops/nginx/lideryprava-platform.conf):
+  // без base сборка ссылается на /assets/… и на боевом сервере не загружается.
+  base: '/admin/',
   plugins: [react()],
   resolve: {
     alias: {

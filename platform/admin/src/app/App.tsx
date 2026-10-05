@@ -353,7 +353,9 @@ function AdminShell() {
 
 export function App() {
   return (
-    <BrowserRouter>
+    // basename совпадает с адресом развёртывания: ссылки разделов строятся как
+    // /admin/applications, и обновление страницы не уводит в публичную часть.
+    <BrowserRouter basename="/admin">
       <AdminShell />
     </BrowserRouter>
   );

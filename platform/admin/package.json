@@ -6,7 +6,7 @@
   "description": "Отдельная сборка админ-панели конкурса «Лидеры права – 2027»",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/check-base.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
