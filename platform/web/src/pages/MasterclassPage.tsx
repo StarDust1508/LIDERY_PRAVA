@@ -228,6 +228,28 @@ export function MasterclassPage() {
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
+      {isPast && item.materials && item.materials.length > 0 ? (
+        <SectionCard
+          title="Материалы занятия"
+          description="Файлы и ссылки, которые спикер передал участникам (ТЗ 08, п. 4.3)."
+        >
+          <ul className="flex flex-col gap-2 text-sm">
+            {item.materials.map((material) => (
+              <li key={`${material.title}-${material.url}`}>
+                <a
+                  href={material.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-2"
+                >
+                  {material.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="О мастер-классе" description="Дата и время указаны по московскому времени.">
         <dl className="grid gap-5 text-sm md:grid-cols-2">
           <div>

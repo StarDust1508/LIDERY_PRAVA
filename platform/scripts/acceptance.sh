@@ -703,6 +703,71 @@ expect "архив заявок 2026 доступен администратор
 SEASON_CALENDAR=$(curl -s "${BASE}/api/season/current" | grep -c 'expertise_from')
 [ "${SEASON_CALENDAR:-0}" -ge 1 ] && ok "календарный план сезона отдаётся публично" || bad "в ответе сезона нет сроков экспертизы"
 
+# ── Пробелы разделов админки: материалы, апелляции, мастер-классы ────────────
+step "Материалы: блокировка содержания, очередь и сроки"
+expect "блокировка содержания без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/materials/${MATERIAL_ID}/review" -d '{"status":"blocked"}'
+expect "блокировка содержания с причиной" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/materials/${MATERIAL_ID}/review" \
+    -d '{"status":"blocked","comment":"Приёмочная проверка: материал нельзя показывать."}'
+BLOCKED_STATUS=$(psql_db "SELECT status FROM liders.application_materials WHERE id=${MATERIAL_ID}")
+[ "$BLOCKED_STATUS" = "blocked" ] && ok "статус материала: содержание заблокировано" || bad "статус материала: ${BLOCKED_STATUS:-?}"
+CABINET_BLOCKED=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/materials" | python3 -c "
+import json,sys
+rows = json.load(sys.stdin)
+blocked = [row for row in rows if row.get('status') == 'blocked']
+print('ok' if blocked and all(row.get('file_url') is None for row in blocked) else 'leak')
+" 2>/dev/null || echo error)
+[ "$CABINET_BLOCKED" = "ok" ] && ok "заблокированный материал не отдаётся команде файлом" || bad "команда получила доступ к заблокированному файлу: $CABINET_BLOCKED"
+expect "очередь проверки отдаётся" 200 -H "$AUTH" "${BASE}/api/admin/materials?deadline=queue"
+expect "фильтр просроченных сроков досдачи работает" 200 -H "$AUTH" "${BASE}/api/admin/materials?deadline=overdue"
+expect "фильтр ближайших сроков досдачи работает" 200 -H "$AUTH" "${BASE}/api/admin/materials?deadline=soon"
+curl -s -o /dev/null -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/materials/bulk" -d "{\"ids\":[${MATERIAL_ID}],\"action\":\"accept\"}"
+
+step "Апелляции: скан команды и протокол решения"
+# Апелляция подаётся из кабинета вместе с файлом: проверяем и файл, и запись.
+# Сценарий С5 намеренно сдвигал публикацию протокола в прошлое (проверка срока),
+# поэтому окно возвращаем в текущее состояние — иначе подача отклоняется по сроку.
+psql_db "UPDATE liders.rankings SET published_at = now() WHERE stage='selection'" >/dev/null
+printf '%%PDF-1.4\nприёмочный скан\n' > /tmp/lp_acc_appeal.pdf
+TEAM_STATUS_NOW=$(psql_db "SELECT status FROM liders.teams WHERE id=${TEAM_ID}")
+expect "апелляция со сканом принимается" 201 -b /tmp/lp_acc_cookies.txt \
+    -X POST "${BASE}/api/cabinet/appeals" -F "stage=selection" -F "grounds=procedure_violation" \
+    -F "text=Приёмочная апелляция со сканом." -F "file=@/tmp/lp_acc_appeal.pdf;type=application/pdf"
+APPEAL_ID=$(psql_db "SELECT id FROM liders.appeals ORDER BY id DESC LIMIT 1")
+APPEAL_SCAN=$(psql_db "SELECT scan_media_id IS NOT NULL FROM liders.appeals WHERE id=${APPEAL_ID}")
+[ "$APPEAL_SCAN" = "t" ] && ok "скан апелляции сохранён" || bad "скан апелляции не сохранён"
+APPEAL_LIST=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals" | python3 -c "
+import json,sys
+rows = json.load(sys.stdin)
+# Идентификатор апелляции приходит строкой: колонка объявлена BIGSERIAL.
+row = next((item for item in rows if str(item.get('id')) == '${APPEAL_ID}'), None)
+print('ok' if row and row.get('scan_url') else 'no')
+" 2>/dev/null || echo error)
+[ "$APPEAL_LIST" = "ok" ] && ok "скан виден в карточке апелляции у Оргкомитета" || bad "скан не отдаётся в карточке: $APPEAL_LIST"
+expect "решение по апелляции с протоколом" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/appeals/${APPEAL_ID}" \
+    -d '{"status":"rejected","decision":"Отказать","decision_note":"Основания не подтвердились.","protocol_url":"/docs/legal/jury-regulations.pdf"}'
+APPEAL_DECISION=$(psql_db "SELECT status || '|' || COALESCE(decision_note,'') FROM liders.appeals WHERE id=${APPEAL_ID}")
+case "$APPEAL_DECISION" in
+    'rejected|'*) ok "решение и обоснование сохранены" ;;
+    *) bad "решение по апелляции: ${APPEAL_DECISION:-?}" ;;
+esac
+
+step "Мастер-классы: материалы занятия в карточке"
+expect "мастер-класс с материалами создаётся" 201 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/masterclasses" \
+    -d '{"title":"Мастер-класс с материалами","speaker":"Петров Пётр Петрович","status":"past","recording_url":"https://vk.com/video-123_456","materials":[{"title":"Слайды занятия","url":"https://vk.com/doc123"}]}'
+MATERIALS_SLUG=$(psql_db "SELECT slug FROM liders.masterclasses WHERE title='Мастер-класс с материалами'")
+MATERIALS_PUBLIC=$(curl -s "${BASE}/api/masterclasses/${MATERIALS_SLUG}" | python3 -c "
+import json,sys
+data = json.load(sys.stdin)
+materials = data.get('materials') or []
+print('ok' if materials and materials[0].get('title') == 'Слайды занятия' else 'no')
+" 2>/dev/null || echo error)
+[ "$MATERIALS_PUBLIC" = "ok" ] && ok "материалы занятия отдаются публично" || bad "материалы занятия не отдаются: $MATERIALS_PUBLIC"
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

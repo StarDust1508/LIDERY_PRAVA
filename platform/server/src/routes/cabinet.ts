@@ -596,9 +596,13 @@ router.get(
         ...row,
         type_title: materialTypeTitle(row.type),
         is_deadline_passed: closePassed,
+        // «Содержание заблокировано» (ТЗ 07, п. 2.3): файл остаётся в системе для
+        // разбора, но команде не отдаётся — ни ссылкой, ни по прямому адресу.
+        file_url: row.status === 'blocked' ? null : row.file_url,
         can_delete:
           !closePassed &&
           row.status !== 'accepted' &&
+          row.status !== 'blocked' &&
           (row.fix_deadline === null || !isDeadlinePassed(row.fix_deadline)),
       }))
     );
@@ -869,16 +873,20 @@ router.post(
   })
 );
 
-// GET /api/cabinet/appeals — апелляции команды (подача — через оргкомитет).
+// GET /api/cabinet/appeals — апелляции команды с приложенным сканом.
 router.get(
   '/appeals',
   asyncHandler(async (_req, res) => {
     const context = teamContext(res);
     const result = await query(
-      `SELECT id, stage, grounds, status, decision, decision_note, submitted_at, deadline_at, reviewed_at
-         FROM appeals
-        WHERE team_id = $1
-        ORDER BY submitted_at DESC`,
+      `SELECT a.id, a.stage, a.grounds, a.status, a.decision, a.decision_note,
+              a.submitted_at, a.deadline_at, a.reviewed_at, a.scan_media_id, a.protocol_url,
+              CASE WHEN a.scan_media_id IS NOT NULL
+                   THEN '/api/media/file/' || a.scan_media_id::text
+                   ELSE NULL END AS scan_url
+         FROM appeals a
+        WHERE a.team_id = $1
+        ORDER BY a.submitted_at DESC`,
       [context.teamId]
     );
     res.json(result.rows);
@@ -1068,6 +1076,9 @@ router.post(
 router.post(
   '/appeals',
   rateLimit(5, 60_000),
+  // Файл необязателен: апелляцию можно подать текстом, а подтверждающий
+  // документ приложить, если он есть (ТЗ 07, п. 2.9 — в карточке виден скан).
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const context = teamContext(res);
     const bundle = await loadTeamBundle(context.teamId);
@@ -1120,11 +1131,28 @@ router.post(
       return;
     }
 
+    // Приложенный файл сохраняется в общем хранилище: скан остаётся доступен
+    // команде и Оргкомитету, а не только в письме.
+    const file = (req as Request & { file?: { originalname: string; mimetype: string; size: number; buffer: Buffer } })
+      .file;
+    let scanMediaId: string | null = null;
+    if (file) {
+      const media = await query(
+        `INSERT INTO media (file_name, file_url, file_type, file_size, file_data, is_public, category)
+         VALUES ($1, '', $2, $3, $4, FALSE, 'appeal_scan')
+         RETURNING id`,
+        [sanitizeFileName(file.originalname), file.mimetype, file.size, file.buffer]
+      );
+      scanMediaId = String(media.rows[0].id);
+      await query('UPDATE media SET file_url = $1 WHERE id = $2', [`/api/media/file/${scanMediaId}`, scanMediaId]);
+    }
+
     const inserted = await query(
-      `INSERT INTO appeals (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at)
-       VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6)
-       RETURNING id, submitted_at, deadline_at`,
-      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt]
+      `INSERT INTO appeals
+         (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at, scan_media_id)
+       VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6, $7)
+       RETURNING id, submitted_at, deadline_at, scan_media_id`,
+      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt, scanMediaId]
     );
 
     void logAccess(context, req, 'appeal_submitted', { appeal_id: inserted.rows[0].id, stage });
@@ -1134,6 +1162,7 @@ router.post(
       stage,
       submitted_at: inserted.rows[0].submitted_at,
       deadline_at: inserted.rows[0].deadline_at,
+      scan_media_id: inserted.rows[0].scan_media_id ?? null,
     });
   })
 );

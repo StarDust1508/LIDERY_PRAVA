@@ -25,6 +25,10 @@ function displayValue(row: Row, field: ResourceField): string {
   if (field.type === 'bool') return value === true ? 'да' : 'нет';
   if (field.type === 'timestamptz') return formatMoscowHuman(String(value));
   if (field.type === 'date') return formatMoscowHuman(`${String(value)}T00:00:00+03:00`).replace(/,.*/, '');
+  if (field.type === 'json') {
+    if (Array.isArray(value)) return `${value.length} элем.`;
+    return typeof value === 'object' ? 'заполнено' : String(value);
+  }
   if (field.type === 'select') {
     const option = field.options?.find((item) => String(item.value) === String(value));
     if (option) return option.title;
@@ -64,6 +68,15 @@ function fromInputValue(field: ResourceField, value: string): unknown {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
+  if (field.type === 'json') {
+    // Пустая строка означает «структуры нет»: сервер получит NULL.
+    if (value.trim() === '') return null;
+    try {
+      return JSON.parse(value);
+    } catch {
+      throw new Error(`Поле «${field.title}»: значение должно быть корректным JSON.`);
+    }
+  }
   return value;
 }
 
@@ -91,6 +104,17 @@ function FieldControl({
           {field.hint ? <span className="mt-1 block text-muted">{field.hint}</span> : null}
         </label>
       </div>
+    );
+  }
+  if (field.type === 'json') {
+    return (
+      <TextAreaField
+        id={`field-${field.name}`}
+        label={field.title}
+        value={value}
+        hint={field.hint ?? 'Формат JSON. Например: [{"title":"Слайды","url":"https://…"}]'}
+        onChange={(event) => onChange(event.target.value)}
+      />
     );
   }
   if (field.type === 'textarea') {
@@ -205,7 +229,12 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
     try {
       const payload: Record<string, unknown> = {};
       for (const field of config.fields) {
-        payload[field.name] = fromInputValue(field, editing.values[field.name] ?? '');
+        try {
+          payload[field.name] = fromInputValue(field, editing.values[field.name] ?? '');
+        } catch (parseError) {
+          setError((parseError as Error).message);
+          return;
+        }
       }
       if (editing.id === null) {
         await adminApi.resourceCreate(config.key, payload);

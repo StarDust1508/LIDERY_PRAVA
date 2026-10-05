@@ -327,7 +327,7 @@ export const adminApi = {
 
   bulkMaterials: (payload: {
     ids: number[];
-    action: 'accept' | 'request_fix';
+    action: 'accept' | 'request_fix' | 'block';
     comment?: string | null;
     dry_run?: boolean;
   }) =>

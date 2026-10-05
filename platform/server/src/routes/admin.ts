@@ -775,16 +775,36 @@ router.get(
       params.push(type);
       where.push(`m.type = $${params.length}`);
     }
+    // Очередь проверки материалов (ТЗ 07, п. 2.3): отдельный фильтр по сроку
+    // досдачи — «истекает в ближайшие два рабочих дня» и «срок истёк».
+    const deadline = queryString(req.query.deadline);
+    if (deadline === 'overdue') {
+      where.push("m.fix_deadline IS NOT NULL AND m.fix_deadline < now() AND m.status = 'needs_fix'");
+    } else if (deadline === 'soon') {
+      where.push(
+        "m.fix_deadline IS NOT NULL AND m.status = 'needs_fix' AND m.fix_deadline >= now() " +
+          "AND m.fix_deadline <= now() + interval '2 days'"
+      );
+    } else if (deadline === 'queue') {
+      where.push("m.status IN ('uploaded', 'needs_fix')");
+    }
+    const applicationId = parsePositiveInt(queryString(req.query.application_id));
+    if (applicationId !== null) {
+      params.push(applicationId);
+      where.push(`m.application_id = $${params.length}`);
+    }
     const result = await query(
-      `SELECT m.*, t.name AS team_name, media.file_name, media.file_type, media.file_size,
+      `SELECT m.*, t.name AS team_name, a.public_number, media.file_name, media.file_type, media.file_size,
               CASE WHEN m.media_id IS NOT NULL
                    THEN '/api/media/file/' || m.media_id::text
-                   ELSE NULL END AS file_url
+                   ELSE NULL END AS file_url,
+              (m.fix_deadline IS NOT NULL AND m.fix_deadline < now() AND m.status = 'needs_fix') AS fix_overdue
          FROM application_materials m
          JOIN teams t ON t.id = m.team_id
+         LEFT JOIN applications a ON a.id = m.application_id
          LEFT JOIN media ON media.id = m.media_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
-        ORDER BY m.created_at DESC
+        ORDER BY m.application_id, m.type, m.created_at DESC
         LIMIT 500`,
       params
     );
@@ -792,7 +812,7 @@ router.get(
   })
 );
 
-const MATERIAL_STATUSES = ['uploaded', 'accepted', 'needs_fix', 'rejected'] as const;
+const MATERIAL_STATUSES = ['uploaded', 'accepted', 'needs_fix', 'rejected', 'blocked'] as const;
 
 // POST /api/admin/materials/:id/review — результат проверки материала.
 router.post(
@@ -807,6 +827,16 @@ router.post(
     const status = String(body.status ?? '');
     if (!MATERIAL_STATUSES.includes(status as (typeof MATERIAL_STATUSES)[number])) {
       res.status(400).json({ error: `Недопустимый статус материала: ${status}` });
+      return;
+    }
+
+    // Блокировка содержания (ТЗ 07, п. 2.3): применяется, когда материал нельзя
+    // показывать — нарушение прав или запрещённое содержание. Причина
+    // обязательна: команда должна понимать, что произошло.
+    if (status === 'blocked' && !optionalText(body.comment, 3000)) {
+      res.status(400).json({
+        error: 'Для блокировки содержания укажите причину: команда увидит пояснение в личном кабинете.',
+      });
       return;
     }
 
@@ -866,14 +896,21 @@ router.post(
     }
 
     const action = String(body.action ?? '');
-    if (action !== 'accept' && action !== 'request_fix') {
-      res.status(400).json({ error: 'Действие указывается явно: «принять» или «вернуть на доработку».' });
+    if (action !== 'accept' && action !== 'request_fix' && action !== 'block') {
+      res.status(400).json({
+        error: 'Действие указывается явно: «принять», «вернуть на доработку» или «заблокировать содержание».',
+      });
       return;
     }
-    const status = action === 'accept' ? 'accepted' : 'needs_fix';
+    const status = action === 'accept' ? 'accepted' : action === 'block' ? 'blocked' : 'needs_fix';
     const comment = optionalText(body.comment, 3000);
-    if (action === 'request_fix' && !comment) {
-      res.status(400).json({ error: 'При возврате на доработку укажите, что исправить: команда увидит замечание.' });
+    if ((action === 'request_fix' || action === 'block') && !comment) {
+      res.status(400).json({
+        error:
+          action === 'block'
+            ? 'Для блокировки содержания укажите причину: команда увидит пояснение.'
+            : 'При возврате на доработку укажите, что исправить: команда увидит замечание.',
+      });
       return;
     }
 
@@ -1808,7 +1845,11 @@ router.get(
       where.push(`ap.season_id = $${params.length}`);
     }
     const result = await query(
-      `SELECT ap.*, t.name AS team_name, s.title AS season_title
+      `SELECT ap.*, t.name AS team_name, s.title AS season_title,
+              (ap.deadline_at < now() AND ap.status = 'submitted') AS overdue,
+              CASE WHEN ap.scan_media_id IS NOT NULL
+                   THEN '/api/media/file/' || ap.scan_media_id::text
+                   ELSE NULL END AS scan_url
          FROM appeals ap
          JOIN teams t ON t.id = ap.team_id
          JOIN seasons s ON s.id = ap.season_id
@@ -2347,6 +2388,8 @@ router.use(
       { name: 'place', type: 'text', maxLength: 300 },
       { name: 'recording_url', type: 'text', maxLength: 2000 },
       { name: 'media_id', type: 'text', maxLength: 64 },
+      // Материалы занятия: массив { title, url } (ТЗ 08, п. 4.3).
+      { name: 'materials', type: 'json' },
       { name: 'sort_order', type: 'int' },
     ],
     orderBy: 'starts_at DESC NULLS LAST, sort_order',

@@ -6,7 +6,17 @@
 // строк, оформление таблиц и форм совпадает везде, а поля прав и ролей описаны
 // в одном месте.
 
-export type FieldType = 'text' | 'textarea' | 'int' | 'numeric' | 'bool' | 'date' | 'timestamptz' | 'select';
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'int'
+  | 'numeric'
+  | 'bool'
+  | 'date'
+  | 'timestamptz'
+  | 'select'
+  /** Структура переменного состава: редактируется текстом JSON. */
+  | 'json';
 
 export interface ResourceField {
   name: string;
@@ -310,6 +320,12 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'place', title: 'Место или ссылка', type: 'text', maxLength: 300 },
       { name: 'recording_url', title: 'Ссылка на запись', type: 'text', maxLength: 2000 },
       { name: 'media_id', title: 'Файл записи (идентификатор)', type: 'text', maxLength: 64 },
+      {
+        name: 'materials',
+        title: 'Материалы занятия',
+        type: 'json',
+        hint: 'Массив объектов { title, url }: публикуются в карточке прошедшего мастер-класса.',
+      },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
     ],
     filters: [

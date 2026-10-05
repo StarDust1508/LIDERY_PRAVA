@@ -229,15 +229,32 @@ export const api = {
   cabinetAppeals: (accessToken?: string | null) =>
     request<Appeal[]>('/api/cabinet/appeals', { headers: authHeader(accessToken) }),
 
+  /**
+   * Подача апелляции. Файл передаётся формой: скан прикладывается, если он есть,
+   * — апелляцию можно подать и одним текстом (ТЗ 06, п. 2; ТЗ 07, п. 2.9).
+   */
   cabinetSubmitAppeal: (
-    payload: { stage: 'selection' | 'stage1'; grounds: string; text: string },
+    payload: { stage: 'selection' | 'stage1'; grounds: string; text: string; file?: File | null },
     accessToken?: string | null
-  ) =>
-    request<AppealSubmissionResponse>('/api/cabinet/appeals', {
+  ) => {
+    if (payload.file) {
+      const form = new FormData();
+      form.set('stage', payload.stage);
+      form.set('grounds', payload.grounds);
+      form.set('text', payload.text);
+      form.set('file', payload.file);
+      return request<AppealSubmissionResponse>('/api/cabinet/appeals', {
+        method: 'POST',
+        headers: authHeader(accessToken),
+        body: form,
+      });
+    }
+    return request<AppealSubmissionResponse>('/api/cabinet/appeals', {
       method: 'POST',
       headers: authHeader(accessToken),
-      body: JSON.stringify(payload),
-    }),
+      body: JSON.stringify({ stage: payload.stage, grounds: payload.grounds, text: payload.text }),
+    });
+  },
 
   cabinetFinalConfirmation: (
     payload: { speakers: number[]; note?: string | null },

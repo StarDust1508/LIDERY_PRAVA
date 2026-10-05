@@ -122,7 +122,12 @@ export function MaterialsPage() {
       // сервер отдаёт только team_id. Если справочник недоступен, показываем
       // номер команды, а не пустое место.
       const [materials, teams] = await Promise.all([
-        adminApi.materials(status === '' ? {} : { status }),
+        adminApi.materials({
+          ...(status === '' ? {} : { status }),
+          // Фильтры очереди и сроков считает сервер: иначе «просрочено» зависело бы
+          // от того, попала ли запись в первые 500 строк выборки.
+          ...(deadlineFilter === '' ? {} : { deadline: deadlineFilter === 'urgent' ? 'soon' : deadlineFilter }),
+        }),
         adminApi.teams().catch(() => []),
       ]);
       setRows(materials);
@@ -135,7 +140,7 @@ export function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, deadlineFilter]);
 
   useEffect(() => {
     void load();
@@ -161,14 +166,6 @@ export function MaterialsPage() {
         const team = (teamNames.get(row.team_id) ?? '').toLowerCase();
         const file = (row.file_name ?? row.external_url ?? '').toLowerCase();
         if (!team.includes(needle) && !file.includes(needle)) return false;
-      }
-      if (deadlineFilter !== '') {
-        if (row.status !== 'needs_fix' || row.fix_deadline === null) return false;
-        const time = new Date(row.fix_deadline).getTime();
-        if (Number.isNaN(time)) return false;
-        const now = Date.now();
-        if (deadlineFilter === 'overdue' && time >= now) return false;
-        if (deadlineFilter === 'urgent' && (time < now || time > now + 2 * 24 * 60 * 60 * 1000)) return false;
       }
       return true;
     });
@@ -263,6 +260,31 @@ export function MaterialsPage() {
       await load();
     } catch (caught) {
       setError(explain(caught, 'Не удалось вернуть материал на доработку.'));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /** Блокировка содержания: причина обязательна (ТЗ 07, п. 2.3). */
+  async function blockOne(material: AdminMaterial) {
+    const reason = window.prompt(
+      `Блокировка содержания материала «${materialTypeTitle(material.type)}»\n` +
+        'Укажите причину: команда увидит пояснение, файл перестанет ей отдаваться, ' +
+        'запись останется для разбора Оргкомитетом.'
+    );
+    if (!reason || reason.trim().length < 5) {
+      setError('Блокировка отменена: причина обязательна.');
+      return;
+    }
+    setBusyId(material.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminApi.reviewMaterial(material.id, { status: 'blocked', comment: reason.trim() });
+      setNotice('Содержание заблокировано: файл больше не отдаётся команде, причина видна в карточке.');
+      await load();
+    } catch (caught) {
+      setError(explain(caught, 'Не удалось заблокировать содержание.'));
     } finally {
       setBusyId(null);
     }
@@ -678,6 +700,16 @@ export function MaterialsPage() {
                             <Button
                               type="button"
                               variant="secondary"
+                              className="border-danger text-danger"
+                              title="Материал нельзя показывать: файл перестанет отдаваться команде"
+                              loading={busyId === material.id}
+                              onClick={() => void blockOne(material)}
+                            >
+                              Заблокировать содержание
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
                               onClick={() => {
                                 setOpenFix(openFix === material.id ? null : material.id);
                                 setFixDraft((current) => ({ ...current, [material.id]: draft }));
@@ -837,6 +869,16 @@ export function MaterialsPage() {
                         onClick={() => void acceptOne(material)}
                       >
                         Принять
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="border-danger text-danger"
+                        title="Материал нельзя показывать: файл перестанет отдаваться команде"
+                        loading={busyId === material.id}
+                        onClick={() => void blockOne(material)}
+                      >
+                        Заблокировать содержание
                       </Button>
                       <Button
                         type="button"

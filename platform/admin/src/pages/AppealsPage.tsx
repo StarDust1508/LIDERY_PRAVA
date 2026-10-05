@@ -61,6 +61,8 @@ interface AppealExtras {
   decision_note?: string | null;
   protocol_url?: string | null;
   reviewed_at?: string | null;
+  /** Ссылка на скан, приложенный командой (ТЗ 07, п. 2.9). */
+  scan_url?: string | null;
 }
 
 type TermKey = 'open' | 'overdue' | 'reviewed';
@@ -368,6 +370,23 @@ export function AppealsPage() {
           <div className="mt-5">
             <p className="mono-label text-muted">Текст апелляции</p>
             <p className="mt-2 max-w-measure whitespace-pre-line break-words">{selected.text}</p>
+            {typeof extrasOf(selected).scan_url === 'string' && extrasOf(selected).scan_url !== '' ? (
+              <p className="mt-3">
+                <a
+                  href={String(extrasOf(selected).scan_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-2"
+                >
+                  Приложенный командой документ
+                </a>
+                <span className="ml-2 text-sm text-muted">
+                  открывается по админ-сессии: файл приватный и команде не публикуется
+                </span>
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-muted">Команда не приложила документ — апелляция подана текстом.</p>
+            )}
           </div>
 
           <div className="mt-6 border-t border-border pt-5">

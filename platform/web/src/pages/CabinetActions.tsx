@@ -913,6 +913,8 @@ export function CabinetAppealForm({ data }: { data: CabinetData }) {
   const [stage, setStage] = useState<'selection' | 'stage1'>('selection');
   const [grounds, setGrounds] = useState<string>(APPEAL_GROUNDS[0].value);
   const [text, setText] = useState('');
+  // Скан прикладывается по желанию: апелляцию можно подать и одним текстом.
+  const [scan, setScan] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -945,8 +947,9 @@ export function CabinetAppealForm({ data }: { data: CabinetData }) {
     }
     setBusy(true);
     try {
-      const response = await api.cabinetSubmitAppeal({ stage, grounds, text: text.trim() });
+      const response = await api.cabinetSubmitAppeal({ stage, grounds, text: text.trim(), file: scan });
       setText('');
+      setScan(null);
       setNotice(`Апелляция подана. Срок рассмотрения — до ${formatMoscowHuman(response.deadline_at)}.`);
       setAppeals(await api.cabinetAppeals().catch(() => appeals));
     } catch (caught) {
@@ -976,6 +979,30 @@ export function CabinetAppealForm({ data }: { data: CabinetData }) {
                 Подана {formatMoscowHuman(appeal.submitted_at)} · срок подачи был до{' '}
                 {formatMoscowHuman(appeal.deadline_at)}
               </p>
+              {appeal.scan_url ? (
+                <p className="mt-1">
+                  <a
+                    href={appeal.scan_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Приложенный документ
+                  </a>
+                </p>
+              ) : null}
+              {appeal.protocol_url ? (
+                <p className="mt-1">
+                  <a
+                    href={appeal.protocol_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Протокол апелляционной комиссии
+                  </a>
+                </p>
+              ) : null}
               {appeal.grounds ? (
                 <p className="mt-1 text-muted">
                   Предмет: {APPEAL_GROUNDS.find((item) => item.value === appeal.grounds)?.title ?? appeal.grounds}
@@ -1026,6 +1053,22 @@ export function CabinetAppealForm({ data }: { data: CabinetData }) {
             error={error && text.trim() === '' ? 'Изложите обоснование.' : undefined}
             hint="Укажите конкретные положения Положения, которые, по мнению команды, нарушены, и приложите ссылки на материалы."
           />
+          <div className="flex flex-col gap-2">
+            <label htmlFor="appeal-scan" className="mono-label">
+              Приложить документ (необязательно)
+            </label>
+            <input
+              id="appeal-scan"
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              onChange={(event) => setScan(event.target.files?.[0] ?? null)}
+              className="border border-border-strong bg-raised px-3 py-2 text-sm"
+            />
+            <p className="text-sm text-muted">
+              Скан или документ, подтверждающий доводы. Файл видит только Оргкомитет и апелляционная комиссия.
+              {scan ? ` Выбрано: ${scan.name}` : ''}
+            </p>
+          </div>
           <div>
             <Button type="submit" loading={busy} disabled={text.trim() === ''}>
               Подать апелляцию

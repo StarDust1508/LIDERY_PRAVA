@@ -129,7 +129,7 @@ router.get(
     }
     const result = await query(
       `SELECT m.id, m.slug, m.topic, m.season_id, m.title, m.speaker, m.speaker_info, m.description,
-              m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.sort_order,
+              m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.materials, m.sort_order,
               CASE WHEN m.media_id IS NOT NULL
                    THEN '/api/media/file/' || m.media_id::text
                    ELSE NULL END AS recording_file_url,
@@ -153,7 +153,7 @@ router.get(
     const slug = String(req.params.slug).slice(0, 200);
     const result = await query(
       `SELECT m.id, m.slug, m.season_id, m.title, m.topic, m.speaker, m.speaker_info,
-              m.description, m.status, m.starts_at, m.place, m.recording_url, m.media_id,
+              m.description, m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.materials,
               CASE WHEN m.media_id IS NOT NULL
                    THEN '/api/media/file/' || m.media_id::text
                    ELSE NULL END AS recording_file_url,

@@ -263,6 +263,8 @@ export const MATERIAL_STATUS_TITLES: Record<string, string> = {
   accepted: 'Принят',
   needs_fix: 'Требует исправления',
   rejected: 'Отклонён',
+  // Статус применяется, когда материал нельзя показывать (ТЗ 07, п. 2.3).
+  blocked: 'Содержание заблокировано',
 };
 
 /** Подписи типов конкурсных материалов (совпадают с ограничением БД). */
@@ -388,6 +390,11 @@ export interface Appeal {
   submitted_at: string;
   deadline_at: string;
   reviewed_at: string | null;
+  /** Скан, приложенный командой (ТЗ 07, п. 2.9). */
+  scan_media_id?: string | null;
+  scan_url?: string | null;
+  /** Протокол апелляционной комиссии после решения. */
+  protocol_url?: string | null;
 }
 
 export interface AppealSubmissionResponse {
@@ -847,6 +854,11 @@ export interface AdminAppeal {
   decision_note?: string | null;
   /** Ссылка на протокол заседания апелляционной комиссии. */
   protocol_url?: string | null;
+  /** Скан или документ, приложенный командой. */
+  scan_media_id?: string | null;
+  scan_url?: string | null;
+  /** Срок подачи истёк, а решение не принято. */
+  overdue?: boolean;
   reviewed_at?: string | null;
   deadline_at: string | null;
   created_at: string;
@@ -884,11 +896,19 @@ export interface LeadResult {
   message?: string;
 }
 
+/** Материал мастер-класса: название и ссылка (ТЗ 08, п. 4.3). */
+export interface MasterclassMaterial {
+  title: string;
+  url: string;
+}
+
 export interface PublicMasterclass {
   id: number;
   slug?: string;
   title: string;
   topic?: string | null;
+  /** Материалы занятия: показываются в карточке прошедшего мастер-класса. */
+  materials?: MasterclassMaterial[] | null;
   speaker: string;
   speaker_info: string | null;
   description: string | null;
