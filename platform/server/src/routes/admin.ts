@@ -1034,6 +1034,28 @@ router.get(
       [id]
     );
 
+    // История статусов берётся из журнала действий: каждое решение Оргкомитета
+    // уже записано с автором и временем, дублировать её отдельной таблицей не нужно.
+    const history = await query(
+      `SELECT created_at, actor_label, action, before, after
+         FROM audit_log
+        WHERE entity = 'teams' AND entity_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [String(id)]
+    );
+    const participation = await query(
+      `SELECT stage, group_code, advanced, advance_reason, audience_votes, jury_votes,
+              final_place, nomination, notes, created_at
+         FROM stage_participation WHERE team_id = $1 ORDER BY stage, id`,
+      [id]
+    );
+    const rankings = await query(
+      `SELECT stage, place, average_score, is_published, published_at, needs_chair_review
+         FROM rankings WHERE team_id = $1 ORDER BY stage`,
+      [id]
+    );
+
     res.json({
       team: teamResult.rows[0],
       participants: participants.rows,
@@ -1041,6 +1063,9 @@ router.get(
       application: application.rows[0] ?? null,
       materials: materials.rows,
       access_tokens: tokens.rows,
+      status_history: history.rows,
+      stage_participation: participation.rows,
+      rankings: rankings.rows,
     });
   })
 );
@@ -1064,6 +1089,14 @@ router.patch(
         res.status(400).json({ error: `Недопустимый статус команды: ${status}` });
         return;
       }
+      // Дисквалификация — решение с последствиями: без причины его не принимают
+      // (ТЗ 07, п. 2.4), а причина попадает в журнал действий.
+      if (status === 'disqualified' && !optionalText(body.disqualification_reason, 2000)) {
+        res.status(400).json({
+          error: 'Для дисквалификации укажите причину: команда увидит её, а решение попадёт в журнал.',
+        });
+        return;
+      }
       values.push(status);
       assignments.push(`status = $${values.length}`);
       assignments.push('status_changed_at = now()');
@@ -1071,6 +1104,10 @@ router.patch(
     if (body.disqualification_reason !== undefined) {
       values.push(optionalText(body.disqualification_reason, 2000));
       assignments.push(`disqualification_reason = $${values.length}`);
+    } else if (body.status !== undefined && String(body.status) !== 'disqualified') {
+      // Возврат в работу снимает прежнюю причину: иначе в карточке останется
+      // причина дисквалификации у действующей команды.
+      assignments.push('disqualification_reason = NULL');
     }
     if (body.direction_id !== undefined) {
       values.push(parsePositiveInt(body.direction_id));

@@ -490,7 +490,31 @@ LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_
 # Успешный вход выше уже израсходовал одну попытку из лимита 5 запросов в минуту,
 # поэтому в журнал попадает не 12 отказов, а столько, сколько пропустил лимитер.
 [ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
-# ── Права субъекта персональных данных (ТЗ 11, п. 5–6) ───────────────────────
+# ── Решения по команде (ТЗ 07, п. 2.4) ──────────────────────────────────────
+step "Решения Оргкомитета по команде: этапы, дисквалификация, восстановление"
+expect "карточка команды отдаётся с историей и результатами" 200 -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}"
+CARD_SECTIONS=$(curl -s -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}" | python3 -c "import sys,json;d=json.load(sys.stdin);print('yes' if all(k in d for k in ('status_history','stage_participation','rankings','participants','mentors')) else 'no')" 2>/dev/null || echo no)
+[ "$CARD_SECTIONS" = "yes" ] && ok "карточка команды содержит состав, историю статусов, участие в этапах и результаты" || bad "карточка команды неполна"
+expect "недопустимый статус команды отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"unknown"}'
+expect "дисквалификация без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"disqualified"}'
+expect "перевод команды на первый этап" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"stage1"}'
+STAGE1_STATUS=$(psql_db "SELECT status FROM liders.teams WHERE id=${TEAM_ID}")
+[ "$STAGE1_STATUS" = "stage1" ] && ok "статус команды: первый этап" || bad "статус команды: ${STAGE1_STATUS:-?}"
+expect "дисквалификация с причиной" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"disqualified","disqualification_reason":"Приёмочная проверка: нарушение раздела 13 Положения."}'
+DISQ_REASON=$(psql_db "SELECT disqualification_reason FROM liders.teams WHERE id=${TEAM_ID}")
+[ -n "$DISQ_REASON" ] && ok "причина дисквалификации сохранена" || bad "причина дисквалификации не сохранена"
+TEAM_DECISIONS=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE entity='teams' AND entity_id='${TEAM_ID}'")
+[ "${TEAM_DECISIONS:-0}" -ge 2 ] && ok "решения по команде записаны в журнал: ${TEAM_DECISIONS}" || bad "решения по команде не записаны: ${TEAM_DECISIONS:-0}"
+expect "восстановление команды" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"allowed"}'
+DISQ_CLEARED=$(psql_db "SELECT count(*) FROM liders.teams WHERE id=${TEAM_ID} AND disqualification_reason IS NULL")
+[ "${DISQ_CLEARED:-0}" = "1" ] && ok "при восстановлении причина дисквалификации снята" || bad "причина дисквалификации осталась"
+
+
 step "Права субъекта персональных данных и срок хранения"
 SUBJECT_EMAIL=$(psql_db "SELECT email FROM liders.participants WHERE id=${CAPTAIN_ID}")
 expect "слишком короткий запрос отклоняется" 400 -H "$AUTH" "${BASE}/api/admin/subjects?query=ab"

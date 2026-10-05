@@ -14,15 +14,17 @@ import {
   SectionCard,
   SelectField,
   StatusBadge,
+  TextAreaField,
   TextField,
 } from '@shared/index';
 import type { AdminApplicationRow } from '@shared/index';
 
 // Команды сезона и доступы в личный кабинет (ТЗ 07, п. 2.4–2.5).
 //
-// Экран читающий: статус команды меняется решением по заявке (техническая
-// проверка) — отдельного метода смены статуса команды в API панели нет,
-// поэтому здесь показаны статус, ссылка на карточку заявки и работа с
+// Статус команды меняется здесь решением Оргкомитета: перевод на этап,
+// дисквалификация с обязательной причиной и восстановление. Решение попадает в
+// журнал действий и видно в карточке команды. Показаны статус, ссылка на
+// карточку заявки и работа с
 // доступами. Статус и участники приходят из GET /api/admin/teams.
 //
 // Доступ выдаётся токеном: сервер возвращает ссылку один раз, в базе хранится
@@ -32,6 +34,8 @@ type Season = { id: number; slug: string; title: string; year: number; is_active
 
 /** Строка команды: поля совпадают с ответом GET /api/admin/teams. */
 interface TeamRow {
+  /** Причина дисквалификации: показывается рядом со статусом (ТЗ 07, п. 2.4). */
+  disqualification_reason?: string | null;
   id: number;
   season_id: number;
   name: string;
@@ -61,6 +65,17 @@ interface IssuedToken {
   access_url: string;
   expires_at: string;
 }
+
+/** Статусы команды по Положению: подписи для решений Оргкомитета (ТЗ 07, п. 2.4). */
+const TEAM_STATUS_ACTIONS: Array<{ value: string; title: string; dangerous?: boolean }> = [
+  { value: 'allowed', title: 'Допустить (отборочный этап)' },
+  { value: 'stage1', title: 'Перевести на первый этап' },
+  { value: 'finalist', title: 'Признать финалистом' },
+  { value: 'final', title: 'Допустить к финалу' },
+  { value: 'winner', title: 'Признать победителем' },
+  { value: 'disqualified', title: 'Дисквалифицировать', dangerous: true },
+  { value: 'withdrawn', title: 'Зафиксировать отказ от участия' },
+];
 
 const TOKEN_DAYS = [
   { value: '30', title: '30 дней' },
@@ -108,6 +123,9 @@ export function TeamsPage() {
   const [tokenDays, setTokenDays] = useState('90');
   const [issued, setIssued] = useState<Record<number, IssuedToken>>({});
   const [confirmRevoke, setConfirmRevoke] = useState<{ teamId: number; tokenId: number } | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{ teamId: number; teamName: string; next: string } | null>(null);
+  const [statusDraft, setStatusDraft] = useState<Record<number, string>>({});
+  const [statusReason, setStatusReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +194,31 @@ export function TeamsPage() {
     if (value === '') next.delete(key);
     else next.set(key, value);
     setSearchParams(next, { replace: true });
+  }
+
+  /** Решение Оргкомитета по команде: перевод на этап, дисквалификация, восстановление. */
+  async function changeStatus(teamId: number, status: string, reason?: string) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminApi.updateTeam(teamId, {
+        status,
+        ...(status === 'disqualified' ? { disqualification_reason: reason ?? '' } : {}),
+      });
+      setNotice(
+        status === 'disqualified'
+          ? 'Команда дисквалифицирована, причина записана в карточку и в журнал действий.'
+          : `Статус команды изменён: ${teamStatusTitle(status)}.`
+      );
+      setStatusTarget(null);
+      setStatusReason('');
+      await load();
+    } catch (caught) {
+      setError(explain(caught, 'Не удалось изменить статус команды.'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function loadTokens(teamId: number) {
@@ -402,6 +445,32 @@ export function TeamsPage() {
                         <td className="py-3 pr-4">{team.materials_count}</td>
                         <td className="py-3">
                           <div className="flex flex-wrap gap-2">
+                            {/* Решение Оргкомитета: перевод на этап, дисквалификация, восстановление. */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                aria-label={`Новое состояние команды ${team.name}`}
+                                className="min-h-[44px] border border-border-strong bg-raised px-3 text-sm"
+                                value={statusDraft[team.id] ?? ''}
+                                onChange={(event) => {
+                                  const next = event.target.value;
+                                  if (next === '') return;
+                                  setStatusDraft((current) => ({ ...current, [team.id]: '' }));
+                                  if (next === 'disqualified') {
+                                    setStatusReason('');
+                                    setStatusTarget({ teamId: team.id, teamName: team.name, next });
+                                    return;
+                                  }
+                                  void changeStatus(team.id, next);
+                                }}
+                              >
+                                <option value="">Решение по команде…</option>
+                                {TEAM_STATUS_ACTIONS.filter((action) => action.value !== team.status).map((action) => (
+                                  <option key={action.value} value={action.value}>
+                                    {action.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                             {applicationId !== undefined ? (
                               <Link
                                 to={`/applications/${applicationId}`}
@@ -433,6 +502,49 @@ export function TeamsPage() {
                             <p className="mt-2 text-sm text-muted">
                               Заявка ещё не создана: команда в черновике, карточки для решения нет.
                             </p>
+                          ) : null}
+                          {team.disqualification_reason ? (
+                            <p className="mt-2 text-sm text-danger">
+                              Причина дисквалификации: {team.disqualification_reason}
+                            </p>
+                          ) : null}
+                          {statusTarget && statusTarget.teamId === team.id ? (
+                            <div className="mt-4 border border-danger p-4">
+                              <p className="font-medium">Дисквалификация команды «{team.name}»</p>
+                              <p className="mt-1 text-sm text-muted">
+                                Решение необратимо из панели без отдельного восстановления: команда не публикуется в
+                                архиве и не допускается к этапам. Причина попадёт в карточку команды и в журнал действий.
+                              </p>
+                              <div className="mt-3 flex flex-col gap-3">
+                                <TextAreaField
+                                  id={`disqualify-${team.id}`}
+                                  label="Причина дисквалификации"
+                                  value={statusReason}
+                                  onChange={(event) => setStatusReason(event.target.value)}
+                                  hint="Например: нарушение раздела 13 Положения — недостоверные сведения о работе."
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="border-danger text-danger"
+                                    loading={busy}
+                                    disabled={statusReason.trim().length < 5}
+                                    title={
+                                      statusReason.trim().length < 5
+                                        ? 'Причина обязательна: без неё решение не принимается'
+                                        : undefined
+                                    }
+                                    onClick={() => void changeStatus(team.id, 'disqualified', statusReason.trim())}
+                                  >
+                                    Дисквалифицировать
+                                  </Button>
+                                  <Button type="button" variant="quiet" onClick={() => setStatusTarget(null)}>
+                                    Отменить
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
                           ) : null}
                           {isOpen ? (
                             <div id={`team-access-${team.id}`} className="mt-4 flex flex-col gap-4 border border-border p-4">
