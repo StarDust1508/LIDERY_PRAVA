@@ -19,6 +19,7 @@ import { LoginPage } from '../pages/LoginPage';
 import { MaterialsPage } from '../pages/MaterialsPage';
 import { RankingsPage } from '../pages/RankingsPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { SubjectsPage } from '../pages/SubjectsPage';
 import { TeamsPage } from '../pages/TeamsPage';
 import { UsersPage } from '../pages/UsersPage';
 import { ResourceScreen } from '../components/ResourceScreen';
@@ -96,6 +97,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { to: '/experts', title: 'Эксперты', adminOnly: true },
       { to: '/jury-members', title: 'Жюри', adminOnly: true },
       { to: '/settings', title: 'Настройки', adminOnly: true },
+      { to: '/subjects', title: 'Права субъектов ПДн', adminOnly: true },
       { to: '/users', title: 'Пользователи', adminOnly: true },
       { to: '/audit', title: 'Журнал действий' },
     ],
@@ -337,6 +339,7 @@ function AdminShell() {
             <Route path="/appeals" element={<AppealsPage />} />
             <Route path="/leads" element={<LeadsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/subjects" element={<SubjectsPage />} />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/users" element={<UsersPage currentUserId={session?.user_id ?? null} />} />
             {/* Справочники и контент: один экран на раздел, описанный конфигурацией. */}

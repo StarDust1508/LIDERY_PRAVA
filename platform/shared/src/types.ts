@@ -780,6 +780,43 @@ export interface AdminStats {
   };
 }
 
+/** Найденный субъект персональных данных (ТЗ 11, п. 6). */
+export interface AdminPdnSubject {
+  kind: 'participant' | 'mentor' | 'lead' | 'legacy';
+  id: number;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  context: string | null;
+  created_at: string | null;
+  /** Данные уже обезличены. */
+  erased: boolean;
+}
+
+export interface AdminPdnSubjectSearch {
+  query: string;
+  total: number;
+  subjects: AdminPdnSubject[];
+}
+
+/** Обращение субъекта: доступ, исправление, удаление, отзыв согласия. */
+export interface AdminPdnRequest {
+  id: number;
+  kind: 'access' | 'correction' | 'erasure' | 'withdrawal' | 'other';
+  subject_name: string;
+  subject_email: string;
+  channel: string;
+  message: string | null;
+  received_at: string;
+  due_at: string | null;
+  status: 'new' | 'in_progress' | 'done' | 'refused';
+  resolution: string | null;
+  handled_by: number | null;
+  handled_by_email?: string | null;
+  handled_at: string | null;
+  overdue?: boolean;
+}
+
 /** Обращение Оргкомитету из формы сайта или личного кабинета. */
 export interface AdminLead {
   id: number;

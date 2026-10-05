@@ -6,6 +6,8 @@ import type {
   AdminDistributionConsent,
   AdminMaterial,
   AdminLead,
+  AdminPdnRequest,
+  AdminPdnSubjectSearch,
   AdminLegacyApplication,
   AdminSessionInfo,
   AdminStats,
@@ -266,6 +268,48 @@ export const adminApi = {
   /** Архив заявок сезона 2026 из прежней системы: только чтение (ТЗ 10, п. 3.1). */
   legacyApplications: (params: { q?: string; status?: string } = {}) =>
     adminRequest<AdminLegacyApplication[]>(`/api/admin/legacy-applications${queryString(params)}`),
+
+  // ── Права субъекта персональных данных (ТЗ 11, п. 6) ──────────────────────
+  pdnSubjects: (query: string) =>
+    adminRequest<AdminPdnSubjectSearch>(`/api/admin/subjects${queryString({ query })}`),
+
+  pdnSubject: (kind: string, id: number) =>
+    adminRequest<{ kind: string; person: Record<string, unknown>; consents: Array<Record<string, unknown>> }>(
+      `/api/admin/subjects/${kind}/${id}`
+    ),
+
+  pdnSubjectExport: (kind: string, id: number) =>
+    adminRequest<{ exported_at: string; person: Record<string, unknown>; consents: Array<Record<string, unknown>> }>(
+      `/api/admin/subjects/${kind}/${id}/export`
+    ),
+
+  pdnSubjectErase: (kind: string, id: number, reason: string) =>
+    adminRequest<{ success: true; message: string }>(`/api/admin/subjects/${kind}/${id}/erase`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true, reason }),
+    }),
+
+  pdnRequests: (params: { status?: string } = {}) =>
+    adminRequest<AdminPdnRequest[]>(`/api/admin/subjects/requests${queryString(params)}`),
+
+  createPdnRequest: (payload: {
+    kind: string;
+    subject_name: string;
+    subject_email: string;
+    channel?: string;
+    message?: string | null;
+    received_at?: string | null;
+  }) =>
+    adminRequest<AdminPdnRequest>('/api/admin/subjects/requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updatePdnRequest: (id: number, payload: { status?: string; resolution?: string | null }) =>
+    adminRequest<AdminPdnRequest>(`/api/admin/subjects/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
 
   // ── Сводка и счётчики внимания (ТЗ 07, п. 1.7 и 2.1) ───────────────────────
   stats: (params: { season_id?: number } = {}) => adminRequest<AdminStats>(`/api/admin/stats${queryString(params)}`),

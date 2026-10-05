@@ -485,6 +485,51 @@ LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_
 # Успешный вход выше уже израсходовал одну попытку из лимита 5 запросов в минуту,
 # поэтому в журнал попадает не 12 отказов, а столько, сколько пропустил лимитер.
 [ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
+# ── Права субъекта персональных данных (ТЗ 11, п. 5–6) ───────────────────────
+step "Права субъекта персональных данных и срок хранения"
+SUBJECT_EMAIL=$(psql_db "SELECT email FROM liders.participants WHERE id=${CAPTAIN_ID}")
+expect "слишком короткий запрос отклоняется" 400 -H "$AUTH" "${BASE}/api/admin/subjects?query=ab"
+expect "поиск субъекта по почте" 200 -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}"
+SUBJECTS=$(curl -s -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+[ "${SUBJECTS:-0}" -ge 1 ] && ok "субъект найден: ${SUBJECTS}" || bad "субъект не найден по почте ${SUBJECT_EMAIL}"
+expect "сведения о субъекте отдаются" 200 -H "$AUTH" "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}"
+expect "выгрузка сведений о субъекте (право на доступ)" 200 -H "$AUTH" "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/export"
+EXPORT_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='pdn_export'")
+[ "${EXPORT_LOGGED:-0}" -ge 1 ] && ok "выгрузка записана в журнал: ${EXPORT_LOGGED}" || bad "выгрузка не попала в журнал"
+expect "удаление без подтверждения отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" -d '{"reason":"обращение субъекта"}'
+expect "удаление без основания отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" -d '{"confirm":true}'
+expect "неизвестный вид записи отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/unknown/1/erase" -d '{"confirm":true,"reason":"проверка"}'
+expect "удаление персональных данных (обезличивание)" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" \
+    -d '{"confirm":true,"reason":"Приёмочная проверка: обращение субъекта об удалении"}'
+ERASED=$(psql_db "SELECT full_name FROM liders.participants WHERE id=${CAPTAIN_ID}")
+[ "$ERASED" = "Обезличено по требованию субъекта" ] && ok "данные обезличены пометкой" || bad "пометка обезличивания: $ERASED"
+ERASED_FIELDS=$(psql_db "SELECT count(*) FROM liders.participants WHERE id=${CAPTAIN_ID} AND email NOT LIKE '%@example.ru' AND phone IS NULL AND birth_date IS NULL AND consent_pdn = FALSE")
+[ "${ERASED_FIELDS:-0}" = "1" ] && ok "контакты, дата рождения и согласие участника очищены" || bad "персональные данные не очищены"
+REVOKED=$(psql_db "SELECT count(*) FROM liders.consents WHERE participant_id=${CAPTAIN_ID} AND revoked_at IS NOT NULL")
+[ "${REVOKED:-0}" -ge 1 ] && ok "согласия отозваны: ${REVOKED}" || bad "согласия не отозваны"
+ERASE_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='pdn_erase'")
+[ "${ERASE_LOGGED:-0}" -ge 1 ] && ok "обезличивание записано в журнал" || bad "обезличивание не попало в журнал"
+# Учёт обращений субъектов: срок ответа 10 рабочих дней.
+expect "обращение субъекта регистрируется" 201 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/requests" \
+    -d '{"kind":"access","subject_name":"Приёмов Пётр Петрович","subject_email":"accept@example.ru","message":"Прошу предоставить мои данные."}'
+REQUEST_ID=$(psql_db "SELECT id FROM liders.pdn_requests ORDER BY id DESC LIMIT 1")
+REQUEST_DUE=$(psql_db "SELECT (due_at > received_at) FROM liders.pdn_requests WHERE id=${REQUEST_ID}")
+[ "$REQUEST_DUE" = "t" ] && ok "срок ответа рассчитан" || bad "срок ответа не рассчитан"
+WORKDAYS=$(psql_db "SELECT count(*) FROM liders.pdn_requests r, generate_series(r.received_at::date + 1, r.due_at::date, '1 day') AS d WHERE r.id=${REQUEST_ID} AND extract(isodow FROM d) < 6")
+[ "${WORKDAYS:-0}" -ge 8 ] && ok "срок — 10 рабочих дней (рабочих дней между датами: ${WORKDAYS})" || bad "срок ответа короче 10 рабочих дней: ${WORKDAYS}"
+expect "вид обращения проверяется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X POST "${BASE}/api/admin/subjects/requests" -d '{"kind":"unknown","subject_name":"x","subject_email":"x@example.ru"}'
+expect "обращение берётся в работу" 200 -H "$AUTH" -H 'Content-Type: application/json' \
+    -X PATCH "${BASE}/api/admin/subjects/requests/${REQUEST_ID}" -d '{"status":"in_progress"}'
+expect "обращения субъектов отдаются со сроком" 200 -H "$AUTH" "${BASE}/api/admin/subjects/requests"
+RETENTION_TABLE=$(psql_db "SELECT count(*) FROM information_schema.tables WHERE table_schema='liders' AND table_name='pdn_retention_runs'")
+[ "${RETENTION_TABLE:-0}" = "1" ] && ok "журнал прогонов ретенции существует" || bad "таблицы прогонов ретенции нет"
+
 # ── Публикация редакции 04.10.2026 ───────────────────────────────────────────
 step "Публикация Положения и Приложений редакции 04.10.2026"
 DOC_COUNT=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active")

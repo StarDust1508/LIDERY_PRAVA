@@ -1,0 +1,11 @@
+[Unit]
+Description=Ежегодная проверка сроков хранения персональных данных (ТЗ 11, п. 5)
+
+[Timer]
+# Раз в год, 1 сентября в 04:00 (МСК): после завершения сезона и до начала приёма.
+OnCalendar=*-09-01 04:00:00
+Persistent=true
+Unit=liders-retention.service
+
+[Install]
+WantedBy=timers.target

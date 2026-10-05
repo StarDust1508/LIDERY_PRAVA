@@ -7,6 +7,7 @@ import { auditAdminMutations } from './middleware/admin-audit.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import { buildSitemap } from './lib/sitemap.js';
 import adminRouter from './routes/admin.js';
+import adminSubjectsRouter from './routes/admin-subjects.js';
 import adminUsersRouter from './routes/admin-users.js';
 import applicationsRouter from './routes/applications.js';
 import authAdminRouter from './routes/auth-admin.js';
@@ -91,6 +92,10 @@ app.use('/api/admin', requireAdmin, auditAdminMutations, adminRouter);
 // Отдельный auditAdminMutations здесь не нужен: запросы уже прошли через
 // общий слой аудита выше, а сами маршруты пишут сущностные записи в журнал.
 app.use('/api/admin/users', requireAdmin, requireAdminRole('admin'), adminUsersRouter);
+// Права субъекта персональных данных (ТЗ 11, п. 6): поиск, выгрузка и
+// обезличивание. Раздел доступен только роли `admin`: он меняет персональные
+// данные, и выполняет его ответственный за обработку ПДн.
+app.use('/api/admin/subjects', requireAdmin, adminSubjectsRouter);
 
 // Неизвестный маршрут.
 app.use((_req: Request, res: Response) => {

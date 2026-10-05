@@ -1,0 +1,21 @@
+[Unit]
+Description=Ретенция персональных данных платформы «Лидеры права – 2027»
+Documentation=https://github.com/StarDust1508/LIDERY_PRAVA
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=liders
+Group=liders
+WorkingDirectory=/var/www/lideryprava/api
+EnvironmentFile=/etc/lideryprava/api.env
+# Обезличивание по сроку хранения (ТЗ 11, п. 5).
+ExecStart=/usr/bin/node /var/www/lideryprava/api/dist/scripts/retention.js
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=liders-retention
