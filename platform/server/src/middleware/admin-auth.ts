@@ -269,6 +269,16 @@ export function adminStablePrincipal(req: Request): string | null {
   return principal.kind === 'env' ? 'env:owner' : `user:${principal.userId}`;
 }
 
+/**
+ * Числовой идентификатор администратора, если вход был под учётной записью.
+ * Для входа по паролю из окружения учётной записи нет — возвращается null.
+ */
+export function adminUserIdOf(req: Request): number | null {
+  const principal = verifyTokenSignature(bearerToken(req))?.principal;
+  if (!principal || principal.kind === 'env') return null;
+  return principal.userId;
+}
+
 // ─── Выпуск и отзыв сессии ───────────────────────────────────────────────────
 
 export interface LoginResult {

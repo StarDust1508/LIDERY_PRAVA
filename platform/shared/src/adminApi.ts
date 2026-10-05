@@ -4,6 +4,7 @@ import type {
   AdminConsent,
   AdminDistributionConsent,
   AdminMaterial,
+  AuditRecord,
   Criterion,
   Evaluation,
   EvaluationScore,
@@ -211,6 +212,10 @@ export const adminApi = {
 
   rankings: (params: { season_id?: number; stage?: string } = {}) =>
     adminRequest<Ranking[]>(`/api/admin/rankings${queryString(params)}`),
+
+  /** Журнал действий: кто, что и когда изменил. */
+  audits: (params: { entity?: string; action?: string; q?: string; limit?: number } = {}) =>
+    adminRequest<AuditRecord[]>(`/api/admin/audit${queryString(params)}`),
 
   recalculateRankings: (seasonId: number, stage: string) =>
     adminRequest<{ stage: string; teams: unknown[]; message?: string }>('/api/admin/rankings/recalculate', {

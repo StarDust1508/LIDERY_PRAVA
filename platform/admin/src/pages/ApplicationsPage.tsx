@@ -113,7 +113,8 @@ export function ApplicationsPage() {
         {rows.length === 0 && !loading ? (
           <p className="text-sm text-muted">По этим условиям заявок нет.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <caption className="sr-only-text">Список заявок конкурса</caption>
               <thead>
@@ -150,7 +151,45 @@ export function ApplicationsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+
+            {/* На узких экранах таблица превращается в карточки (ТЗ 08, п. 3.6):
+                горизонтальной прокрутки на мобильных быть не должно. */}
+            <ul className="flex flex-col gap-4 md:hidden">
+              {rows.map((row) => (
+                <li key={`card-${row.id}`} className="border border-border p-4 text-sm">
+                  <Link to={`/applications/${row.id}`} className="text-accent underline underline-offset-2">
+                    {row.team_name}
+                  </Link>
+                  <p className="mt-1 text-muted">{row.direction_title ?? 'направление не выбрано'}</p>
+                  <dl className="mt-3 flex flex-col gap-1">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Подана</dt>
+                      <dd>{row.submitted_at ? formatMoscowHuman(row.submitted_at) : 'черновик'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Техпроверка</dt>
+                      <dd>{TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Статус команды</dt>
+                      <dd>{teamStatusTitle(row.team_status)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Участники / наставники</dt>
+                      <dd>
+                        {row.participants_count} / {row.mentors_count}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Материалов</dt>
+                      <dd>{row.materials_count}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </SectionCard>
     </main>

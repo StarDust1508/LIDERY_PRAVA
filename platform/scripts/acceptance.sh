@@ -325,6 +325,29 @@ expect "апелляция по финальному этапу отклоняе
 psql_db "UPDATE liders.rankings SET published_at = now() - interval '10 days' WHERE stage='selection'" >/dev/null
 expect "апелляция после срока отклоняется" 403 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/appeals" -H 'Content-Type: application/json' -d '{"stage":"selection","grounds":"counting_error","text":"Поздняя апелляция для проверки срока."}'
 
+# ── Журнал действий ──────────────────────────────────────────────────────────
+step "Журнал действий администратора"
+expect "журнал закрыт без токена" 401 "${BASE}/api/admin/audit"
+AUDIT_JSON=$(curl -s -H "$AUTH" "${BASE}/api/admin/audit?limit=100")
+AUDIT_COUNT=$(echo "$AUDIT_JSON" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
+# К этому моменту администратор принял заявку, сохранил оценки и опубликовал протокол.
+[ "${AUDIT_COUNT:-0}" -ge 5 ] && ok "записей в журнале: $AUDIT_COUNT" || bad "журнал почти пуст: ${AUDIT_COUNT:-0}"
+if echo "$AUDIT_JSON" | grep -q 'rankings/publish'; then
+    ok "публикация протокола зафиксирована в журнале"
+else
+    bad "публикация протокола не попала в журнал"
+fi
+if echo "$AUDIT_JSON" | grep -q '"actor_label"'; then
+    ok "у записей журнала указан автор действия"
+else
+    bad "в журнале нет автора действия"
+fi
+if echo "$AUDIT_JSON" | grep -qiE 'password|"token":"[^"]'; then
+    bad "в журнал попали секреты"
+else
+    ok "секреты в журнал не попадают"
+fi
+
 # ── С8. Роли, доступы и лимиты ───────────────────────────────────────────────
 step "С8. Роли, доступ к чужому и лимиты"
 MEDIA_ID=$(psql_db "SELECT media_id FROM liders.application_materials WHERE team_id=${TEAM_ID} AND media_id IS NOT NULL LIMIT 1")

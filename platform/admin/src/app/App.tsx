@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate 
 import { adminApi, setAdminToken } from '@shared/index';
 import { ApplicationPage } from '../pages/ApplicationPage';
 import { ApplicationsPage } from '../pages/ApplicationsPage';
+import { AuditPage } from '../pages/AuditPage';
 import { EvaluationPage } from '../pages/EvaluationPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RankingsPage } from '../pages/RankingsPage';
@@ -83,6 +84,9 @@ function AdminShell() {
               <Link to="/rankings" className={`underline underline-offset-2 ${isActive('/rankings')}`}>
                 Рейтинг
               </Link>
+              <Link to="/audit" className={`underline underline-offset-2 ${isActive('/audit')}`}>
+                Журнал
+              </Link>
             </nav>
           </div>
           <button type="button" onClick={() => void logout()} className="text-sm text-accent underline underline-offset-2">
@@ -99,6 +103,7 @@ function AdminShell() {
         <Route path="/evaluation" element={<EvaluationPage />} />
         <Route path="/evaluation/:teamId" element={<EvaluationPage />} />
         <Route path="/rankings" element={<RankingsPage />} />
+        <Route path="/audit" element={<AuditPage />} />
         <Route path="*" element={<Navigate to="/applications" replace />} />
       </Routes>
     </div>

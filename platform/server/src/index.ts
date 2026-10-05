@@ -3,6 +3,7 @@ import cors from 'cors';
 import { API_HOST, API_PORT, CORS_ORIGINS, DATABASE_SCHEMA, IS_PRODUCTION, NODE_ENV } from './config.js';
 import pool, { testConnection } from './db.js';
 import { requireAdmin } from './middleware/admin-auth.js';
+import { auditAdminMutations } from './middleware/admin-audit.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import adminRouter from './routes/admin.js';
 import applicationsRouter from './routes/applications.js';
@@ -64,9 +65,10 @@ app.use('/api/cabinet', cabinetAccessRouter);
 app.use('/api/cabinet', cabinetRouter);
 
 // Вход/выход администратора — без requireAdmin; остальные админские маршруты
-// закрыты middleware целиком.
+// закрыты middleware целиком. Изменяющие запросы автоматически попадают в
+// журнал действий (ТЗ 03, п. 5.6; ТЗ 07, п. 2.16–2.17).
 app.use('/api/admin', authAdminRouter);
-app.use('/api/admin', requireAdmin, adminRouter);
+app.use('/api/admin', requireAdmin, auditAdminMutations, adminRouter);
 
 // Неизвестный маршрут.
 app.use((_req: Request, res: Response) => {

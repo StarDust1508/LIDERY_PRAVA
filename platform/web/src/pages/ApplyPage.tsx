@@ -291,11 +291,134 @@ export function ApplyPage() {
     setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
+  // Ошибки рядом с полем (ТЗ 08, п. 7.2): показываем сообщение у конкретного
+  // поля, а не только сводкой сверху. Проверки сервера остаются главными —
+  // это подсказка до отправки, чтобы не гонять пользователя по кругу.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  function focusFirstError(errors: Record<string, string>) {
+    const firstId = Object.keys(errors)[0];
+    if (!firstId) return;
+    window.setTimeout(() => document.getElementById(firstId)?.focus(), 0);
+  }
+
+  function validateStep(current: number): Record<string, string> {
+    const errors: Record<string, string> = {};
+    const closeAt = season?.application_close_at ? new Date(season.application_close_at) : new Date();
+
+    const ageAt = (birthDate: string): number | null => {
+      if (!birthDate) return null;
+      const birth = new Date(`${birthDate}T00:00:00Z`);
+      if (Number.isNaN(birth.getTime())) return null;
+      return (
+        closeAt.getUTCFullYear() -
+        birth.getUTCFullYear() -
+        (closeAt < new Date(Date.UTC(closeAt.getUTCFullYear(), birth.getUTCMonth(), birth.getUTCDate())) ? 1 : 0)
+      );
+    };
+    const emailOk = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+
+    if (current === 0) {
+      if (!teamName.trim()) errors['team-name'] = 'Укажите наименование команды.';
+      if (!directionId) errors.direction = 'Выберите направление конкурса (Приложение № 2).';
+      if (!lawTitle.trim()) errors['law-title'] = 'Укажите наименование законопроекта.';
+      if (!annotation.trim()) errors.annotation = 'Добавьте краткую аннотацию: не более 1000 знаков.';
+      if (aiUsage && !aiUsagePurpose.trim()) {
+        errors['ai-purpose'] = 'Укажите цели использования систем искусственного интеллекта.';
+      }
+      if (isSolo && !soloApprovedAt) {
+        errors['solo-approved-at'] = 'Единоличное участие допускается по согласованию с Оргкомитетом: нужна дата.';
+      }
+      if (!captainName.trim()) errors['captain-name'] = 'Укажите фамилию, имя и отчество капитана команды.';
+      if (!captainBirthDate) {
+        errors['captain-birth'] = 'Укажите дату рождения капитана команды.';
+      } else {
+        const age = ageAt(captainBirthDate);
+        if (age !== null && (age < 16 || age > 35)) {
+          errors['captain-birth'] = `Возраст на дату окончания приёма заявок — ${age}. Допустимо 16–35 лет (п. 4.1 Положения).`;
+        }
+      }
+      if (!emailOk(captainEmail)) {
+        errors['captain-email'] = 'Укажите корректный адрес электронной почты: по нему команда входит в личный кабинет.';
+      }
+    }
+
+    if (current === 1) {
+      participants.forEach((participant, index) => {
+        if (!participant.full_name.trim()) errors[`p-name-${index}`] = 'Укажите фамилию, имя и отчество.';
+        if (!participant.birth_date) {
+          errors[`p-birth-${index}`] = 'Укажите дату рождения.';
+        } else {
+          const age = ageAt(participant.birth_date);
+          if (age !== null && (age < 16 || age > 35)) {
+            errors[`p-birth-${index}`] = `Возраст на дату окончания приёма заявок — ${age}. Допустимо 16–35 лет.`;
+          }
+        }
+        if (!emailOk(participant.email)) errors[`p-email-${index}`] = 'Укажите корректный адрес электронной почты.';
+        if (!participant.consent_pdn) {
+          errors[`p-consent-pdn-${index}`] = 'Без согласия на обработку персональных данных участник не может быть заявлен.';
+        }
+        if (participant.course !== '' && (Number(participant.course) < 1 || Number(participant.course) > 6)) {
+          errors[`p-course-${index}`] = 'Курс — от 1 до 6.';
+        }
+      });
+    }
+
+    if (current === 2) {
+      mentors.forEach((mentor, index) => {
+        const filled = mentor.full_name.trim() !== '' || mentor.organization.trim() !== '' || mentor.email.trim() !== '';
+        if (filled && mentor.full_name.trim() === '') {
+          errors[`m-name-${index}`] = 'Укажите фамилию, имя и отчество наставника.';
+        }
+        if (mentor.full_name.trim() !== '' && !mentor.consent_pdn) {
+          errors[`m-consent-${index}`] = 'Нужно согласие наставника на обработку персональных данных.';
+        }
+      });
+    }
+
+    if (current === 3) {
+      for (const requirement of requiredMaterials) {
+        const uploaded = materials.some(
+          (material) => material.type === requirement.type && material.status !== 'rejected'
+        );
+        if (!uploaded) errors[`upload-${requirement.type}`] = `Приложите материал: ${requirement.title}.`;
+      }
+      if (hasMinor) {
+        const hasScan = materials.some(
+          (material) => material.type === 'consent_legal_rep' && material.media_id !== null
+        );
+        if (!hasScan) {
+          errors['upload-consent_legal_rep'] =
+            'Для участников младше 18 лет нужен скан подписанного согласия законного представителя.';
+        }
+      }
+    }
+
+    if (current === 4) {
+      if (!confirmRegulation) errors['confirm-regulation'] = 'Без подтверждения Положения заявку отправить нельзя.';
+      if (!imageLicense) errors['image-license'] = 'Нужно согласие на изображение и лицензию (Приложение № 13).';
+    }
+
+    return errors;
+  }
+
+  /** Не пускает дальше, пока на шаге есть незаполненные обязательные поля. */
+  function checkStep(current: number): boolean {
+    const errors = validateStep(current);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length === 0) return true;
+    setError('Проверьте выделенные поля: часть обязательных сведений не заполнена.');
+    setDetails([]);
+    focusFirstError(errors);
+    return false;
+  }
+
   function goTo(next: number) {
     setStep(next);
     setMaxStep((value) => Math.max(value, next));
     setError(null);
     setDetails([]);
+    setFieldErrors({});
   }
 
   function markSaved() {
@@ -304,8 +427,10 @@ export function ApplyPage() {
 
   async function createApplication(event: React.FormEvent) {
     event.preventDefault();
+    if (!checkStep(0)) return;
     setError(null);
     setDetails([]);
+    setFieldErrors({});
     setBusy(true);
     try {
       const created = await api.createApplication(
@@ -543,9 +668,9 @@ export function ApplyPage() {
             <SectionCard title="Команда и законотворческая инициатива" description="Сведения по Приложению № 1 к Положению.">
               <form className="flex flex-col gap-6" onSubmit={createApplication} noValidate>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <TextField id="team-name" label="Наименование команды" required value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={200} />
+                  <TextField id="team-name" error={fieldErrors['team-name']} label="Наименование команды" required value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={200} />
                   <SelectField
-                    id="direction"
+                    id="direction" error={fieldErrors['direction']}
                     label="Направление конкурса"
                     required
                     value={directionId}
@@ -559,7 +684,7 @@ export function ApplyPage() {
 
                 <h3 className="text-h3 font-semibold">Законопроект</h3>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <TextField id="law-title" label="Наименование законопроекта" required value={lawTitle} onChange={(e) => setLawTitle(e.target.value)} maxLength={300} />
+                  <TextField id="law-title" error={fieldErrors['law-title']} label="Наименование законопроекта" required value={lawTitle} onChange={(e) => setLawTitle(e.target.value)} maxLength={300} />
                   <SelectField
                     id="act-level"
                     label="Уровень акта"
@@ -571,7 +696,7 @@ export function ApplyPage() {
                   <TextField id="proposed-initiator" label="Предполагаемый субъект права законодательной инициативы" value={proposedInitiator} onChange={(e) => setProposedInitiator(e.target.value)} maxLength={300} />
                 </div>
                 <TextAreaField
-                  id="annotation"
+                  id="annotation" error={fieldErrors['annotation']}
                   label="Краткая аннотация инициативы"
                   required
                   value={annotation}
@@ -581,7 +706,7 @@ export function ApplyPage() {
                 />
                 <CheckboxField id="ai-usage" label="При разработке использовались системы искусственного интеллекта" checked={aiUsage} onChange={setAiUsage} />
                 {aiUsage ? (
-                  <TextField id="ai-purpose" label="Цели использования систем искусственного интеллекта" required value={aiUsagePurpose} onChange={(e) => setAiUsagePurpose(e.target.value)} maxLength={500} />
+                  <TextField id="ai-purpose" error={fieldErrors['ai-purpose']} label="Цели использования систем искусственного интеллекта" required value={aiUsagePurpose} onChange={(e) => setAiUsagePurpose(e.target.value)} maxLength={500} />
                 ) : null}
                 <CheckboxField
                   id="is-solo"
@@ -591,13 +716,13 @@ export function ApplyPage() {
                   hint="Допускается только по письменному согласованию с Оргкомитетом до окончания срока приёма заявок (п. 4.3 Положения)."
                 />
                 {isSolo ? (
-                  <TextField id="solo-approved-at" label="Дата согласования с Оргкомитетом" type="date" required value={soloApprovedAt} onChange={(e) => setSoloApprovedAt(e.target.value)} />
+                  <TextField id="solo-approved-at" error={fieldErrors['solo-approved-at']} label="Дата согласования с Оргкомитетом" type="date" required value={soloApprovedAt} onChange={(e) => setSoloApprovedAt(e.target.value)} />
                 ) : null}
 
                 <h3 className="text-h3 font-semibold">Капитан команды</h3>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <TextField id="captain-name" label="Фамилия, имя, отчество" required value={captainName} onChange={(e) => setCaptainName(e.target.value)} maxLength={200} />
-                  <TextField id="captain-birth" label="Дата рождения" type="date" required value={captainBirthDate} onChange={(e) => setCaptainBirthDate(e.target.value)} hint="Участие возможно с 16 до 35 лет включительно (п. 4.1 Положения)." />
+                  <TextField id="captain-name" error={fieldErrors['captain-name']} label="Фамилия, имя, отчество" required value={captainName} onChange={(e) => setCaptainName(e.target.value)} maxLength={200} />
+                  <TextField id="captain-birth" error={fieldErrors['captain-birth']} label="Дата рождения" type="date" required value={captainBirthDate} onChange={(e) => setCaptainBirthDate(e.target.value)} hint="Участие возможно с 16 до 35 лет включительно (п. 4.1 Положения)." />
                   <SelectField
                     id="captain-category"
                     label="Категория участника"
@@ -606,7 +731,7 @@ export function ApplyPage() {
                     onChange={(e) => setCaptainCategory(e.target.value as ParticipantCategory)}
                     options={PARTICIPANT_CATEGORIES.map((category) => ({ value: category.value, title: category.title }))}
                   />
-                  <TextField id="captain-email" label="Адрес электронной почты" type="email" required value={captainEmail} onChange={(e) => setCaptainEmail(e.target.value)} hint="По этой почте команда входит в личный кабинет." />
+                  <TextField id="captain-email" error={fieldErrors['captain-email']} label="Адрес электронной почты" type="email" required value={captainEmail} onChange={(e) => setCaptainEmail(e.target.value)} hint="По этой почте команда входит в личный кабинет." />
                   <TextField id="captain-phone" label="Контактный телефон" type="tel" value={captainPhone} onChange={(e) => setCaptainPhone(e.target.value)} maxLength={32} />
                 </div>
 
@@ -637,6 +762,7 @@ export function ApplyPage() {
                   <Button
                     loading={busy}
                     onClick={() => {
+                      if (!checkStep(1)) return;
                       void saveTeam().then(() => goTo(2));
                     }}
                   >
@@ -652,8 +778,8 @@ export function ApplyPage() {
                       {participant.role === 'captain' ? 'Капитан команды' : `Участник ${index + 1}`}
                     </legend>
                     <div className="grid gap-4 md:grid-cols-2">
-                      <TextField id={`p-name-${index}`} label="Фамилия, имя, отчество" required value={participant.full_name} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
-                      <TextField id={`p-birth-${index}`} label="Дата рождения" type="date" required value={participant.birth_date} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, birth_date: e.target.value } : row)))} />
+                      <TextField id={`p-name-${index}`} error={fieldErrors[`p-name-${index}`]} label="Фамилия, имя, отчество" required value={participant.full_name} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
+                      <TextField id={`p-birth-${index}`} error={fieldErrors[`p-birth-${index}`]} label="Дата рождения" type="date" required value={participant.birth_date} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, birth_date: e.target.value } : row)))} />
                       <SelectField
                         id={`p-category-${index}`}
                         label="Категория участника"
@@ -662,7 +788,7 @@ export function ApplyPage() {
                         onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, category: e.target.value as ParticipantCategory } : row)))}
                         options={PARTICIPANT_CATEGORIES.map((category) => ({ value: category.value, title: category.title }))}
                       />
-                      <TextField id={`p-email-${index}`} label="Адрес электронной почты" type="email" required value={participant.email} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
+                      <TextField id={`p-email-${index}`} error={fieldErrors[`p-email-${index}`]} label="Адрес электронной почты" type="email" required value={participant.email} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
                       <TextField id={`p-phone-${index}`} label="Контактный телефон" type="tel" value={participant.phone} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
                       <TextField id={`p-citizenship-${index}`} label="Гражданство" value={participant.citizenship} onChange={(e) => patchParticipant(index, { citizenship: e.target.value })} maxLength={120} />
                       <TextField id={`p-region-${index}`} label="Субъект Российской Федерации" value={participant.region} onChange={(e) => patchParticipant(index, { region: e.target.value })} maxLength={200} />
@@ -670,7 +796,7 @@ export function ApplyPage() {
                       <TextField id={`p-vk-${index}`} label="Ссылка на страницу «ВКонтакте»" value={participant.vk_url} onChange={(e) => patchParticipant(index, { vk_url: e.target.value })} maxLength={300} placeholder="https://vk.com/…" />
                       <TextField id={`p-education-org-${index}`} label="Образовательная организация (место работы)" value={participant.organization} onChange={(e) => patchParticipant(index, { organization: e.target.value })} maxLength={300} />
                       <TextField id={`p-faculty-${index}`} label="Факультет" value={participant.faculty} onChange={(e) => patchParticipant(index, { faculty: e.target.value })} maxLength={300} />
-                      <TextField id={`p-course-${index}`} label="Курс" type="number" min={1} max={6} value={participant.course} onChange={(e) => patchParticipant(index, { course: e.target.value })} hint="От 1 до 6; для работающих участников оставьте пустым." />
+                      <TextField id={`p-course-${index}`} error={fieldErrors[`p-course-${index}`]} label="Курс" type="number" min={1} max={6} value={participant.course} onChange={(e) => patchParticipant(index, { course: e.target.value })} hint="От 1 до 6; для работающих участников оставьте пустым." />
                       <TextField id={`p-program-${index}`} label="Направление подготовки (должность)" value={participant.study_program} onChange={(e) => patchParticipant(index, { study_program: e.target.value })} maxLength={300} />
                     </div>
                     <TextAreaField
@@ -689,7 +815,7 @@ export function ApplyPage() {
                       maxLength={1000}
                     />
                     <CheckboxField
-                      id={`p-consent-pdn-${index}`}
+                      id={`p-consent-pdn-${index}`} error={fieldErrors[`p-consent-pdn-${index}`]}
                       label="Согласие на обработку персональных данных (Приложения № 10–12)"
                       checked={participant.consent_pdn}
                       onChange={(value) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, consent_pdn: value } : row)))}
@@ -726,6 +852,7 @@ export function ApplyPage() {
                   <Button
                     loading={busy}
                     onClick={() => {
+                      if (!checkStep(2)) return;
                       void saveTeam().then(() => goTo(3));
                     }}
                   >
@@ -739,7 +866,7 @@ export function ApplyPage() {
                   <fieldset key={`mentor-${index}`} className="flex flex-col gap-4 border border-border p-4">
                     <legend className="mono-label px-2 text-muted">Наставник {index + 1}</legend>
                     <div className="grid gap-4 md:grid-cols-2">
-                      <TextField id={`m-name-${index}`} label="Фамилия, имя, отчество" value={mentor.full_name} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
+                      <TextField id={`m-name-${index}`} error={fieldErrors[`m-name-${index}`]} label="Фамилия, имя, отчество" value={mentor.full_name} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
                       <TextField id={`m-org-${index}`} label="Место работы" value={mentor.organization} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, organization: e.target.value } : row)))} />
                       <TextField id={`m-position-${index}`} label="Должность" value={mentor.position} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, position: e.target.value } : row)))} />
                       <TextField id={`m-degree-${index}`} label="Учёная степень" value={mentor.academic_degree} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, academic_degree: e.target.value } : row)))} />
@@ -748,7 +875,7 @@ export function ApplyPage() {
                       <TextField id={`m-phone-${index}`} label="Контактный телефон" type="tel" value={mentor.phone} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
                     </div>
                     <CheckboxField
-                      id={`m-consent-${index}`}
+                      id={`m-consent-${index}`} error={fieldErrors[`m-consent-${index}`]}
                       label="Согласие наставника на обработку персональных данных"
                       checked={mentor.consent_pdn}
                       onChange={(value) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, consent_pdn: value } : row)))}
@@ -771,6 +898,7 @@ export function ApplyPage() {
               footer={
                 <Button
                   onClick={() => {
+                    if (!checkStep(3)) return;
                     void saveTeam().then(() => goTo(4));
                   }}
                   loading={busy}
@@ -824,6 +952,15 @@ export function ApplyPage() {
                               Загружаем файл…
                             </p>
                           ) : null}
+                          {fieldErrors[`upload-${requirement.type}`] ? (
+                            <p
+                              id={`upload-${requirement.type}-error`}
+                              role="alert"
+                              className="mt-2 text-sm text-danger"
+                            >
+                              {fieldErrors[`upload-${requirement.type}`]}
+                            </p>
+                          ) : null}
                         </div>
                       </li>
                     );
@@ -843,20 +980,26 @@ export function ApplyPage() {
               title="Согласия"
               description="Согласие на обработку персональных данных и согласие на распространение оформляются отдельно друг от друга (п. 14.3 Положения). Фиксируются дата, время, сетевой адрес и версия текста согласия."
               footer={
-                <Button onClick={() => goTo(5)} loading={busy}>
+                <Button
+                  onClick={() => {
+                    if (!checkStep(4)) return;
+                    goTo(5);
+                  }}
+                  loading={busy}
+                >
                   Перейти к проверке
                 </Button>
               }
             >
               <div className="flex flex-col gap-6">
                 <CheckboxField
-                  id="confirm-regulation"
+                  id="confirm-regulation" error={fieldErrors['confirm-regulation']}
                   label="Подтверждаю ознакомление с Положением о Конкурсе и принимаю его условия, а также подтверждаю достоверность сведений и самостоятельность творческой работы команды"
                   checked={confirmRegulation}
                   onChange={setConfirmRegulation}
                 />
                 <CheckboxField
-                  id="image-license"
+                  id="image-license" error={fieldErrors['image-license']}
                   label="Даю согласие на использование изображения и предоставляю право использования конкурсных материалов (Приложение № 13)"
                   checked={imageLicense}
                   onChange={setImageLicense}

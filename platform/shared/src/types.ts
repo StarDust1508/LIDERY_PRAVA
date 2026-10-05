@@ -531,8 +531,7 @@ export interface Evaluation {
   created_at: string;
 }
 
-export interface Ranking {
-  id: number;
+export interface Ranking {  id: number;
   season_id: number;
   team_id: number;
   stage: string;
@@ -545,6 +544,23 @@ export interface Ranking {
   is_published: boolean;
   published_at: string | null;
   protocol_note: string | null;
+}
+
+/** Запись журнала действий (ТЗ 07, п. 2.16–2.17). */
+export interface AuditRecord {
+  id: number;
+  actor_type: string;
+  user_id: number | null;
+  /** Устойчивая подпись действующего лица: `env:owner`, `user:12`, `system`. */
+  actor_label: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  before: unknown;
+  after: unknown;
+  ip: string | null;
+  created_at: string;
+  user_name: string | null;
 }
 
 export const EVALUATION_STAGES = [

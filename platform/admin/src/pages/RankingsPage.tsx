@@ -153,7 +153,8 @@ export function RankingsPage() {
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted">Рейтинг ещё не рассчитан: нажмите «Пересчитать рейтинг» после внесения оценок.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <caption className="sr-only-text">Рейтинг команд этапа</caption>
               <thead>
@@ -194,7 +195,46 @@ export function RankingsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+
+            {/* На узких экранах рейтинг читается карточками (ТЗ 08, п. 3.6). */}
+            <ol className="flex flex-col gap-4 md:hidden">
+              {rows.map((row) => (
+                <li key={`card-${row.id}`} className="border border-border p-4 text-sm">
+                  <p className="font-semibold">
+                    {row.place} место · {teamName(row.team_id)}
+                  </p>
+                  <p className="mt-1 text-muted">{teamStatusTitle(teamStatus(row.team_id))}</p>
+                  <dl className="mt-3 flex flex-col gap-1">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Средний балл</dt>
+                      <dd>{Number(row.average_score).toFixed(2)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Сумма Жюри</dt>
+                      <dd>{row.jury_total === null ? '—' : Number(row.jury_total).toFixed(2)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Разброс</dt>
+                      <dd>{row.scores_spread === null ? '—' : Number(row.scores_spread).toFixed(2)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Оценок</dt>
+                      <dd>{row.evaluations_count}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Состояние</dt>
+                      <dd>{row.needs_chair_review ? 'нужна доп. оценка председателя' : 'расчёт готов'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Публикация</dt>
+                      <dd>{row.is_published ? formatMoscowHuman(row.published_at) : 'не опубликован'}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ol>
+          </>
         )}
       </SectionCard>
     </main>

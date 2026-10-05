@@ -2029,4 +2029,46 @@ router.use(
   })
 );
 
+// GET /api/admin/audit — журнал действий: кто, что и когда изменил.
+// Записи создаёт middleware auditAdminMutations для каждого успешного
+// изменяющего запроса; здесь — только чтение с фильтрами.
+router.get(
+  '/audit',
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = [];
+
+    const entity = queryString(req.query.entity);
+    if (entity) {
+      params.push(entity);
+      where.push(`a.entity = $${params.length}`);
+    }
+    const action = queryString(req.query.action);
+    if (action) {
+      params.push(`%${action}%`);
+      where.push(`a.action ILIKE $${params.length}`);
+    }
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(`(a.actor_label ILIKE $${params.length} OR a.entity_id ILIKE $${params.length})`);
+    }
+    const limit = Math.min(500, parsePositiveInt(queryString(req.query.limit)) ?? 200);
+
+    const result = await query(
+      `SELECT a.id, a.actor_type, a.user_id, a.actor_label, a.action, a.entity, a.entity_id,
+              a.before, a.after, a.ip, a.created_at,
+              u.full_name AS user_name
+         FROM audit_log a
+         LEFT JOIN users u ON u.id = a.user_id
+         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT ${limit}`,
+      params
+    );
+
+    res.json(result.rows);
+  })
+);
+
 export default router;

@@ -382,7 +382,8 @@ export function ApplicationPage() {
         {consents.length === 0 ? (
           <p className="text-sm text-muted">Согласия не зафиксированы: заявка ещё не отправлена.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <caption className="sr-only-text">Согласия участников и наставников</caption>
               <thead>
@@ -422,7 +423,51 @@ export function ApplicationPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+
+            {/* Согласия на мобильных — карточками (ТЗ 08, п. 3.6). */}
+            <ul className="flex flex-col gap-4 md:hidden">
+              {consents.map((consent) => (
+                <li key={`card-${consent.id}`} className="border border-border p-4 text-sm">
+                  <p className="font-semibold">{consent.participant_name ?? consent.mentor_name ?? 'команда'}</p>
+                  <p className="text-muted">
+                    {consent.subject_type === 'legal_representative'
+                      ? 'законный представитель'
+                      : consent.subject_type === 'mentor'
+                        ? 'наставник'
+                        : consent.subject_type === 'team'
+                          ? 'команда'
+                          : 'участник'}
+                  </p>
+                  <dl className="mt-3 flex flex-col gap-1">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Документ</dt>
+                      <dd>{consent.document_title ?? consent.document_code}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Версия</dt>
+                      <dd className="font-mono">{consent.document_version}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Дано</dt>
+                      <dd>{consent.accepted_at ? formatMoscowHuman(consent.accepted_at) : '—'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Сетевой адрес</dt>
+                      <dd className="font-mono">{consent.ip ?? '—'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Скан / отзыв</dt>
+                      <dd>
+                        {consent.scan_media_id ? 'скан загружен' : '—'}
+                        {consent.revoked_at ? ` · отозвано ${formatMoscowHuman(consent.revoked_at)}` : ''}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
 
         {distribution.length > 0 ? (
