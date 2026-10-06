@@ -127,6 +127,13 @@ router.get(
       params.push(status);
       where = 'WHERE m.status = $1';
     }
+    // Прошедший мастер-класс без записи на сайте не показывается (ТЗ 05, §3).
+    // Правило проверялось только при сохранении в админке: если запись удалили
+    // из хранилища отдельно, страница оставалась без видео. Здесь оно
+    // действует и на выдаче.
+    if (status === 'past') {
+      where += ' AND (m.recording_url IS NOT NULL OR m.media_id IS NOT NULL)';
+    }
     const result = await query(
       `SELECT m.id, m.slug, m.topic, m.season_id, m.title, m.speaker, m.speaker_info, m.description,
               m.status, m.starts_at, m.place, m.recording_url, m.media_id, m.materials, m.sort_order,

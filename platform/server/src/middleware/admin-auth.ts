@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import type { NextFunction, Request, Response } from 'express';
 import {
   ADMIN_IDLE_MINUTES,
+  ADMIN_LOGIN_BLOCK_MINUTES,
+  ADMIN_LOGIN_FAIL_MAX,
   ADMIN_LOGIN,
   ADMIN_PASSWORD,
   ADMIN_SESSION_SECRET,
@@ -360,8 +362,8 @@ export function adminRoleOfRequest(req: Request): AdminRole {
 // Поверх burst-лимита rateLimit(5/мин) держим «долгую» блокировку по IP.
 const loginFails = new Map<string, { count: number; firstAt: number; until: number }>();
 const LF_WINDOW_MS = 15 * 60_000;
-const LF_MAX = 10;
-const LF_BLOCK_MS = 15 * 60_000;
+const LF_MAX = ADMIN_LOGIN_FAIL_MAX;
+const LF_BLOCK_MS = ADMIN_LOGIN_BLOCK_MINUTES * 60_000;
 
 setInterval(() => {
   const now = Date.now();
@@ -383,7 +385,12 @@ export function loginBlockedFor(ip: string): number {
   return 0;
 }
 
-function recordLoginFail(ip: string): void {
+/**
+ * Учитывает неудачную попытку входа для «долгой» блокировки по IP.
+ * Экспортируется, чтобы burst-лимит (429) тоже приближал блокировку: без этого
+ * LF_MAX был недостижим — запросы отсекались раньше, чем набиралось 10 неудач.
+ */
+export function recordLoginFail(ip: string): void {
   const now = Date.now();
   let entry = loginFails.get(ip);
   if (!entry || now - entry.firstAt > LF_WINDOW_MS) entry = { count: 0, firstAt: now, until: 0 };

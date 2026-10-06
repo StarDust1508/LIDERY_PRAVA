@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, TextField } from '@shared/index';
 
@@ -15,6 +15,41 @@ export function CabinetAccessPage() {
   const [showTokenForm, setShowTokenForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Ссылка вида /cabinet/access?token=… обменивается на сессию сразу при
+  // открытии: команда не должна вставлять токен в поле руками (ТЗ 06, п. 1.5).
+  // Из адресной строки токен убирается — иначе он остаётся в истории браузера.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const fromLink = searchParams.get('token');
+    if (!fromLink) return;
+    let active = true;
+    setBusy(true);
+    setError(null);
+    void api
+      .cabinetAccessByToken(fromLink.trim())
+      .then(() => {
+        if (!active) return;
+        setSearchParams({}, { replace: true });
+        navigate('/cabinet', { replace: true });
+      })
+      .catch((caught: unknown) => {
+        if (!active) return;
+        setSearchParams({}, { replace: true });
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : 'Ссылка не подошла. Запросите новую у Оргкомитета или войдите по номеру заявки.'
+        );
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Если сессия уже открыта, экран входа не нужен.
   useEffect(() => {

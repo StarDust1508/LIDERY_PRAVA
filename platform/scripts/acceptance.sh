@@ -480,16 +480,9 @@ AUTH_EVENTS=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event IN ('adm
 [ "${AUTH_EVENTS:-0}" -ge 2 ] && ok "входы по учётным записям записаны с пользователем: $AUTH_EVENTS" || bad "входы по учётным записям не записаны: ${AUTH_EVENTS:-0}"
 
 
-LIMITED=0
-for _ in $(seq 1 12); do
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/api/admin/login" -H 'Content-Type: application/json' -d '{"login":"admin","password":"неверный-пароль"}')
-    if [ "$code" = "429" ]; then LIMITED=1; break; fi
-done
-[ "$LIMITED" = "1" ] && ok "перебор пароля блокируется (429)" || bad "rate-limit на вход в админку не сработал"
-LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_fail'")
-# Успешный вход выше уже израсходовал одну попытку из лимита 5 запросов в минуту,
-# поэтому в журнал попадает не 12 отказов, а столько, сколько пропустил лимитер.
-[ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
+# Проверка блокировки перебора пароля перенесена в конец прогона (раздел
+# «Блокировка перебора пароля»): после неё адрес попадает под «долгую»
+# блокировку, и последующие входы администратора были бы невозможны.
 # ── Решения по команде (ТЗ 07, п. 2.4) ──────────────────────────────────────
 step "Решения Оргкомитета по команде: этапы, дисквалификация, восстановление"
 expect "карточка команды отдаётся с историей и результатами" 200 -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}"
@@ -782,6 +775,188 @@ print('ok' if materials and materials[0].get('title') == 'Слайды заня�
 " 2>/dev/null || echo error)
 [ "$MATERIALS_PUBLIC" = "ok" ] && ok "материалы занятия отдаются публично" || bad "материалы занятия не отдаются: $MATERIALS_PUBLIC"
 
+# ── Файлы: расширения, выдача и подписанные ссылки (ТЗ 11, п. 4, 5.8) ───────
+step "Файлы: запрет исполняемых, вложение, краткосрочная ссылка"
+
+# Исполняемый файл отклоняется по расширению, ещё до чтения содержимого
+# (ТЗ 11, п. 4.5). Заявляем безобидный MIME: проверка расширения работает
+# независимо от заголовка типа.
+printf 'MZ\220\0\3\0\0\0' > /tmp/lp_acc_bad.exe
+expect "файл .exe отклонён" 415 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -F "type=presentation" -F "file=@/tmp/lp_acc_bad.exe;type=application/pdf"
+if grep -q 'исполняемые файлы запрещены' "$BODY"; then
+    ok "отказ объясняет причину: исполняемые файлы запрещены"
+else
+    bad "отказ по расширению без понятного пояснения: $(head -c 160 "$BODY")"
+fi
+
+expect "файл с разрешённым расширением принят" 201 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -F "type=presentation" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+PRIVATE_MEDIA=$(psql_db "SELECT media_id FROM liders.application_materials WHERE team_id=${TEAM_ID} AND media_id IS NOT NULL ORDER BY id DESC LIMIT 1")
+
+# Приватный файл отдаётся вложением: браузер не открывает его как страницу
+# (ТЗ 11, п. 4.6).
+curl -s -D /tmp/lp_acc_file_headers.txt -o /dev/null -H "$AUTH" "${BASE}/api/media/file/${PRIVATE_MEDIA}"
+if grep -qi '^content-disposition: attachment' /tmp/lp_acc_file_headers.txt; then
+    ok "приватный файл отдаётся вложением (attachment)"
+else
+    bad "приватный файл отдаётся без attachment: $(grep -i content-disposition /tmp/lp_acc_file_headers.txt | head -1)"
+fi
+
+# Краткосрочная подписанная ссылка: выдаётся администратором, работает без
+# сессии и перестаёт работать при подмене токена (ТЗ 11, п. 5.8).
+expect "ссылка на приватный файл выдаётся" 201 -H "$AUTH" -X POST "${BASE}/api/admin/media/${PRIVATE_MEDIA}/link"
+GRANT_PATH=$(python3 -c "import json;print(json.load(open('$BODY')).get('path',''))" 2>/dev/null || echo '')
+GRANT_URL="${BASE}${GRANT_PATH}"
+GRANT_TTL=$(python3 -c "import json;print(json.load(open('$BODY')).get('expires_in',0))" 2>/dev/null || echo 0)
+if [ -n "$GRANT_PATH" ]; then
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' "$GRANT_URL")
+    [ "$CODE" = "200" ] && ok "подписанная ссылка открывает файл без сессии" || bad "подписанная ссылка не работает: $CODE"
+    TAMPERED=$(printf '%s' "$GRANT_URL" | sed 's/.$/X/')
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' "$TAMPERED")
+    [ "$CODE" = "404" ] && ok "подделанная ссылка отклонена (404)" || bad "подделанная ссылка принята: $CODE"
+else
+    bad "в ответе нет ссылки на файл: $(head -c 160 "$BODY")"
+fi
+[ "${GRANT_TTL:-0}" -le 86400 ] && ok "срок ссылки ограничен (${GRANT_TTL} с)" || bad "слишком долгий срок ссылки: ${GRANT_TTL}"
+GRANT_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='media_grant_link'")
+[ "${GRANT_LOGGED:-0}" -ge 1 ] && ok "выдача ссылки записана в журнал" || bad "выдача ссылки не попала в журнал"
+
+# ── Идемпотентность и защита изменяющих запросов (ТЗ 05, п. 1.5; ТЗ 11, п. 5.3) ─
+step "Идемпотентность и источник запроса"
+
+LEAD_KEY="acc-lead-$(date +%s)-$RANDOM"
+expect "обращение принято" 201 -X POST "${BASE}/api/leads" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: ${LEAD_KEY}" \
+    -d '{"name":"Приёмочный Тест","email":"accept-lead@example.ru","message":"Проверка идемпотентности обращения","consent_pdn":true}'
+expect "повтор обращения с тем же ключом не создаёт второе" 200 -X POST "${BASE}/api/leads" -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: ${LEAD_KEY}" \
+    -d '{"name":"Приёмочный Тест","email":"accept-lead@example.ru","message":"Проверка идемпотентности обращения","consent_pdn":true}'
+if grep -q 'idempotent_replay' "$BODY"; then ok "ответ помечен как повтор"; else bad "повтор не распознан"; fi
+LEADS_COUNT=$(psql_db "SELECT count(*) FROM liders.leads WHERE idempotency_key='${LEAD_KEY}'")
+[ "${LEADS_COUNT:-0}" = "1" ] && ok "в базе одно обращение на ключ" || bad "обращений по ключу: ${LEADS_COUNT:-0}"
+
+MAT_KEY="acc-material-$(date +%s)-$RANDOM"
+expect "материал принят" 201 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -H "Idempotency-Key: ${MAT_KEY}" -F "type=other" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+expect "повтор материала с тем же ключом не создаёт вторую версию" 200 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -H "Idempotency-Key: ${MAT_KEY}" -F "type=other" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+MAT_COUNT=$(psql_db "SELECT count(*) FROM liders.application_materials WHERE idempotency_key='${MAT_KEY}'")
+[ "${MAT_COUNT:-0}" = "1" ] && ok "в базе одна версия материала на ключ" || bad "версий по ключу: ${MAT_COUNT:-0}"
+
+# Межсайтовый изменяющий запрос отклоняется (ТЗ 11, п. 5.3).
+expect "запрос с чужим источником отклонён" 403 -X POST "${BASE}/api/leads" -H 'Content-Type: application/json' \
+    -H 'Origin: https://evil.example' -H 'Sec-Fetch-Site: cross-site' \
+    -d '{"name":"Атака","email":"evil@example.ru","message":"CSRF","consent_pdn":true}'
+
+# Идентификатор запроса в ответе и в теле ошибки (ТЗ 11, п. 5.9).
+curl -s -D /tmp/lp_acc_rid.txt -o /dev/null "${BASE}/api/health"
+if grep -qi '^x-request-id:' /tmp/lp_acc_rid.txt; then ok "ответ содержит X-Request-Id"; else bad "нет заголовка X-Request-Id"; fi
+curl -s -o "$BODY" "${BASE}/api/no-such-route"
+if grep -q 'requestId' "$BODY"; then ok "ошибка содержит requestId"; else bad "в ошибке нет requestId: $(head -c 160 "$BODY")"; fi
+VERSION_FIELD=$(curl -s "${BASE}/api/health" | python3 -c "import sys,json;print(json.load(sys.stdin).get('version',''))" 2>/dev/null || echo '')
+[ -n "$VERSION_FIELD" ] && ok "health отдаёт версию сборки: $VERSION_FIELD" || bad "в health нет поля version"
+
+# ── Кабинет: сводка, ссылка доступа и окно досдачи (ТЗ 05, п. 4; ТЗ 06, п. 1.4) ─
+step "Кабинет: сводка, ссылка доступа и окно досдачи"
+
+expect "сводка кабинета отдаётся одним запросом" 200 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/overview"
+OVERVIEW_OK=$(python3 -c "
+import json
+d=json.load(open('$BODY'))
+keys=('team','participants','mentors','readiness','nearest_deadline','completeness')
+print('ok' if all(k in d for k in keys) and len(d['readiness'])>0 else 'no')
+" 2>/dev/null || echo error)
+[ "$OVERVIEW_OK" = "ok" ] && ok "сводка содержит состав, комплект и ближайший срок" || bad "сводка неполна: $OVERVIEW_OK"
+
+expect "токен доступа выдаётся администратором" 201 -H "$AUTH" -X POST "${BASE}/api/admin/teams/${TEAM_ID}/tokens" \
+    -H 'Content-Type: application/json' -d '{"label":"Приёмочная выдача"}'
+if grep -q '/cabinet/access?token=' "$BODY"; then
+    ok "в ответе есть готовая ссылка доступа (access_url)"
+else
+    bad "в ответе нет ссылки доступа: $(head -c 200 "$BODY")"
+fi
+# Повторная выдача отзывает прежний токен (ТЗ 05, §2, правило 3).
+REVOKED=$(python3 -c "import json;print(json.load(open('$BODY')).get('revoked_previous',0))" 2>/dev/null || echo 0)
+CAB_TOKEN=$(python3 -c "import json;print(json.load(open('$BODY')).get('token',''))" 2>/dev/null || echo '')
+expect "повторная выдача заменяет прежнюю ссылку" 201 -H "$AUTH" -X POST "${BASE}/api/admin/teams/${TEAM_ID}/tokens" \
+    -H 'Content-Type: application/json' -d '{"label":"Приёмочная выдача 2"}'
+if [ -n "$CAB_TOKEN" ]; then
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/api/cabinet/access" \
+        -H 'Content-Type: application/json' -d "{\"token\":\"${CAB_TOKEN}\"}")
+    [ "$CODE" = "401" ] && ok "прежняя ссылка после перевыдачи не работает (401)" || bad "прежняя ссылка ещё действует: $CODE"
+else
+    bad "не удалось получить токен для проверки перевыдачи"
+fi
+TOKEN_LIMIT=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='team_token_rate_limited'")
+ok "учёт лимита выдачи ссылок в журнале: ${TOKEN_LIMIT:-0}"
+
+# Критерии этапа нельзя менять после публикации протокола (ТЗ 07, п. 2.6, 4.4).
+CRITERION_ID=$(psql_db "SELECT id FROM liders.criteria WHERE stage='selection' ORDER BY id LIMIT 1")
+expect "изменение критерия после публикации протокола отклонено" 400 -H "$AUTH" -X PATCH "${BASE}/api/admin/criteria/${CRITERION_ID}" \
+    -H 'Content-Type: application/json' -d '{"max_score": 1}'
+if grep -q 'Протокол' "$BODY"; then ok "отказ объясняет причину (опубликованный протокол)"; else bad "отказ без пояснения"; fi
+
+# ── Мастер-классы: прошедший без записи не публикуется (ТЗ 05, §3) ───────────
+step "Мастер-классы: прошедший без записи не показывается"
+psql_db "INSERT INTO liders.masterclasses (season_id, title, speaker, status, starts_at)
+         VALUES ((SELECT id FROM liders.seasons ORDER BY id LIMIT 1), 'Приёмочный мастер-класс без записи', 'Тест', 'past', now() - interval '3 days')" >/dev/null
+HIDDEN=$(curl -s "${BASE}/api/masterclasses?status=past" | python3 -c "
+import sys,json
+items=json.load(sys.stdin)
+rows=items if isinstance(items,list) else items.get('data',[])
+print('ok' if not any('Приёмочный мастер-класс без записи' == i.get('title') for i in rows) else 'no')
+" 2>/dev/null || echo error)
+[ "$HIDDEN" = "ok" ] && ok "прошедший мастер-класс без записи не отдаётся публично" || bad "мастер-класс без записи попал в выдачу: $HIDDEN"
+psql_db "UPDATE liders.masterclasses SET recording_url='https://vk.com/video-1_2' WHERE title='Приёмочный мастер-класс без записи'" >/dev/null
+SHOWN=$(curl -s "${BASE}/api/masterclasses?status=past" | python3 -c "
+import sys,json
+items=json.load(sys.stdin)
+rows=items if isinstance(items,list) else items.get('data',[])
+print('ok' if any('Приёмочный мастер-класс без записи' == i.get('title') for i in rows) else 'no')
+" 2>/dev/null || echo error)
+[ "$SHOWN" = "ok" ] && ok "после указания записи мастер-класс публикуется" || bad "мастер-класс с записью не найден: $SHOWN"
+
+# ── Архив инициатив: фильтры, снятие с публикации, экспорт (ТЗ 12, С9) ───────
+step "Архив инициатив: фильтры, снятие с публикации, экспорт архива 2026"
+
+expect "фильтр архива по году" 200 "${BASE}/api/initiatives?year=2024"
+expect "фильтр архива по направлению" 200 "${BASE}/api/initiatives?direction_id=${DIRECTION_ID}"
+expect "поиск по архиву" 200 "${BASE}/api/initiatives?q=%D0%B7%D0%B0%D0%BA%D0%BE%D0%BD"
+PUBLISHED_ID=$(psql_db "SELECT id FROM liders.initiatives WHERE is_published = TRUE ORDER BY id LIMIT 1")
+if [ -n "${PUBLISHED_ID:-}" ]; then
+    expect "инициатива снята с публикации" 200 -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/${PUBLISHED_ID}/publish" \
+        -H 'Content-Type: application/json' -d '{"is_published":false}'
+    GONE=$(curl -s "${BASE}/api/initiatives" | python3 -c "
+import sys,json
+items=json.load(sys.stdin)
+rows=items if isinstance(items,list) else items.get('data',[])
+print('ok' if not any(int(i.get('id',0))==${PUBLISHED_ID} for i in rows) else 'no')
+" 2>/dev/null || echo error)
+    [ "$GONE" = "ok" ] && ok "снятая с публикации инициатива исчезла из архива" || bad "снятая инициатива осталась в архиве"
+    expect "инициатива возвращена в архив" 200 -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/${PUBLISHED_ID}/publish" \
+        -H 'Content-Type: application/json' -d '{"is_published":true}'
+else
+    bad "в архиве нет опубликованной инициативы для проверки снятия"
+fi
+
+expect "архив заявок 2026 выгружается в CSV" 200 -H "$AUTH" "${BASE}/api/admin/legacy-applications/export"
+if head -c 200 "$BODY" | grep -q 'full_name'; then ok "в выгрузке есть заголовки полей"; else bad "выгрузка архива без заголовков"; fi
+
+# ── Редиректы прежних адресов (ТЗ 10, §4.2) ─────────────────────────────────
+step "Прежние адреса: постоянные редиректы"
+# Сами редиректы выполняет nginx, поэтому проверяется конфигурация выката:
+# в приёмочном прогоне nginx не участвует.
+NGINX_CONF="$ROOT/ops/nginx/lideryprava-platform.conf"
+for pair in "pobediteli.html:/winners" "privacy.html:/legal/privacy" "soglasie.html:/legal/pdn-consent" "terms.html:/legal/terms" "cookies.html:/legal/cookies" "admin.html:/admin/"; do
+    from="${pair%%:*}"; to="${pair##*:}"
+    if grep -q "location = /${from}" "$NGINX_CONF" && grep -q "return 301 ${to};" "$NGINX_CONF"; then
+        ok "редирект /${from} → ${to}"
+    else
+        bad "в конфигурации нет редиректа /${from} → ${to}"
+    fi
+done
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null
@@ -789,6 +964,37 @@ expect "новая заявка после срока отклоняется" 40
 if grep -q 'МСК' "$BODY"; then ok "сообщение содержит дату по московскому времени"; else bad "в сообщении о сроке нет пометки МСК"; fi
 expect "загрузка материала после срока запрещена" 403 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" -F "type=presentation" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
 if grep -q 'contact' "$BODY"; then ok "в отказе предложен канал связи с Оргкомитетом"; else bad "в отказе нет предложения связаться с Оргкомитетом"; fi
+
+# ── Окно досдачи по замечанию (ТЗ 06, п. 3) ─────────────────────────────────
+step "Окно досдачи: работа с материалом по замечанию после дедлайна"
+FIX_MATERIAL=$(psql_db "SELECT id FROM liders.application_materials WHERE team_id=${TEAM_ID} ORDER BY id DESC LIMIT 1")
+psql_db "UPDATE liders.application_materials
+            SET status='needs_fix', fix_deadline = now() + interval '1 day'
+          WHERE id = ${FIX_MATERIAL}" >/dev/null
+expect "материал можно досдать в срок по замечанию" 201 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -F "type=other" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+psql_db "UPDATE liders.application_materials SET fix_deadline = now() - interval '1 hour' WHERE status='needs_fix'" >/dev/null
+expect "после истечения срока досдачи запись закрыта" 403 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
+    -F "type=other" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+
+# ── Блокировка перебора пароля (ТЗ 11, п. 5.4) ───────────────────────────────
+step "Блокировка перебора пароля"
+# Раздел идёт последним: после него адрес попадает под «долгую» блокировку, и
+# любые дальнейшие входы администратора были бы невозможны.
+LIMITED=0
+BLOCKED=0
+for _ in $(seq 1 20); do
+    code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "${BASE}/api/admin/login" \
+        -H 'Content-Type: application/json' -d '{"login":"admin","password":"неверный-пароль"}')
+    if [ "$code" = "429" ]; then
+        LIMITED=1
+        if grep -q 'неудачных попыток' "$BODY"; then BLOCKED=1; break; fi
+    fi
+done
+[ "$LIMITED" = "1" ] && ok "перебор пароля ограничен (429)" || bad "rate-limit на вход в админку не сработал"
+[ "$BLOCKED" = "1" ] && ok "после серии неудач включается долгая блокировка адреса" || bad "долгая блокировка не включилась"
+LOGGED=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event='admin_login_fail'")
+[ "${LOGGED:-0}" -ge 3 ] && ok "неудачные входы записаны в журнал: $LOGGED" || bad "журнал входов пуст или неполон: ${LOGGED:-0}"
 
 # ── Итог ─────────────────────────────────────────────────────────────────────
 step "ИТОГ"

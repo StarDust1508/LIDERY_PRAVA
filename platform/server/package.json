@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/migrate.ts",
     "migrate:seed": "tsx src/migrate.ts --seed",
-    "retention": "tsx src/scripts/retention.ts"
+    "retention": "tsx src/scripts/retention.ts",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

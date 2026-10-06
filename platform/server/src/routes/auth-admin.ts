@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { ADMIN_IDLE_MINUTES, ADMIN_SESSION_TTL_HOURS } from '../config.js';
+import { Router, type NextFunction, type Request, type Response } from 'express';
+import { ADMIN_IDLE_MINUTES, ADMIN_LOGIN_RATE_MAX, ADMIN_SESSION_TTL_HOURS } from '../config.js';
 import { asyncHandler } from '../lib/http.js';
 import {
   bearerToken,
@@ -7,6 +7,7 @@ import {
   journalAdminLogin,
   loginAdmin,
   loginBlockedFor,
+  recordLoginFail,
   requireAdmin,
   resolveAdminIdentity,
   revokeAdminToken,
@@ -42,7 +43,24 @@ function sessionPayload(identity: {
 // POST /api/admin/login — 5 попыток в минуту с одного IP.
 router.post(
   '/login',
-  rateLimit(5, 60_000),
+  // «Долгая» блокировка проверяется до burst-лимита: иначе при исчерпанном
+  // лимите запросы отсекались бы общим сообщением, и блокировка адреса
+  // оставалась невидимой (ТЗ 11, п. 5.4).
+  (req: Request, res: Response, next: NextFunction) => {
+    const blockedSeconds = loginBlockedFor(clientIpOf(req));
+    if (blockedSeconds > 0) {
+      res.set('Retry-After', String(blockedSeconds));
+      res.status(429).json({ error: 'Слишком много неудачных попыток входа. Попробуйте позже.' });
+      return;
+    }
+    next();
+  },
+  // Попытка, отсечённая burst-лимитом, — тоже признак перебора: учитываем её в
+  // «долгой» блокировке по IP и пишем в журнал входов (ТЗ 11, п. 22–23).
+  rateLimit(ADMIN_LOGIN_RATE_MAX, 60_000, (req) => {
+    recordLoginFail(clientIpOf(req));
+    void journalAdminLogin(req, false, 'rate_limited');
+  }),
   asyncHandler(async (req, res) => {
     const blockedSeconds = loginBlockedFor(clientIpOf(req));
     if (blockedSeconds > 0) {

@@ -1,12 +1,19 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
-import { MAX_FILE_SIZE, MEDIA_PUBLIC_CACHE_SECONDS } from '../config.js';
+import { MAX_FILE_SIZE, MEDIA_GRANT_TTL_SECONDS, MEDIA_PUBLIC_CACHE_SECONDS, PUBLIC_BASE_URL } from '../config.js';
 import { query } from '../db.js';
 import { asyncHandler } from '../lib/http.js';
-import { hasValidSignature, isAllowedUploadMime, sanitizeFileName } from '../lib/media-content.js';
-import { verifyMediaGrant } from '../lib/signed-links.js';
+import {
+  checkUploadExtension,
+  hasValidSignature,
+  isAllowedUploadMime,
+  sanitizeFileName,
+} from '../lib/media-content.js';
+import { writeAudit } from '../lib/audit.js';
+import { signMediaGrant, verifyMediaGrant } from '../lib/signed-links.js';
 import { requireAdmin, verifyAdminToken } from '../middleware/admin-auth.js';
 import { authenticateTeamToken, teamTokenFromRequest } from '../middleware/team-auth.js';
+import { TEAM_SESSION_COOKIE, readCookie, verifyTeamSession } from '../lib/team-session.js';
 
 // Медиахранилище: файлы лежат в PostgreSQL (BYTEA). Публично отдаются только
 // файлы с is_public = TRUE (Положение, логотипы партнёров). Материалы команд
@@ -18,6 +25,12 @@ const store = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
+    // Сначала расширение имени, затем заявленный тип (ТЗ 11, п. 4.1, 4.5).
+    const extension = checkUploadExtension(file.originalname);
+    if (!extension.ok) {
+      cb(new Error(`UNSUPPORTED_FILE_EXTENSION: ${extension.reason}`));
+      return;
+    }
     if (isAllowedUploadMime(file.mimetype)) cb(null, true);
     else cb(new Error('UNSUPPORTED_FILE_TYPE'));
   },
@@ -31,6 +44,11 @@ function uploadSingle(req: Request, res: Response, next: NextFunction): void {
     }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
       res.status(413).json({ error: `Файл превышает допустимый размер ${MAX_FILE_SIZE} байт` });
+      return;
+    }
+    const message = error instanceof Error ? error.message : '';
+    if (message.startsWith('UNSUPPORTED_FILE_EXTENSION:')) {
+      res.status(415).json({ error: message.replace('UNSUPPORTED_FILE_EXTENSION:', '').trim() });
       return;
     }
     res.status(415).json({ error: 'Недопустимый тип файла' });
@@ -85,6 +103,15 @@ router.get(
           granted = true;
         }
       }
+      // 2а. Сессия кабинета (cookie). Без этой проверки участник, вошедший по
+      // ссылке доступа, не мог скачать собственный материал: файл отдавался
+      // только по заголовку с токеном, которого у браузера нет (ТЗ 06, п. 7.5).
+      if (!granted) {
+        const session = verifyTeamSession(readCookie(req, TEAM_SESSION_COOKIE));
+        if (session && (await teamOwnsMedia(session.teamId, id))) {
+          granted = true;
+        }
+      }
       // 3. Краткосрочная подписанная ссылка на конкретный файл.
       if (!granted) {
         const grantToken = typeof req.query.grant === 'string' ? req.query.grant : undefined;
@@ -101,13 +128,73 @@ router.get(
 
     res.set({
       'Content-Type': row.file_type || 'application/octet-stream',
-      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.file_name)}`,
+      // Приватные материалы отдаются вложением: браузер не открывает их
+      // содержимым страницы (ТЗ 11, п. 4.6). Публичные документы сайта —
+      // inline, чтобы PDF Положения открывался для чтения прямо в браузере.
+      'Content-Disposition': `${row.is_public ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(row.file_name)}`,
       'Cache-Control': row.is_public
         ? `public, max-age=${MEDIA_PUBLIC_CACHE_SECONDS}, immutable`
         : 'private, no-store, max-age=0',
       'X-Content-Type-Options': 'nosniff',
     });
     res.send(row.file_data);
+  })
+);
+
+/**
+ * POST /api/admin/media/:id/link — краткосрочная ссылка на приватный файл.
+ *
+ * Нужна, чтобы передать скан согласия, апелляции или материал коллеге из
+ * Оргкомитета, не выдавая ему админ-сессию: ссылка живёт минуты и привязана к
+ * конкретному файлу (ТЗ 11, п. 24). Вот почему модуль подписанных ссылок вообще
+ * существует — раньше выдавать такие ссылки было нечем.
+ */
+router.post(
+  '/admin/media/:id/link',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    if (!UUID_RE.test(id)) {
+      res.status(404).json({ error: 'Файл не найден' });
+      return;
+    }
+
+    const found = await query('SELECT id, file_name, is_public FROM media WHERE id = $1', [id]);
+    const row = found.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Файл не найден' });
+      return;
+    }
+
+    // Срок ограничен сверху сутками: ссылка на приватный материал не должна
+    // становиться постоянным адресом.
+    const requested = Number(req.body?.ttl_seconds);
+    const ttl = Number.isFinite(requested) && requested > 0
+      ? Math.min(Math.max(Math.trunc(requested), 60), 86_400)
+      : MEDIA_GRANT_TTL_SECONDS;
+
+    const grant = signMediaGrant(id, null, ttl);
+    const path = `/api/media/file/${id}?grant=${encodeURIComponent(grant.token)}`;
+    const url = `${PUBLIC_BASE_URL}${path}`;
+
+    await writeAudit({
+      action: 'media_grant_link',
+      entity: 'media',
+      entityId: id,
+      after: { expires_at: grant.expiresAt, expires_in: grant.expiresIn, file_name: row.file_name },
+      req,
+    });
+
+    res.status(201).json({
+      url,
+      // Относительный путь нужен тому же интерфейсу и тестам: абсолютный адрес
+      // собирается из PUBLIC_BASE_URL и в локальной среде ведёт на боевой домен.
+      path,
+      token: grant.token,
+      expires_at: grant.expiresAt,
+      expires_in: grant.expiresIn,
+      file_name: row.file_name,
+    });
   })
 );
 

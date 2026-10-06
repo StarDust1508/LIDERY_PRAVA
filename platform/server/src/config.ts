@@ -120,6 +120,10 @@ export const DATABASE_SCHEMA: string = sanitizeSchemaName(optionalString('DATABA
 
 // ── Секреты ──────────────────────────────────────────────────────────────────
 // Требование к длине: 32 символа — тот же порог, что и для ключа админ-сессий.
+// Версия API в ответе /api/health (ТЗ 05, §3). Задаётся окружением при выкате;
+// по умолчанию — версия платформы сезона 2027.
+export const API_VERSION: string = optionalString('API_VERSION', '2027.1.0');
+
 export const JWT_SECRET: string = requireString('JWT_SECRET', 32);
 export const JWT_EXPIRES_IN: string = optionalString('JWT_EXPIRES_IN', '7d');
 
@@ -127,6 +131,13 @@ export const ADMIN_SESSION_SECRET: string = requireString('ADMIN_SESSION_SECRET'
 export const ADMIN_SESSION_TTL_HOURS: number = optionalInt('ADMIN_SESSION_TTL_HOURS', 12, 1, 24);
 // Автоматический выход при бездействии (ТЗ 07, п. 1.2). По умолчанию 60 минут.
 export const ADMIN_IDLE_MINUTES: number = optionalInt('ADMIN_IDLE_MINUTES', 60, 5, 720);
+// Блокировка перебора пароля (ТЗ 11, п. 22–23): после стольких неудачных попыток
+// с одного адреса вход закрывается на указанное число минут. Значения вынесены в
+// окружение, чтобы приёмочный прогон проверял блокировку быстро и детерминированно.
+export const ADMIN_LOGIN_FAIL_MAX: number = optionalInt('ADMIN_LOGIN_FAIL_MAX', 10, 3, 100);
+// Частота запросов входа с одного адреса (ТЗ 11, п. 5.4: 8/мин).
+export const ADMIN_LOGIN_RATE_MAX: number = optionalInt('ADMIN_LOGIN_RATE_MAX', 8, 3, 60);
+export const ADMIN_LOGIN_BLOCK_MINUTES: number = optionalInt('ADMIN_LOGIN_BLOCK_MINUTES', 15, 1, 1440);
 export const ADMIN_LOGIN: string | undefined = readRaw('ADMIN_LOGIN');
 export const ADMIN_PASSWORD: string = requireString('ADMIN_PASSWORD', 8);
 
@@ -138,6 +149,10 @@ export const MEDIA_PUBLIC_CACHE_SECONDS: number = optionalInt(
   0,
   31_536_000
 );
+// Срок жизни краткосрочной ссылки на приватный файл (ТЗ 11, п. 24): 15 минут.
+// Ссылка выдаётся Оргкомитетом, чтобы передать скан или материал коллеге, не
+// передавая ему админ-сессию и не открывая файл по постоянному адресу.
+export const MEDIA_GRANT_TTL_SECONDS: number = optionalInt('MEDIA_GRANT_TTL_SECONDS', 900, 60, 86_400);
 
 // ── Публичный адрес, CORS, CSP ───────────────────────────────────────────────
 export const PUBLIC_BASE_URL: string = optionalString('PUBLIC_BASE_URL', 'https://lideryprava.ru').replace(

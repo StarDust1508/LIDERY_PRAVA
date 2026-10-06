@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { toCsv } from '../lib/csv.js';
+import { PUBLIC_BASE_URL } from '../config.js';
+import { scopedRateLimit } from '../middleware/rate-limit.js';
 import { writeAudit } from '../lib/audit.js';
 import { slugify, uniqueSlug } from '../lib/slugify.js';
 import { addWorkingDays } from '../lib/moscow-time.js';
@@ -84,7 +86,18 @@ interface CrudConfig {
    * или null, если запись допустима. На обновлении получает объединённое
    * состояние (текущая строка + изменения), поэтому проверяет итог, а не патч.
    */
-  validate?: (values: Record<string, unknown>, mode: 'create' | 'update') => string | null;
+  validate?: (
+    values: Record<string, unknown>,
+    mode: 'create' | 'update'
+  ) => string | null | Promise<string | null>;
+  /**
+   * Проверка перед удалением: возвращает текст отказа или null. Нужна там, где
+   * удаление разрушает уже опубликованный результат (критерии после публикации
+   * протокола, действующая редакция документа — ТЗ 07, п. 2.6, 4.4, 2.13).
+   */
+  guardDelete?: (row: Record<string, unknown>) => string | null | Promise<string | null>;
+  /** Вместо удаления помечает запись архивной (ТЗ 07, п. 2.13). */
+  archiveInsteadOfDelete?: { column: string };
 }
 
 function coerceField(field: CrudField, raw: unknown): { ok: boolean; value: unknown } {
@@ -213,7 +226,7 @@ function buildCrud(config: CrudConfig): Router {
         }
       }
 
-      const validationError = config.validate?.(record, 'create');
+      const validationError = await config.validate?.(record, 'create');
       if (validationError) {
         res.status(400).json({ error: validationError });
         return;
@@ -294,7 +307,7 @@ function buildCrud(config: CrudConfig): Router {
           res.status(404).json({ error: 'Запись не найдена' });
           return;
         }
-        const validationError = config.validate({ ...existing.rows[0], ...patch }, 'update');
+        const validationError = await config.validate({ ...existing.rows[0], ...patch }, 'update');
         if (validationError) {
           res.status(400).json({ error: validationError });
           return;
@@ -330,6 +343,31 @@ function buildCrud(config: CrudConfig): Router {
         return;
       }
       try {
+        const existing = await query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id]);
+        const row = existing.rows[0];
+        if (!row) {
+          res.status(404).json({ error: 'Запись не найдена' });
+          return;
+        }
+
+        const refusal = await config.guardDelete?.(row);
+        if (refusal) {
+          res.status(409).json({ error: refusal });
+          return;
+        }
+
+        // Архив вместо удаления: действующие редакции документов и другие
+        // записи, на которые ссылаются данные конкурса, не исчезают из истории.
+        if (config.archiveInsteadOfDelete) {
+          const result = await query(
+            `UPDATE ${table} SET ${config.archiveInsteadOfDelete.column} = false, updated_at = now()
+              WHERE id = $1 RETURNING id`,
+            [id]
+          );
+          res.json({ success: true, archived: result.rows.length > 0 });
+          return;
+        }
+
         const result = await query(`DELETE FROM ${table} WHERE id = $1 RETURNING id`, [id]);
         if (result.rows.length === 0) {
           res.status(404).json({ error: 'Запись не найдена' });
@@ -843,15 +881,26 @@ router.post(
     // При возврате на доработку действует срок не более 2 рабочих дней (п. 7.5).
     let fixDeadline: string | null = null;
     if (status === 'needs_fix') {
+      // Предел — два рабочих дня от текущего момента. Раньше принималась любая
+      // дата, в том числе через полгода: это превращало «досдачу по замечанию» в
+      // бессрочное продление приёма.
+      const limit = addWorkingDays(new Date(), 2);
       if (body.fix_deadline !== undefined && body.fix_deadline !== null) {
         const parsed = new Date(String(body.fix_deadline));
         if (Number.isNaN(parsed.getTime())) {
           res.status(400).json({ error: 'Некорректный срок досдачи материала' });
           return;
         }
+        if (parsed.getTime() > limit.getTime()) {
+          res.status(400).json({
+            error: `Срок досдачи не может быть позже двух рабочих дней: ${limit.toLocaleDateString('ru-RU')}.`,
+            max_fix_deadline: limit.toISOString(),
+          });
+          return;
+        }
         fixDeadline = parsed.toISOString();
       } else {
-        fixDeadline = addWorkingDays(new Date(), 2).toISOString();
+        fixDeadline = limit.toISOString();
       }
     }
 
@@ -1182,8 +1231,25 @@ router.patch(
 // ─── Токены доступа команды ──────────────────────────────────────────────────
 
 // POST /api/admin/teams/:id/tokens — выпуск токена доступа в личный кабинет.
+//
+// Два правила из ТЗ:
+//   • ТЗ 05, §2 (правило 3): при повторной выдаче прежние токены команды
+//     отзываются — иначе старая ссылка продолжает открывать кабинет;
+//   • ТЗ 11, п. 5.4: «получить ссылку заново» — не чаще 3 раз в час на команду.
 router.post(
   '/teams/:id/tokens',
+  scopedRateLimit(3, 60 * 60_000, (req) => {
+    const teamId = parsePositiveInt(req.params.id);
+    return teamId === null ? null : `team-tokens:${teamId}`;
+  }, (req) => {
+    void writeAudit({
+      action: 'team_token_rate_limited',
+      entity: 'access_tokens',
+      entityId: parsePositiveInt(req.params.id),
+      after: { reason: 'rate_limit_3_per_hour' },
+      req,
+    });
+  }),
   asyncHandler(async (req, res) => {
     const teamId = parsePositiveInt(req.params.id);
     if (teamId === null) {
@@ -1201,6 +1267,16 @@ router.post(
     const maxUses = Math.max(0, parsePositiveInt(body.max_uses) ?? 0);
     const singleUse = body.single_use === true;
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    // Прежние действующие токены команды отзываем: повторная выдача заменяет
+    // ссылку, а не добавляет ещё одну (ТЗ 05, §2, правило 3).
+    const revoked = await query(
+      `UPDATE access_tokens
+          SET revoked_at = now()
+        WHERE team_id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [teamId]
+    );
 
     const token = generateAccessToken();
     const result = await query(
@@ -1221,7 +1297,16 @@ router.post(
     );
 
     // Токен показывается один раз: в базе хранится только его SHA-256.
-    res.status(201).json({ ...result.rows[0], token });
+    // Готовая ссылка отдаётся сразу: администратору не нужно собирать её
+    // вручную, а интерфейс не покажет «undefined» (ТЗ 06, п. 1.6).
+    const accessPath = `/cabinet/access?token=${encodeURIComponent(token)}`;
+    res.status(201).json({
+      ...result.rows[0],
+      token,
+      revoked_previous: revoked.rows.length,
+      access_path: accessPath,
+      access_url: `${PUBLIC_BASE_URL}${accessPath}`,
+    });
   })
 );
 
@@ -2236,6 +2321,55 @@ router.get(
   })
 );
 
+// GET /api/admin/legacy-applications/export — выгрузка архива в CSV
+// (ТЗ 10, п. 3.1: архив доступен «только чтение и экспорт»). Раньше архив
+// отдавался лишь списком JSON, и выгрузить его для сверки с прежней базой было
+// нечем.
+router.get(
+  '/legacy-applications/export',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = [];
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(
+        `(full_name ILIKE $${params.length} OR COALESCE(email, '') ILIKE $${params.length}
+          OR COALESCE(organization, '') ILIKE $${params.length})`
+      );
+    }
+    const result = await query(
+      `SELECT legacy_id, legacy_source, season_year, full_name, email, phone,
+              organization, status, consent_pdn, consent_at, submitted_at, imported_at
+         FROM legacy_applications
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY submitted_at DESC NULLS LAST, legacy_id DESC`,
+      params
+    );
+
+    const headers = [
+      'legacy_id', 'legacy_source', 'season_year', 'full_name', 'email', 'phone',
+      'organization', 'status', 'consent_pdn', 'consent_at', 'submitted_at', 'imported_at',
+    ];
+    const csv = toCsv(headers, result.rows.map((row) => headers.map((key) => row[key] ?? '')));
+
+    await writeAudit({
+      action: 'legacy_export',
+      entity: 'legacy_applications',
+      after: { rows: result.rows.length },
+      req,
+    });
+
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set(
+      'Content-Disposition',
+      `attachment; filename="legacy-applications-${new Date().toISOString().slice(0, 10)}.csv"`
+    );
+    res.send(csv);
+  })
+);
+
 // ─── Справочники и контент (универсальный CRUD) ──────────────────────────────
 
 router.use(
@@ -2350,11 +2484,26 @@ router.use(
   })
 );
 
+// Критерии этапа нельзя менять и удалять после публикации протокола: оценки
+// выставлены по действующей редакции, и подмена критериев задним числом делает
+// опубликованный результат необъяснимым (ТЗ 07, п. 2.6 и 4.4).
+async function criteriaLockedReason(stage: unknown): Promise<string | null> {
+  if (typeof stage !== 'string' || stage === '') return null;
+  const published = await query(
+    `SELECT 1 FROM rankings WHERE stage = $1 AND is_published = TRUE LIMIT 1`,
+    [stage]
+  );
+  if (published.rows.length === 0) return null;
+  return 'Протокол этого этапа опубликован: критерии и оценки менять нельзя. Сначала снимите протокол с публикации с указанием причины.';
+}
+
 router.use(
   '/criteria',
   requireAdminForWrites,
   buildCrud({
     table: 'criteria',
+    validate: async (values) => criteriaLockedReason(values.stage),
+    guardDelete: async (row) => criteriaLockedReason(row.stage),
     fields: [
       { name: 'stage', type: 'text', maxLength: 32 },
       { name: 'code', type: 'text', maxLength: 64 },
@@ -2454,6 +2603,10 @@ router.use(
   '/documents',
   buildCrud({
     table: 'documents',
+    // Удаление действующей редакции заменяется архивацией: на документы
+    // ссылаются согласия и публичные страницы, а история редакций нужна для
+    // доказательства версии текста (ТЗ 07, п. 2.13).
+    archiveInsteadOfDelete: { column: 'is_active' },
     fields: [
       { name: 'type', type: 'text', maxLength: 64 },
       { name: 'title', type: 'text', maxLength: 300 },
@@ -2526,6 +2679,34 @@ router.use(
   '/initiatives',
   buildCrud({
     table: 'initiatives',
+    // Публикация решением Оргкомитета, а не «галочкой» в общем списке: маршрут
+    // публикации такую проверку делал, а PATCH с is_published — нет, и правило
+    // можно было обойти (ТЗ 07, п. 2.14а; ТЗ 02, п. 14, правило 4).
+    validate: async (values) => {
+      if (values.is_published !== true) return null;
+      const id = values.id === undefined || values.id === null ? null : Number(values.id);
+      if (id === null || Number.isNaN(id)) {
+        const teamId = values.team_id === undefined || values.team_id === null ? null : Number(values.team_id);
+        if (teamId === null || Number.isNaN(teamId)) return null;
+        const team = await query('SELECT status FROM teams WHERE id = $1 LIMIT 1', [teamId]);
+        const status = team.rows[0]?.status;
+        return status === 'disqualified' || status === 'withdrawn'
+          ? 'Публикация невозможна: команда дисквалифицирована или отозвала участие — такие работы в архив не попадают.'
+          : null;
+      }
+      const team = await query(
+        `SELECT t.status
+           FROM initiatives i
+           LEFT JOIN teams t ON t.id = i.team_id
+          WHERE i.id = $1
+          LIMIT 1`,
+        [id]
+      );
+      const status = team.rows[0]?.status;
+      return status === 'disqualified' || status === 'withdrawn'
+        ? 'Публикация невозможна: команда дисквалифицирована или отозвала участие — такие работы в архив не попадают.'
+        : null;
+    },
     slugFrom: 'title',
     fields: [
       { name: 'season_id', type: 'int' },

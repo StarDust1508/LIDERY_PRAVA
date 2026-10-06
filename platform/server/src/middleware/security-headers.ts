@@ -20,15 +20,19 @@ function buildCsp(extraOrigins: string[]): string {
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    "frame-ancestors 'self'",
+    // 'none' — согласовано с X-Frame-Options: DENY на краю (nginx): два разных
+    // значения в одном ответе противоречили друг другу.
+    "frame-ancestors 'none'",
     "form-action 'self'",
     withExtra("script-src 'self'"),
     withExtra("style-src 'self' 'unsafe-inline'"),
     withExtra("img-src 'self' data: blob:"),
-    "media-src 'self' blob:",
+    // Видео мастер-классов и ролики участников могут быть размещены на
+    // российских видеоплатформах: их разрешаем явно, остальное — нет.
+    "media-src 'self' blob: https://vk.com https://vk.ru https://rutube.ru",
+    "frame-src 'self' https://vk.com https://vk.ru https://rutube.ru",
     withExtra("font-src 'self' data:"),
     withExtra("connect-src 'self'"),
-    withExtra("frame-src 'self'"),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     'upgrade-insecure-requests',

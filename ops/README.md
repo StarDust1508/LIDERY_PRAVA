@@ -159,7 +159,7 @@ install -d -o liders -g liders -m 750 /var/www/lideryprava/api /var/www/liderypr
 install -d -m 750 -o root -g liders /etc/lideryprava
 
 # Шаблон окружения: ops/api.env.example (в нём же команды генерации секретов).
-install -m 640 -o root -g liders ops/api.env.example /etc/lideryprava/api.env
+install -m 600 -o root -g root ops/api.env.example /etc/lideryprava/api.env
 nano /etc/lideryprava/api.env          # вставить сгенерированные секреты
 ```
 
@@ -284,3 +284,35 @@ tail -f /var/log/nginx/lideryprava.error.log
 
 Откат — по разделу 6.8; изменения затрагивают только статические сборки и
 `ops/deploy.sh`, схема БД и данные заявок не менялись.
+
+### 7.2. Выкат 6 октября 2026: безопасность, доступность данных и приёмка
+
+Выкачены коммиты с закрытием пунктов ТЗ 11 (безопасность), ТЗ 05–06 (API и
+кабинет) и ТЗ 10 (перенос). Прогон приёмки: **257 проверок, 0 провалов** (было
+209), плюс 19 юнит-проверок (`npm test` в `platform/server` и `platform/shared`),
+гейты разделения Г1–Г7 и `tsc --noEmit` во всех четырёх пакетах.
+
+Что изменилось в эксплуатации:
+
+| Область | Изменение | Действие при выкате |
+|---|---|---|
+| Файл окружения | Права `600`, владелец `root` (ТЗ 11, п. 2.1) | Применить `install -m 600 -o root -g root` к `/etc/lideryprava/api.env` |
+| Резервные копии | Шифрование AES-256 и выгрузка только зашифрованной копии (ТЗ 11, п. 2.8, 7.3) | Задать `BACKUP_PASSPHRASE_FILE` (файл-ключ вне каталога копий) и `BACKUP_REMOTE`; без них скрипт работает как раньше и предупреждает об этом в журнале |
+| Проверка восстановления | Новый `ops/backup/restore-check.sh` (ТЗ 11, п. 7.2) | Поставить ежемесячный таймер; скрипт разворачивает последнюю копию в `liders_restore_check` и сверяет число записей |
+| CSP | Политика отдаётся и для статики (ТЗ 11, п. 5.1) | Перезагрузить nginx (`nginx -t && systemctl reload nginx`) |
+| Редирект | `/soglasie.html` → `/legal/pdn-consent` (ТЗ 10, п. 4.2) | То же |
+| Корневые `robots.txt`, `sitemap.xml` | Удалены из репозитория: сайт отдаёт версии платформы (ТЗ 10, п. 4.4, 4.7) | Убедиться, что в `/var/www/lideryprava/public` нет старых файлов |
+| Сборка интерфейсов | `NODE_ENV=production`: на прод больше не попадает отладочная сборка React | Выкат обычный; бандл 0,51 МБ вместо 1,08 МБ |
+
+Миграция `033_idempotency_keys.sql` добавляет ключи идемпотентности для
+материалов и обращений: применяется автоматически при выкате.
+
+Проверки после выката (дополняют раздел 6.7):
+
+```bash
+for p in /pobediteli.html /privacy.html /soglasie.html /terms.html /cookies.html /admin.html; do
+  printf '%-18s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code} → %{redirect_url}' https://lideryprava.ru$p)"
+done
+curl -sI https://lideryprava.ru/ | grep -i 'content-security-policy'
+curl -s https://lideryprava.ru/api/health
+```

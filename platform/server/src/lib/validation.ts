@@ -86,7 +86,10 @@ export function isValidExternalUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   try {
     const url = new URL(value.trim());
-    return url.protocol === 'https:' || url.protocol === 'http:';
+    // ТЗ 11, п. 5.7: протоколы кроме https: отклоняются. Открытый http
+    // позволял подменить содержимое материала по пути и вводил участника в
+    // заблуждение относительно защиты канала.
+    return url.protocol === 'https:';
   } catch {
     return false;
   }

@@ -1,9 +1,19 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
-import { API_HOST, API_PORT, CORS_ORIGINS, DATABASE_SCHEMA, IS_PRODUCTION, NODE_ENV } from './config.js';
+import {
+  API_HOST,
+  API_PORT,
+  API_VERSION,
+  CORS_ORIGINS,
+  DATABASE_SCHEMA,
+  IS_PRODUCTION,
+  NODE_ENV,
+} from './config.js';
 import pool, { testConnection } from './db.js';
 import { requireAdmin, requireAdminRole } from './middleware/admin-auth.js';
 import { auditAdminMutations } from './middleware/admin-audit.js';
+import { csrfProtection } from './middleware/csrf.js';
+import { requestContext, requestIdOf } from './middleware/request-context.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import { buildSitemap } from './lib/sitemap.js';
 import adminRouter from './routes/admin.js';
@@ -28,6 +38,7 @@ app.disable('x-powered-by');
 // rate-limit и журналов входов).
 app.set('trust proxy', 1);
 
+app.use(requestContext);
 app.use(securityHeaders);
 app.use(
   cors({
@@ -36,6 +47,8 @@ app.use(
   })
 );
 app.use(express.json({ limit: '1mb' }));
+// Изменяющие запросы из браузера — только со «своего» источника (ТЗ 11, п. 5.3).
+app.use('/api', csrfProtection);
 
 // Админка и личный кабинет не кэшируются и не индексируются.
 app.use(['/api/admin', '/api/cabinet'], (_req: Request, res: Response, next: NextFunction) => {
@@ -49,6 +62,9 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   const databaseUp = await testConnection();
   res.status(databaseUp ? 200 : 503).json({
     status: databaseUp ? 'ok' : 'degraded',
+    // ТЗ 05, §3: в ответе есть версия API — по ней видно, какая сборка
+    // выложена, без захода на сервер.
+    version: API_VERSION,
     database: databaseUp ? 'up' : 'down',
     schema: DATABASE_SCHEMA,
     environment: NODE_ENV,
@@ -98,33 +114,40 @@ app.use('/api/admin/users', requireAdmin, requireAdminRole('admin'), adminUsersR
 app.use('/api/admin/subjects', requireAdmin, adminSubjectsRouter);
 
 // Неизвестный маршрут.
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Маршрут не найден' });
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Маршрут не найден', requestId: requestIdOf(req) });
 });
 
 // Единый обработчик ошибок: клиенту уходит понятное сообщение, в лог — детали.
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   const status = (error as { status?: number; statusCode?: number }).status
     ?? (error as { statusCode?: number }).statusCode
     ?? 500;
 
   // Некорректный JSON от express.json().
+  const requestId = requestIdOf(req);
+
   if (error instanceof SyntaxError && status === 400) {
-    res.status(400).json({ error: 'Некорректный JSON в теле запроса' });
+    res.status(400).json({ error: 'Некорректный JSON в теле запроса', requestId });
     return;
   }
 
   if (status >= 500) {
-    console.error('Необработанная ошибка API:', error);
+    // В лог — идентификатор запроса: по нему инцидент связывается с обращением.
+    console.error(`Необработанная ошибка API [${requestId}]:`, error);
     if (IS_PRODUCTION) {
-      res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      res.status(500).json({ error: 'Внутренняя ошибка сервера', requestId });
     } else {
-      res.status(500).json({ error: 'Внутренняя ошибка сервера', details: (error as Error).message });
+      res.status(500).json({
+        error: 'Внутренняя ошибка сервера',
+        details: (error as Error).message,
+        requestId,
+      });
     }
     return;
   }
 
-  res.status(status).json({ error: (error as Error).message || 'Ошибка запроса' });
+  res.status(status).json({ error: (error as Error).message || 'Ошибка запроса', requestId });
 });
 
 const server = app.listen(API_PORT, API_HOST, () => {

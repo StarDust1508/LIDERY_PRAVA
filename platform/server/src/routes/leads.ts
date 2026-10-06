@@ -41,9 +41,29 @@ router.post(
       return;
     }
 
+    // Идемпотентность (ТЗ 05, п. 1.5): повторная отправка формы с тем же ключом
+    // возвращает уже созданное обращение, а не создаёт второе.
+    const idempotencyKey = requiredText(req.header('Idempotency-Key'), 100);
+    if (idempotencyKey) {
+      const existing = await query(
+        'SELECT id, created_at FROM leads WHERE idempotency_key = $1 LIMIT 1',
+        [idempotencyKey]
+      );
+      const row = existing.rows[0];
+      if (row) {
+        res.status(200).json({
+          success: true,
+          idempotent_replay: true,
+          lead_id: row.id,
+          created_at: row.created_at,
+        });
+        return;
+      }
+    }
+
     const result = await query(
-      `INSERT INTO leads (name, email, phone, topic, message, source, consent_pdn, ip, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8)
+      `INSERT INTO leads (name, email, phone, topic, message, source, consent_pdn, ip, user_agent, idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8, $9)
        RETURNING id, created_at`,
       [
         name,
@@ -54,6 +74,7 @@ router.post(
         optionalText(body.source, 64) ?? 'site',
         clientIpOf(req),
         String(req.headers['user-agent'] || '').slice(0, 500),
+        idempotencyKey,
       ]
     );
 

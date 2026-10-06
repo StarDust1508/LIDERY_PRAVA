@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { JWT_EXPIRES_IN, JWT_SECRET } from '../config.js';
+import { JWT_SECRET, MEDIA_GRANT_TTL_SECONDS } from '../config.js';
 
 // Краткосрочные ссылки на приватные файлы. Токен команды живёт долго и утекает
 // вместе со ссылками в переписке; для выдачи конкретного файла подписываем
@@ -11,11 +11,25 @@ export interface MediaGrantPayload {
   teamId: number | null;
 }
 
-export function signMediaGrant(mediaId: string, teamId: number | null): string {
+/**
+ * Подписывает краткосрочную ссылку на файл.
+ *
+ * Срок жизни — минуты, а не дни: ссылка уходит в переписку и почту, и её утечка
+ * не должна открывать материал навсегда. Раньше здесь использовался срок
+ * JWT-сессии команды (7 дней), что противоречило смыслу механизма.
+ */
+export function signMediaGrant(
+  mediaId: string,
+  teamId: number | null,
+  ttlSeconds: number = MEDIA_GRANT_TTL_SECONDS
+): { token: string; expiresAt: string; expiresIn: number } {
   const payload: MediaGrantPayload = { scope: 'media:read', mediaId, teamId };
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
-  });
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: ttlSeconds });
+  return {
+    token,
+    expiresIn: ttlSeconds,
+    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+  };
 }
 
 /** Проверяет подпись и совпадение mediaId. Возвращает claims или null. */

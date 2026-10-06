@@ -180,8 +180,16 @@ export function ApplyPage() {
   const [distribution, setDistribution] = useState<Record<number, Partial<Record<DistributionCategoryCode, boolean>>>>({});
   const [distributionConditions, setDistributionConditions] = useState('');
   const [submitted, setSubmitted] = useState<{ public_number: string; submitted_at: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const token = draft?.access_token ?? null;
+  // Прямая ссылка на вход: тот же адрес, что открывается по кнопке «Личный
+  // кабинет». Токен не показывается в списке параметров, а вставляется как есть.
+  const directAccessPath = token ? `/cabinet/access?token=${encodeURIComponent(token)}` : null;
+  const directAccessUrl =
+    directAccessPath === null
+      ? null
+      : `${typeof window === 'undefined' ? '' : window.location.origin}${directAccessPath}`;
 
   useEffect(() => {
     let active = true;
@@ -684,10 +692,37 @@ export function ApplyPage() {
               <dd>{formatMoscowHuman(submitted.submitted_at)}</dd>
             </div>
           </dl>
-          <p className="mt-4 text-sm text-muted">
-            Сохраните номер заявки: по нему и адресу электронной почты капитана команда входит в личный кабинет. Ссылка
-            доступа выдавалась при создании заявки.
-          </p>
+
+          {/* Ссылка доступа показывается на экране сразу после отправки
+              (ТЗ 06, п. 1.4): почта не отправляется, поэтому это единственный
+              способ передать команде вход в кабинет в момент подачи. */}
+          {directAccessUrl ? (
+            <div className="mt-5 border border-border-strong p-4">
+              <p className="mono-label text-muted">Ссылка для входа в личный кабинет</p>
+              <p className="mt-2 break-all font-mono text-sm">{directAccessUrl}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(directAccessUrl).then(
+                      () => setLinkCopied(true),
+                      () => setLinkCopied(false)
+                    );
+                  }}
+                >
+                  {linkCopied ? 'Скопировано' : 'Скопировать ссылку'}
+                </Button>
+                <Link className="text-sm underline" to={directAccessPath ?? '/cabinet/access'} target="_blank" rel="noreferrer">
+                  Открыть кабинет
+                </Link>
+              </div>
+              <p className="mt-3 text-sm text-muted">
+                Сохраните ссылку: она открывает кабинет без пароля. Если ссылка потеряется, вход возможен по номеру
+                заявки и адресу электронной почты капитана.
+              </p>
+            </div>
+          ) : null}
         </SectionCard>
       ) : (
         <>

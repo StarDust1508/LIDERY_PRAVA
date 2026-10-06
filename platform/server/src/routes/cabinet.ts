@@ -19,6 +19,7 @@ import { convertDocxToPdf } from '../lib/docx-to-pdf.js';
 import {
   LINK_ONLY_MATERIAL_TYPES,
   MATERIAL_TYPES,
+  checkUploadExtension,
   hasValidSignature,
   isAllowedUploadMime,
   isMaterialType,
@@ -60,6 +61,13 @@ const store = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
+    // Расширение проверяется до чтения тела файла (ТЗ 11, п. 4.1, 4.5): так
+    // исполняемый файл отсекается раньше, чем попадёт в память.
+    const extension = checkUploadExtension(file.originalname);
+    if (!extension.ok) {
+      cb(new Error(`UNSUPPORTED_FILE_EXTENSION: ${extension.reason}`));
+      return;
+    }
     if (isAllowedUploadMime(file.mimetype)) cb(null, true);
     else cb(new Error('UNSUPPORTED_FILE_TYPE'));
   },
@@ -73,6 +81,13 @@ function uploadSingle(req: Request, res: Response, next: NextFunction): void {
     }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
       res.status(413).json({ error: `Файл превышает допустимый размер ${MAX_FILE_SIZE} байт` });
+      return;
+    }
+    // Причина отказа по расширению передаётся человеку дословно: «недопустимый
+    // тип файла» не объясняет, что именно исправить (ТЗ 06, п. 3).
+    const message = error instanceof Error ? error.message : '';
+    if (message.startsWith('UNSUPPORTED_FILE_EXTENSION:')) {
+      res.status(415).json({ error: message.replace('UNSUPPORTED_FILE_EXTENSION:', '').trim() });
       return;
     }
     res.status(415).json({ error: 'Недопустимый тип файла' });
@@ -565,6 +580,112 @@ router.patch(
   })
 );
 
+// GET /api/cabinet/overview — сводка кабинета одним запросом (ТЗ 05, §4).
+//
+// Экран «Сводка» собирает те же данные из нескольких обращений; отдельный
+// маршрут нужен, чтобы состояние команды можно было получить целиком — для
+// мобильного клиента, уведомлений и разбора обращения Оргкомитетом.
+router.get(
+  '/overview',
+  asyncHandler(async (_req, res) => {
+    const context = teamContext(res);
+    const bundle = await loadTeamBundle(context.teamId);
+    if (!bundle) {
+      res.status(404).json({ error: 'Команда не найдена' });
+      return;
+    }
+
+    const seasonId = Number(bundle.team.season_id);
+    const closeAt = bundle.team.application_close_at ?? null;
+    const closePassed = isDeadlinePassed(closeAt);
+
+    // Комплект текущего этапа: что требуется и что уже сдано (ТЗ 06, п. 2).
+    const requirements = await query(
+      `SELECT r.type, r.title, r.is_required, r.due_at, r.description,
+              r.allowed_extensions, r.name_template,
+              m.status, m.version, m.reviewer_comment, m.fix_deadline, m.created_at,
+              CASE WHEN m.media_id IS NOT NULL THEN '/api/media/file/' || m.media_id::text ELSE NULL END AS file_url,
+              m.external_url
+         FROM material_requirements r
+         LEFT JOIN LATERAL (
+              SELECT am.status, am.version, am.reviewer_comment, am.fix_deadline, am.created_at,
+                     am.media_id, am.external_url
+                FROM application_materials am
+               WHERE am.team_id = $2 AND am.type = r.type
+               ORDER BY am.version DESC, am.created_at DESC
+               LIMIT 1
+         ) m ON TRUE
+        WHERE r.season_id = $1 AND r.is_active = TRUE AND r.stage = 'selection'
+        ORDER BY r.sort_order, r.id`,
+      [seasonId, context.teamId]
+    );
+
+    const readiness = requirements.rows.map((row) => ({
+      type: row.type,
+      title: row.title,
+      is_required: row.is_required,
+      due_at: row.due_at,
+      description: row.description,
+      allowed_extensions: row.allowed_extensions,
+      name_template: row.name_template,
+      status: row.status ?? 'not_submitted',
+      status_title: row.status ? String(row.status) : 'не сдан',
+      version: row.version ?? null,
+      reviewer_comment: row.reviewer_comment ?? null,
+      fix_deadline: row.fix_deadline ?? null,
+      file_url: row.file_url ?? null,
+      external_url: row.external_url ?? null,
+      submitted_at: row.created_at ?? null,
+    }));
+
+    const submitted = readiness.filter((item) => item.status !== 'not_submitted');
+    const required = readiness.filter((item) => item.is_required);
+
+    // Ближайший срок: досдача по замечанию важнее общего дедлайна приёма.
+    const candidates: Array<{ title: string; at: string; kind: string }> = [];
+    for (const item of readiness) {
+      if (item.fix_deadline) {
+        candidates.push({ title: `Досдать: ${item.title}`, at: item.fix_deadline, kind: 'fix' });
+      }
+      if (item.due_at) {
+        candidates.push({ title: `Сдать: ${item.title}`, at: item.due_at, kind: 'material' });
+      }
+    }
+    if (closeAt) {
+      candidates.push({ title: 'Окончание приёма заявок и материалов', at: String(closeAt), kind: 'application' });
+    }
+    const upcoming = candidates
+      .filter((item) => !isDeadlinePassed(item.at))
+      .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    const nearest = upcoming[0] ?? null;
+
+    res.json({
+      team: {
+        id: bundle.team.id,
+        name: bundle.team.name,
+        status: bundle.team.status,
+        direction: bundle.team.direction_title ?? null,
+        season: bundle.team.season_title ?? null,
+        public_number: bundle.team.public_number ?? null,
+        submitted_at: bundle.team.submitted_at ?? null,
+        tech_status: bundle.team.tech_status ?? null,
+        application_close_at: closeAt,
+        deadline_passed: closePassed,
+      },
+      participants: bundle.participants,
+      mentors: bundle.mentors,
+      readiness,
+      completeness: {
+        required_total: required.length,
+        required_done: required.filter((item) => item.status !== 'not_submitted' && item.status !== 'needs_fix').length,
+        submitted_total: submitted.length,
+      },
+      nearest_deadline: nearest,
+      fixes: readiness.filter((item) => item.status === 'needs_fix' || item.status === 'blocked'),
+    });
+  })
+);
+
 // GET /api/cabinet/materials — материалы заявки команды.
 router.get(
   '/materials',
@@ -632,20 +753,40 @@ router.post(
       return;
     }
 
-    // Дедлайн проверяется на сервере по московскому времени (п. 6.2 Положения).
-    if (isDeadlinePassed(bundle.team.application_close_at)) {
-      res.status(403).json({
-        error: 'Срок приёма конкурсных материалов истёк. Запись материалов недоступна.',
-        contact_endpoint: '/api/cabinet/contact',
-      });
-      return;
-    }
-
     const body = (req.body ?? {}) as Record<string, unknown>;
     const type = body.type;
     if (!isMaterialType(type)) {
       res.status(400).json({
         error: `Некорректный тип материала. Допустимые типы: ${Object.keys(MATERIAL_TYPES).join(', ')}`,
+      });
+      return;
+    }
+
+    // Дедлайн проверяется на сервере по московскому времени (п. 6.2 Положения).
+    // Исключение — окно досдачи: если Оргкомитет вернул материал с замечанием и
+    // назначил срок, работа с этим материалом разрешена до назначенного срока
+    // (ТЗ 06, п. 3: «После дедлайна — только по замечанию Оргкомитета в пределах
+    // срока досдачи»). Раньше срок досдачи не учитывался и материал нельзя было
+    // перезагрузить даже по прямому требованию Оргкомитета.
+    const fixWindow = await query(
+      `SELECT fix_deadline, status
+         FROM application_materials
+        WHERE application_id = $1 AND type = $2 AND status = 'needs_fix'
+        ORDER BY version DESC
+        LIMIT 1`,
+      [application.id, type]
+    );
+    const fixRow = fixWindow.rows[0];
+    const fixDeadline = fixRow?.fix_deadline ?? null;
+    const withinFixWindow = fixRow !== undefined && !isDeadlinePassed(fixDeadline);
+
+    if (isDeadlinePassed(bundle.team.application_close_at) && !withinFixWindow) {
+      res.status(403).json({
+        error: fixRow !== undefined
+          ? 'Срок досдачи по замечанию Оргкомитета истёк. Запись материалов недоступна.'
+          : 'Срок приёма конкурсных материалов истёк. Запись материалов недоступна.',
+        contact_endpoint: '/api/cabinet/contact',
+        fix_deadline: fixDeadline,
       });
       return;
     }
@@ -675,6 +816,31 @@ router.post(
       return;
     }
 
+    // Идемпотентность (ТЗ 05, п. 1.5): повтор запроса с тем же ключом не
+    // создаёт вторую версию материала — возвращаем уже сохранённую.
+    const idempotencyKey = requiredText(req.header('Idempotency-Key'), 100);
+    if (idempotencyKey) {
+      const existing = await query(
+        `SELECT id, version, created_at, status
+           FROM application_materials
+          WHERE idempotency_key = $1 AND team_id = $2
+          LIMIT 1`,
+        [idempotencyKey, context.teamId]
+      );
+      const row = existing.rows[0];
+      if (row) {
+        res.status(200).json({
+          success: true,
+          idempotent_replay: true,
+          id: Number(row.id),
+          version: Number(row.version),
+          status: row.status,
+          created_at: row.created_at,
+        });
+        return;
+      }
+    }
+
     const materialId = await withTransaction(async (client) => {
       let mediaId: string | null = null;
       if (file) {
@@ -699,10 +865,10 @@ router.post(
 
       const material = await client.query(
         `INSERT INTO application_materials
-           (application_id, team_id, type, media_id, external_url, version, status, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, 'uploaded', 'team')
+           (application_id, team_id, type, media_id, external_url, version, status, uploaded_by, idempotency_key)
+         VALUES ($1, $2, $3, $4, $5, $6, 'uploaded', 'team', $7)
          RETURNING id, created_at`,
-        [application.id, context.teamId, type, mediaId, externalUrl, version]
+        [application.id, context.teamId, type, mediaId, externalUrl, version, idempotencyKey]
       );
       return { id: Number(material.rows[0].id), created_at: material.rows[0].created_at, version };
     });
@@ -852,6 +1018,30 @@ router.post(
       return;
     }
 
+    // Обращение из режима «дедлайн пропущен» помечается темой deadline_contact, а
+    // в текст добавляется контекст: название команды, номер и статус заявки.
+    // Оргкомитету не приходится уточнять, о какой команде речь (ТЗ 06, п. 4.4).
+    const deadlineMode = body.mode === 'deadline' || body.topic === 'deadline_contact';
+    const topic = deadlineMode ? 'deadline_contact' : optionalText(body.topic, 200) ?? 'Обращение команды';
+
+    const applicationRow = await query(
+      `SELECT a.public_number, a.submitted_at, t.name AS team_name, t.status AS team_status
+         FROM applications a
+         JOIN teams t ON t.id = a.team_id
+        WHERE a.team_id = $1
+        ORDER BY a.id DESC
+        LIMIT 1`,
+      [context.teamId]
+    );
+    const application = applicationRow.rows[0];
+    const contextLines = [
+      '',
+      '---',
+      `Команда: ${application?.team_name ?? context.teamName}`,
+      application?.public_number ? `Номер заявки: ${application.public_number}` : null,
+      application?.team_status ? `Статус заявки: ${application.team_status}` : null,
+    ].filter((line): line is string => line !== null);
+
     const result = await query(
       `INSERT INTO leads (name, email, phone, topic, message, source, consent_pdn, team_id, ip, user_agent)
        VALUES ($1, $2, $3, $4, $5, 'cabinet', TRUE, $6, $7, $8)
@@ -860,8 +1050,8 @@ router.post(
         contact?.full_name ?? context.teamName,
         email,
         optionalText(body.phone, 32),
-        optionalText(body.topic, 200) ?? 'Обращение команды',
-        message,
+        topic,
+        `${message}\n${contextLines.join('\n')}`,
         context.teamId,
         clientIpOf(req),
         String(req.headers['user-agent'] || '').slice(0, 500),

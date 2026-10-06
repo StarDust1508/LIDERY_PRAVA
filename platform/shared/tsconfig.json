@@ -11,7 +11,9 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": []
+    // Типы Node нужны тестам (node:test, node:assert), которые лежат рядом с
+    // исходниками и проверяются тем же tsc.
+    "types": ["node"]
   },
   "include": ["src"]
 }
