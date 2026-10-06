@@ -159,9 +159,9 @@ export function InitiativesPage() {
             options={[{ value: 'true', title: 'Только с файлами работ' }]}
           />
           <div className="flex items-end gap-3">
-            <Button type="submit" loading={loading}>
-              Найти
-            </Button>
+            {/* Кнопка фильтра не показывает состояние отправки: она ничего не
+                отправляет, а результат поиска виден по списку ниже. */}
+            <Button type="submit">Найти</Button>
             <Button
               type="button"
               variant="secondary"
