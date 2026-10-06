@@ -207,27 +207,10 @@
     transform: scale(1.04);
   }
 
-  /* Появление блоков: только акцент, контент виден без ожидания (ТЗ 08, п. 3.4). */
-  .reveal {
-    opacity: 0;
-    transform: translateY(26px);
-    transition:
-      opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .reveal.is-in {
-    opacity: 1;
-    transform: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .reveal {
-      opacity: 1;
-      transform: none;
-      transition: none;
-    }
-  }
+  /* Появление блоков при прокрутке описано в styles/public.css и включается
+     скриптом (lib/reveal.ts). Здесь правил скрытия нет намеренно: если бы класс
+     .reveal прятал блок сам по себе, при любой заминке скрипта содержимое
+     оставалось бы невидимым (ТЗ 08, п. 3.4). */
 }
 
 /* ── Дополнения к оформлению прежнего сайта ──────────────────────────────────

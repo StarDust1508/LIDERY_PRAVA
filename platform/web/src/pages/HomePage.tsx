@@ -9,14 +9,23 @@ import {
   formatMoscowHuman,
 } from '@shared/index';
 import { Alert } from '@shared/index';
+import { DecadeScale } from '@/components/DecadeScale';
+import { Arc, ArrowRight, ArrowUpRight } from '@/components/Icon';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 
 // Главная страница конкурса.
 //
-// Композиция и классы — прежнего сайта: hero с фотографией, манифест, «Цифры
-// сезона», «История проекта», «Этапы», «Что вы получите», «Партнёры», блок подачи
-// заявки, «Вопросы и ответы» и финальный призыв. Содержание — по Положению и из
-// базы: сроки, мастер-классы, партнёры.
+// Композиция — прежнего сайта: первый экран с плакатом, манифест, «Цифры сезона»,
+// «История проекта», «Этапы», «Что Вы получите», «Партнёры», блок подачи заявки,
+// «Вопросы и ответы» и финальный призыв. Содержание — по Положению и из базы.
+//
+// Что изменено против прежней вёрстки и почему:
+//   • справа на первом экране вместо вертикально обрезанного группового снимка —
+//     летопись «2017—2027» (анимация) и кадр финала в родной пропорции 3:2;
+//   • в карточках «Что Вы получите» остался один портрет (наставничество), у
+//     остальных — номер и линия: те же фотографии уже показаны в «Истории
+//     проекта», и повторять их дважды на одной странице было бессмысленно;
+//   • блоки появляются при прокрутке (класс .reveal, см. lib/reveal.ts).
 
 const STAGES = [
   {
@@ -42,22 +51,18 @@ const BENEFITS = [
   {
     title: 'Стажировки',
     text: 'Ведущие юридические компании и органы власти для победителей и финалистов.',
-    image: '/assets/timeline-2025.jpg',
   },
   {
     title: 'Публикация инициатив',
     text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и попадают в архив.',
-    image: '/assets/timeline-2024.jpg',
   },
   {
     title: 'Публичность',
     text: 'Защита инициативы перед экспертным сообществом и освещение в сообществе конкурса.',
-    image: '/assets/timeline-2022.jpg',
   },
   {
     title: 'Нетворкинг',
     text: 'Знакомства с участниками, наставниками и членами Конкурсной комиссии из разных регионов.',
-    image: '/assets/timeline-2020.jpg',
   },
 ];
 
@@ -121,7 +126,10 @@ function FaqRow({ item, index }: { item: { question: string; answer: string; pat
       <div className="faq-answer" style={{ maxHeight: open ? '24rem' : 0 }}>
         <p>{item.answer}</p>
         <p>
-          <Link to={item.path}>Подробнее →</Link>
+          <Link to={item.path}>
+            Подробнее
+            <ArrowRight size={15} />
+          </Link>
         </p>
       </div>
     </div>
@@ -174,6 +182,14 @@ export function HomePage() {
       ? `Приём заявок откроется ${formatMoscowHuman(seasonInfo?.application_open_at ?? null)}`
       : `Приём заявок завершён ${formatMoscowDate(seasonInfo?.application_close_at ?? null)}`;
 
+  const marqueeItems = [
+    'Десятый сезон конкурса',
+    deadlineLabel,
+    'Финал в Москве',
+    'Наставники-практики',
+    'Публикация законотворческих инициатив',
+  ];
+
   return (
     <>
       {error ? (
@@ -182,7 +198,7 @@ export function HomePage() {
         </div>
       ) : null}
 
-      {/* Первый экран: плакат слева, фотография финала справа. */}
+      {/* Первый экран: плакат и действия слева, летопись конкурса справа. */}
       <header className="hero" id="home">
         <div className="hero-left">
           <div className="hero-topmeta mono">
@@ -194,11 +210,31 @@ export function HomePage() {
             <br />
             <span className="red">права</span>
           </h1>
+          <div className="hero-bottom">
+            <p className="hero-statement">
+              Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
+              стажировки и публикацию законотворческих инициатив.
+            </p>
+            <div className="hero-actions">
+              <Link to="/apply" className="btn btn-solid mono">
+                Подать заявку
+                <ArrowUpRight size={16} />
+              </Link>
+              <Link to="/participants" className="btn btn-ghost mono">
+                Как участвовать
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Правая колонка: шкала «2017—2027» и кадр финала в родной пропорции. */}
+        <div className="hero-side">
+          <DecadeScale />
           <div className="hero-photo-band">
             <div className="duo">
               <img
                 src="/assets/timeline-2024.jpg"
-                alt="Финал конкурса «Лидеры права» 2024 года"
+                alt="Участники и организаторы финала конкурса «Лидеры права» 2024 года"
                 width={1280}
                 height={854}
                 loading="eager"
@@ -206,32 +242,28 @@ export function HomePage() {
             </div>
             <div className="tag mono">[ Финал · 2024 ]</div>
           </div>
-          <div className="hero-bottom">
-            <p className="hero-statement">
-              Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
-              стажировки и публикацию законотворческих инициатив.
-            </p>
-          </div>
-        </div>
-        <div className="hero-photo">
-          <div className="duo">
-            <img
-              src="/assets/timeline-2024.jpg"
-              alt="Финал конкурса «Лидеры права» 2024 года"
-              width={1280}
-              height={854}
-              loading="eager"
-            />
-          </div>
-          <div className="tag mono">[ Финал · 2024 ]</div>
         </div>
       </header>
 
+      {/* Бегущая строка: сроки и суть конкурса одной полосой. */}
+      <div className="marquee" aria-hidden="true">
+        <div className="marquee-track">
+          {[0, 1].map((copy) => (
+            <span key={copy}>
+              {marqueeItems.map((item) => (
+                <b key={item}>{item}</b>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Манифест: одна мысль на весь экран. */}
-      <section className="block manifesto" id="manifesto">
+      <section className="block manifesto arc-left" id="manifesto">
+        <Arc className="arc" />
         <div className="wrap">
           <div className="sec-label mono">(О конкурсе)</div>
-          <p>
+          <p className="reveal">
             Право <span className="red">начинается</span> с тех, кто <span className="mute">не боится</span> взять слово.
           </p>
         </div>
@@ -241,7 +273,7 @@ export function HomePage() {
       <section className="block sand" id="stats">
         <div className="wrap">
           <div className="sec-label mono">(Цифры сезона)</div>
-          <div className="stats">
+          <div className="stats reveal">
             <div className="stat">
               <div className="num">2017</div>
               <div className="lbl mono">Год основания</div>
@@ -273,10 +305,17 @@ export function HomePage() {
               <Link
                 key={item.year}
                 to="/about/history"
-                className={`pcard ${['s-a', 's-b', 's-c', 's-b', 's-a', 's-c'][index] ?? 's-c'}`}
+                className={`pcard reveal ${['s-a', 's-b', 's-c', 's-b', 's-a', 's-c'][index] ?? 's-c'}`}
+                style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
               >
                 <div className={`duo${index % 3 === 2 ? ' ink' : ''}`}>
-                  <img src={item.image} alt={`Конкурс «Лидеры права» в ${item.year} году`} loading="lazy" />
+                  <img
+                    src={item.image}
+                    alt={`Участники конкурса «Лидеры права» в ${item.year} году`}
+                    width={1280}
+                    height={854}
+                    loading="lazy"
+                  />
                 </div>
                 <div className="meta">
                   <span className="pyear">{item.year}</span>
@@ -285,9 +324,10 @@ export function HomePage() {
               </Link>
             ))}
           </div>
-          <div className="story-cta">
+          <div className="story-cta reveal">
             <Link to="/winners" className="story-link mono">
-              Победители прошлых сезонов →
+              Победители прошлых сезонов
+              <ArrowRight size={15} />
             </Link>
           </div>
         </div>
@@ -298,15 +338,23 @@ export function HomePage() {
         <div className="wrap">
           <div className="sec-label mono">(Этапы / маршрут участника)</div>
           <div className="benefits-grid">
-            {STAGES.map((stage) => (
-              <article key={stage.title} className="bcard">
+            {STAGES.map((stage, index) => (
+              <article
+                key={stage.title}
+                className="bcard reveal"
+                style={{ '--d': `${index * 90}ms` } as React.CSSProperties}
+              >
+                <span className="bcard-num mono">{String(index + 1).padStart(2, '0')}</span>
                 <h3>{stage.title}</h3>
                 <p>{stage.text}</p>
               </article>
             ))}
           </div>
-          <p style={{ marginTop: '1.5rem' }}>
-            <Link to="/stages">Календарь, критерии оценки и апелляции →</Link>
+          <p className="reveal" style={{ marginTop: '1.5rem' }}>
+            <Link to="/stages">
+              Календарь, критерии оценки и апелляции
+              <ArrowRight size={15} />
+            </Link>
           </p>
         </div>
       </section>
@@ -314,13 +362,27 @@ export function HomePage() {
       {/* Что получают участники. */}
       <section className="block" id="benefits">
         <div className="wrap">
-          <div className="sec-label mono">(Что вы получите / после конкурса)</div>
+          <div className="sec-label mono">(Что Вы получите / после конкурса)</div>
           <div className="benefits-grid">
-            {BENEFITS.map((benefit) => (
-              <article key={benefit.title} className="bcard">
-                <div className="duo bcard-photo">
-                  <img src={benefit.image} alt="" loading="lazy" />
-                </div>
+            {BENEFITS.map((benefit, index) => (
+              <article
+                key={benefit.title}
+                className="bcard reveal"
+                style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
+              >
+                {benefit.image ? (
+                  <div className="duo bcard-photo portrait">
+                    <img
+                      src={benefit.image}
+                      alt="Наставник конкурса «Лидеры права»"
+                      width={640}
+                      height={640}
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <span className="bcard-num mono">{String(index + 1).padStart(2, '0')}</span>
+                )}
                 <h3>{benefit.title}</h3>
                 <p>{benefit.text}</p>
               </article>
@@ -334,7 +396,7 @@ export function HomePage() {
         <div className="wrap">
           <div className="sec-label mono">(Партнёры / нам доверяют)</div>
           {partners.length > 0 ? (
-            <div className="partners-grid">
+            <div className="partners-grid reveal">
               {partners.map((partner) => (
                 <article key={partner.id} className="bcard">
                   {partner.logo_url ? (
@@ -346,14 +408,15 @@ export function HomePage() {
                   {partner.description ? <p>{partner.description}</p> : null}
                   {partner.url ? (
                     <a href={partner.url} target="_blank" rel="noopener noreferrer">
-                      Сайт партнёра →
+                      Сайт партнёра
+                      <ArrowUpRight size={14} />
                     </a>
                   ) : null}
                 </article>
               ))}
             </div>
           ) : (
-            <div className="partners-grid">
+            <div className="partners-grid reveal">
               <article className="bcard">
                 <h3>Ассоциация выпускников СЮИ – СГАП – СГЮА</h3>
                 <p>Учредитель конкурса. Утверждает Положение, состав органов конкурса и выступает оператором персональных данных.</p>
@@ -371,7 +434,8 @@ export function HomePage() {
       <section className="block apply" id="apply">
         <div className="wrap">
           <div className="sec-label mono">(Подать заявку)</div>
-          <div className="apply-grid">
+          <hr className="neon-line" />
+          <div className="apply-grid reveal">
             <div className="apply-info">
               <h2>
                 Подать
@@ -379,15 +443,17 @@ export function HomePage() {
                 <span className="red">заявку</span>
               </h2>
               <p>
-                Заявка заполняется на сайте по шагам: команда и инициатива, участники, наставники, конкурсные материалы и
-                согласия. Черновик сохраняется — заполнение можно прервать и продолжить.
+                Заявка заполняется на сайте по шагам: команда и инициатива, участники, наставники, конкурсные
+                материалы и согласия. Черновик сохраняется — заполнение можно прервать и продолжить.
               </p>
               <span className="badge mono">{deadlineLabel}</span>
             </div>
-            <div className="reveal">
+            <div>
               <Link to="/apply" className="cta-big">
                 Заполнить
-                <sup>↗</sup>
+                <span className="cta-icon" aria-hidden="true">
+                  <ArrowUpRight size={30} />
+                </span>
               </Link>
               <ul className="apply-list">
                 <li>
@@ -413,7 +479,7 @@ export function HomePage() {
         <section className="block">
           <div className="wrap">
             <div className="sec-label mono">(Мастер-классы / для финалистов)</div>
-            <div className="benefits-grid">
+            <div className="benefits-grid reveal">
               {announced.map((item) => (
                 <article key={item.id} className="bcard">
                   <h3>{item.title}</h3>
@@ -422,7 +488,10 @@ export function HomePage() {
                     <br />
                     {formatMoscowHuman(item.starts_at)}
                   </p>
-                  <Link to={`/masterclasses/${item.slug ?? `masterclass-${item.id}`}`}>Подробнее →</Link>
+                  <Link to={`/masterclasses/${item.slug ?? `masterclass-${item.id}`}`}>
+                    Подробнее
+                    <ArrowRight size={15} />
+                  </Link>
                 </article>
               ))}
             </div>
@@ -434,7 +503,7 @@ export function HomePage() {
       <section className="block" id="faq">
         <div className="wrap">
           <div className="sec-label mono">(Вопросы и ответы)</div>
-          <div className="faq-shell">
+          <div className="faq-shell reveal">
             <div className="faq-head">
               <h2>
                 Вопросы
@@ -454,11 +523,13 @@ export function HomePage() {
       <section className="cta" id="cta">
         <div className="wrap">
           <div className="sec-label mono">(Подать заявку)</div>
-          <Link to="/apply" className="cta-big">
+          <Link to="/apply" className="cta-big reveal">
             Стать
             <br />
             лидером
-            <sup>↗</sup>
+            <span className="cta-icon" aria-hidden="true">
+              <ArrowUpRight size={34} />
+            </span>
           </Link>
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './Layout';
+import { ScrollManager } from './ScrollManager';
 import { SeasonProvider } from '../lib/season';
 import { AboutPage } from '../pages/AboutPage';
 import { AppendixPage } from '../pages/AppendixPage';
@@ -51,6 +52,7 @@ import { WinnersPage } from '../pages/WinnersPage';
 export function App() {
   return (
     <BrowserRouter>
+      <ScrollManager />
       <SeasonProvider>
         <Routes>
           {/* Служебные экраны без шапки сайта */}

@@ -105,7 +105,9 @@ export function formatMoscowHuman(value: Date | string | null | undefined): stri
     minute: '2-digit',
     hour12: false,
   }).format(date);
-  return `${dayAndMonth} ${year} года, ${time} (МСК)`;
+  // Неразрывные пробелы: дата не должна разрываться переносом строки.
+  const NBSP = '\u00A0';
+  return `${dayAndMonth.replace(/\s+/g, NBSP)}${NBSP}${year}${NBSP}года, ${time}${NBSP}(МСК)`;
 }
 
 /**

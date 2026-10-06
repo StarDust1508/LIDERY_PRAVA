@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { External } from '@/components/Icon';
 
 // Общие блоки страниц: единый заголовок раздела и типовые секции.
 // Все публичные страницы собираются из них — так оформление блоков совпадает
@@ -130,7 +131,7 @@ export function GridCell({
   return (
     <div className="hairline-cell">
       {imageUrl ? (
-        <figure className="media-frame mb-2 aspect-[4/3]">
+        <figure className="media-frame mb-2 aspect-[3/2]">
           <img src={imageUrl} alt={imageAlt ?? ''} loading="lazy" className="media-cover" />
           {imageCaption ? <figcaption className="sr-only-text">{imageCaption}</figcaption> : null}
         </figure>
@@ -155,14 +156,15 @@ export function ActionLink({
   variant?: 'primary' | 'secondary';
   external?: boolean;
 }) {
-  const className =
-    variant === 'primary'
-      ? 'mono-label inline-flex min-h-[44px] items-center bg-accent-solid px-5 text-on-accent hover:bg-accent-solid-hover'
-      : 'mono-label inline-flex min-h-[44px] items-center border border-border-strong px-5 hover:border-accent hover:text-accent';
+  // Кнопки публичной части — в языке прежнего сайта: капс, моноподпись, форма
+  // пилюли, красная заливка у основной. Служебные экраны используют свои кнопки
+  // дизайн-системы, поэтому классы ограничены областью .site.
+  const className = variant === 'primary' ? 'btn btn-solid mono' : 'btn btn-ghost mono';
   if (external) {
     return (
       <a href={to} target="_blank" rel="noreferrer noopener" className={className}>
         {children}
+        <External size={15} />
       </a>
     );
   }
