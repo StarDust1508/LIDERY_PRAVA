@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, type PublicDocument, type PublicPage, api, formatMoscowDate } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Положение о конкурсе: действующая редакция и Приложения № 1–14
@@ -127,7 +127,7 @@ export function RegulationsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <div id="regulation" className="scroll-mt-24">
-            <SectionCard
+            <Section
               title="Действующая редакция"
               description={
                 regulation
@@ -196,11 +196,11 @@ export function RegulationsPage() {
                   система фиксирует версию документа, с которой согласилась команда.
                 </p>
               )}
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="appendices" className="scroll-mt-24">
-            <SectionCard
+            <Section
               title={`Приложения № 1–14${appendices.length > 0 ? ` (${appendices.length})` : ''}`}
               description="Формы заявки и согласий, требования к тексту законопроекта, пояснительной записке и видеоролику, регламент дебатов, форма апелляционного заявления."
             >
@@ -250,7 +250,7 @@ export function RegulationsPage() {
                   </p>
                 </>
               )}
-            </SectionCard>
+            </Section>
           </div>
         </div>
       </div>

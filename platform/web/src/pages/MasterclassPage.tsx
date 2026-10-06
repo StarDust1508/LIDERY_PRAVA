@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, type PublicMasterclass, api, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { useTrailLabel } from '@/components/Breadcrumbs';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
@@ -193,7 +193,7 @@ export function MasterclassPage() {
           title="Мастер-класс не найден"
           lead="Встреча с таким адресом не опубликована или её адрес изменился."
         />
-        <SectionCard title="Что можно сделать" description="Анонсы и записи собраны в разделе «Мастер-классы».">
+        <Section title="Что можно сделать" description="Анонсы и записи собраны в разделе «Мастер-классы».">
           <Prose>
             <p className="text-sm">
               Возможно, ссылка устарела или содержит опечатку. Откройте список мастер-классов: там есть анонсы
@@ -206,7 +206,7 @@ export function MasterclassPage() {
               Записи прошедших
             </ActionLink>
           </div>
-        </SectionCard>
+        </Section>
       </main>
     );
   }
@@ -229,7 +229,7 @@ export function MasterclassPage() {
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
       {isPast && item.materials && item.materials.length > 0 ? (
-        <SectionCard
+        <Section
           title="Материалы занятия"
           description="Файлы и ссылки, которые спикер передал участникам (ТЗ 08, п. 4.3)."
         >
@@ -247,10 +247,10 @@ export function MasterclassPage() {
               </li>
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       ) : null}
 
-      <SectionCard title="О мастер-классе" description="Дата и время указаны по московскому времени.">
+      <Section title="О мастер-классе" description="Дата и время указаны по московскому времени.">
         <dl className="grid gap-5 text-sm md:grid-cols-2">
           <div>
             <dt className="mono-label text-muted">Дата и время</dt>
@@ -287,17 +287,17 @@ export function MasterclassPage() {
             {isPast ? 'Краткое резюме встречи готовится к публикации.' : 'Описание встречи готовится к публикации.'}
           </p>
         )}
-      </SectionCard>
+      </Section>
 
       {isPast ? (
-        <SectionCard
+        <Section
           title="Запись мастер-класса"
           description="Прошедший мастер-класс публикуется только при наличии записи."
         >
           <RecordingPlayer item={item} />
-        </SectionCard>
+        </Section>
       ) : (
-        <SectionCard title="Как подключиться" description="Формат встречи и подключение.">
+        <Section title="Как подключиться" description="Формат встречи и подключение.">
           <Prose>
             <p className="text-sm">
               {item.place
@@ -306,10 +306,10 @@ export function MasterclassPage() {
             </p>
             <p className="text-sm text-muted">Напоминание придёт после подключения рассылки.</p>
           </Prose>
-        </SectionCard>
+        </Section>
       )}
 
-      <SectionCard
+      <Section
         title="Материалы"
         description={isPast ? 'Материалы встречи.' : 'Что подготовить к встрече.'}
       >
@@ -329,7 +329,7 @@ export function MasterclassPage() {
             Записи прошедших мастер-классов
           </Link>
         </p>
-      </SectionCard>
+      </Section>
     </main>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, type PublicNewsItem, api, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { useTrailLabel } from '@/components/Breadcrumbs';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
@@ -136,7 +136,7 @@ export function NewsItemPage() {
           title="Публикация не найдена"
           lead="Материал с таким адресом не опубликован или его адрес изменился."
         />
-        <SectionCard title="Что можно сделать" description="Публикации конкурса доступны в разделе «Новости».">
+        <Section title="Что можно сделать" description="Публикации конкурса доступны в разделе «Новости».">
           <Prose>
             <p className="text-sm">
               Возможно, ссылка устарела или содержит опечатку. Откройте список публикаций — там есть все новости и
@@ -156,7 +156,7 @@ export function NewsItemPage() {
             </Link>
             .
           </p>
-        </SectionCard>
+        </Section>
       </main>
     );
   }

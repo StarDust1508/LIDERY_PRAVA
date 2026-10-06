@@ -6,8 +6,8 @@ import {
   formatMoscowHuman,
   pluralize,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { formatPeriod, useOrganizerText } from './StagesPage';
@@ -113,7 +113,7 @@ export function StageSelectionPage() {
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
-      <SectionCard title="Сроки" description="Все даты — по московскому времени (МСК, UTC+3).">
+      <Section title="Сроки" description="Все даты — по московскому времени (МСК, UTC+3).">
         {season ? (
           <ul className="flex flex-col gap-5 text-sm">
             <li>
@@ -159,9 +159,9 @@ export function StageSelectionPage() {
             Календарь конкурса
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Обязательный комплект конкурсных материалов"
         description="Пункт 7.2 Положения. Состав комплекта ведёт Оргкомитет, поэтому страница и приём заявок не расходятся."
       >
@@ -191,9 +191,9 @@ export function StageSelectionPage() {
             Конкурсные материалы
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Критерии отборочного этапа"
         description="Пункт 10.2 Положения. Каждый критерий оценивается по шкале от 0 до 10."
       >
@@ -223,9 +223,9 @@ export function StageSelectionPage() {
             </p>
           </>
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Что дальше" description="От отборочного этапа к первому.">
+      <Section title="Что дальше" description="От отборочного этапа к первому.">
         <Prose>
           <p>
             Команды, прошедшие отборочный этап, допускаются к первому этапу: они готовят видеопрезентацию инициативы и
@@ -246,14 +246,14 @@ export function StageSelectionPage() {
             Апелляции
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

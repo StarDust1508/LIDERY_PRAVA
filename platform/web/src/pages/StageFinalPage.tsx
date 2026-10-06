@@ -6,8 +6,8 @@ import {
   formatMoscowDate,
   pluralize,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { formatPeriod, useOrganizerText } from './StagesPage';
@@ -87,7 +87,7 @@ export function StageFinalPage() {
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
-      <SectionCard title="Формат и сроки" description="Все даты — по московскому времени (МСК, UTC+3).">
+      <Section title="Формат и сроки" description="Все даты — по московскому времени (МСК, UTC+3).">
         {season ? (
           <ul className="flex flex-col gap-4 text-sm">
             <li>
@@ -117,9 +117,9 @@ export function StageFinalPage() {
             Календарь конкурса
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Как проходит этап"
         description="Пункт 9.3 Положения: групповые выступления, дебаты, Гранд-финал и награждение."
       >
@@ -141,9 +141,9 @@ export function StageFinalPage() {
             оратор».
           </li>
         </ol>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Критерии дебатов"
         description="Пункт 10.4 Положения. Итог дебатов — сумма баллов всех членов Жюри."
       >
@@ -173,9 +173,9 @@ export function StageFinalPage() {
             </p>
           </>
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Подготовка к финалу"
         description="Пункт 9.2 Положения: презентационные материалы и подтверждение статуса участника."
       >
@@ -205,9 +205,9 @@ export function StageFinalPage() {
             Подтвердить участие
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Решения финального этапа"
         description="Пункт 9.6 Положения: обжалованию не подлежат."
       >
@@ -222,14 +222,14 @@ export function StageFinalPage() {
             Апелляции
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

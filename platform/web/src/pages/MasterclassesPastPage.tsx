@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, type PublicMasterclass, api, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Записи прошедших мастер-классов (ТЗ 08, п. 2.1 и 4.3).
@@ -215,7 +215,7 @@ export function MasterclassesPastPage() {
           .
         </Alert>
       ) : (
-        <SectionCard
+        <Section
           title={`Записи (${visible.length})`}
           description="Прошедший мастер-класс без записи не публикуется. Дата и время указаны по московскому времени."
         >
@@ -256,7 +256,7 @@ export function MasterclassesPastPage() {
               </li>
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       )}
 
       <p className="max-w-measure text-sm text-muted">

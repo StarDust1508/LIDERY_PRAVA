@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, type PublicPage, type PublicPartner, api } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Партнёры конкурса (ТЗ 08, п. 2.1; ТЗ 02, п. 1 и 10).
@@ -90,14 +90,14 @@ export function PartnersPage() {
       />
 
       {page?.body ? (
-        <SectionCard title="О разделе" description="Текст, подготовленный Оргкомитетом.">
+        <Section title="О разделе" description="Текст, подготовленный Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{page.body}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
 
-      <SectionCard title="Учредитель" description="Оператор персональных данных конкурса.">
+      <Section title="Учредитель" description="Оператор персональных данных конкурса.">
         <Prose>
           <p>
             Межрегиональная общественная организация выпускников Саратовской государственной юридической академии
@@ -116,15 +116,15 @@ export function PartnersPage() {
             .
           </p>
         </Prose>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Генеральный партнёр" description="Организация, поддерживающая конкурс по Положению.">
+      <Section title="Генеральный партнёр" description="Организация, поддерживающая конкурс по Положению.">
         <Prose>
           <p>Общероссийская общественная организация «Ассоциация юристов России».</p>
         </Prose>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Партнёры и спонсоры"
         description="Организации, поддерживающие конкурс. Логотипы публикуются при наличии согласия."
       >
@@ -174,7 +174,7 @@ export function PartnersPage() {
             ))}
           </ul>
         )}
-      </SectionCard>
+      </Section>
 
       <p className="text-sm text-muted">
         Правовая основа участия —{' '}

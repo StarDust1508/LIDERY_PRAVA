@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, type InitiativeCard, actLevelTitle, api } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
+import { Alert } from '@shared/index';
+import { Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Карточка инициативы. Авторы и файлы приходят с сервера только при наличии
@@ -109,7 +110,7 @@ export function InitiativePage() {
         </div>
       </dl>
 
-      <SectionCard
+      <Section
         title={`Авторы (${card.authors.length})`}
         description="Указываются только при согласии участников на распространение персональных данных."
       >
@@ -128,9 +129,9 @@ export function InitiativePage() {
             ))}
           </ul>
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title={`Конкурсные материалы (${card.files.length})`}
         description="Публикуются только при предоставлении лицензии на использование материалов."
       >
@@ -162,10 +163,10 @@ export function InitiativePage() {
             </a>
           </p>
         ) : null}
-      </SectionCard>
+      </Section>
 
       {card.related.length > 0 ? (
-        <SectionCard title="Другие инициативы направления" description="Похожие темы из архива.">
+        <Section title="Другие инициативы направления" description="Похожие темы из архива.">
           <ul className="flex flex-col gap-2 text-sm">
             {card.related.map((item) => (
               <li key={item.slug}>
@@ -176,7 +177,7 @@ export function InitiativePage() {
               </li>
             ))}
           </ul>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

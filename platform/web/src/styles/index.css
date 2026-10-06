@@ -105,3 +105,127 @@
     page-break-after: avoid;
   }
 }
+
+
+/* ── Публичная часть: язык прежнего сайта конкурса ────────────────────────────
+   Значения взяты из прежней вёрстки (index.html: .hero, .block, .bcard,
+   .benefits-grid, .partners-grid, .stat, .apply, .foot). Смысл: страницы
+   конкурса выглядят как прежде — плакатные заголовки, крупные интервалы,
+   сетки с волосяными линиями, фотографии во всю ширину колонки.
+   Служебные экраны (мастер подачи, кабинет) этот слой не затрагивает. */
+@layer components {
+  /* Заголовки-плакаты: чёрное начертание, капс, плотный трекинг. */
+  .poster-hero {
+    font-size: var(--fs-poster-hero);
+    font-weight: var(--fw-poster);
+    line-height: 0.84;
+    letter-spacing: var(--tr-poster);
+    text-transform: uppercase;
+  }
+
+  .poster-1 {
+    font-size: var(--fs-poster-1);
+    font-weight: var(--fw-poster);
+    line-height: var(--lh-poster);
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+  }
+
+  .poster-2 {
+    font-size: var(--fs-poster-2);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  .poster-3 {
+    font-size: var(--fs-poster-3);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Раздел страницы: крупный вертикальный ритм и волосяная линия снизу. */
+  .block {
+    padding: var(--block-y) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .block-sand {
+    background: var(--sand);
+  }
+
+  .block-ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Сетка с зазорами в одну линию: ячейки на бумаге, фон — линия. */
+  .hairline-grid {
+    display: grid;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+
+  .hairline-grid > * {
+    background: var(--paper);
+  }
+
+  .hairline-cell {
+    padding: clamp(1.5rem, 2.6vw, 2.4rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  /* Число-показатель: как .stat .num на прежнем сайте. */
+  .stat-num {
+    font-size: clamp(2.4rem, 6vw, 5.5rem);
+    font-weight: var(--fw-poster);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  /* Фотография: кадрирование как на прежнем сайте. */
+  .media-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(1.12) contrast(1.04);
+    transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .media-frame {
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+
+  .media-frame:hover .media-cover {
+    transform: scale(1.04);
+  }
+
+  /* Появление блоков: только акцент, контент виден без ожидания (ТЗ 08, п. 3.4). */
+  .reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+      opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}

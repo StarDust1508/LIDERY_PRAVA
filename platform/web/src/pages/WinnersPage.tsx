@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, type Winner, api, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
+import { Alert } from '@shared/index';
+import { Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Победители по годам и номинациям (ТЗ 08, п. 5). Публикуются только записи,
@@ -93,7 +94,7 @@ export function WinnersPage() {
         </Alert>
       ) : (
         byNomination.map(([nomination, items]) => (
-          <SectionCard key={nomination} title={nomination}>
+          <Section key={nomination} title={nomination}>
             <ul className="flex flex-col gap-6">
               {items.map((winner) => (
                 <li key={winner.id} className="flex flex-wrap gap-5 border-b border-border pb-5">
@@ -144,7 +145,7 @@ export function WinnersPage() {
                 </li>
               ))}
             </ul>
-          </SectionCard>
+          </Section>
         ))
       )}
 

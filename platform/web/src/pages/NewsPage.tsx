@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, type PublicNews, api, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { PageHeader } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { PageHeader, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Новости и видеосюжеты (ТЗ 08, п. 2.1 и 5.3).
@@ -147,7 +147,7 @@ export function NewsPage() {
             : 'Новости и видеосюжеты появятся здесь после публикации Оргкомитетом. Следите за конкурсом в сообществе во «ВКонтакте».'}
         </Alert>
       ) : (
-        <SectionCard
+        <Section
           title={videoOnly ? `Видеосюжеты (${items.length})` : `Публикации (${items.length})`}
           description="Дата публикации указана по московскому времени."
         >
@@ -204,7 +204,7 @@ export function NewsPage() {
               );
             })}
           </ul>
-        </SectionCard>
+        </Section>
       )}
     </main>
   );

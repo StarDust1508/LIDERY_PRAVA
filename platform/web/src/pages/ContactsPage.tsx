@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, api } from '@shared/index';
-import { Alert, Button, SectionCard, TextAreaField, TextField } from '@shared/index';
-import { PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert, Button, TextAreaField, TextField } from '@shared/index';
+import { PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 
@@ -101,7 +101,7 @@ export function ContactsPage() {
         lead="Оргкомитет отвечает по вопросам участия, материалов, доступа в личный кабинет и сроков этапов."
       />
 
-      <SectionCard title="Оргкомитет конкурса" description="Разъяснения по вопросам проведения конкурса.">
+      <Section title="Оргкомитет конкурса" description="Разъяснения по вопросам проведения конкурса.">
         <dl className="grid gap-6 text-sm md:grid-cols-2">
           <div>
             <dt className="mono-label text-muted">Руководитель Оргкомитета</dt>
@@ -155,9 +155,9 @@ export function ContactsPage() {
             </dd>
           </div>
         </dl>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Написать в Оргкомитет"
         description="Обращение попадает в систему конкурса: его видит Оргкомитет и оно не теряется при сбое почты."
       >
@@ -251,9 +251,9 @@ export function ContactsPage() {
             </Button>
           </div>
         </form>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Связь через личный кабинет" description="Если срок подачи материалов уже истёк, эти способы остаются доступными.">
+      <Section title="Связь через личный кабинет" description="Если срок подачи материалов уже истёк, эти способы остаются доступными.">
         <Prose>
           <ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
             <li>
@@ -279,7 +279,7 @@ export function ContactsPage() {
             </li>
           </ul>
         </Prose>
-      </SectionCard>
+      </Section>
     </main>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, type PublicMasterclass, api, formatMoscowHuman } from '@shared/index';
-import { Alert, Button, SectionCard, SelectField } from '@shared/index';
-import { ActionLink, PageHeader } from '@/components/PageBlocks';
+import { Alert, Button, SelectField } from '@shared/index';
+import { ActionLink, PageHeader, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Мастер-классы: анонсы (ТЗ 08, п. 2.1 и 4).
@@ -133,7 +133,7 @@ export function MasterclassesPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <SectionCard
+      <Section
         title="Фильтры"
         description="Отбор по сезону, спикеру и теме. Выбранные фильтры сохраняются в адресной строке."
       >
@@ -175,13 +175,13 @@ export function MasterclassesPage() {
             </Button>
           </p>
         ) : null}
-      </SectionCard>
+      </Section>
 
       {loading ? (
         <p role="status">Загружаем мастер-классы…</p>
       ) : (
         <>
-          <SectionCard
+          <Section
             title={`Анонсы (${announced.length})`}
             description="Что будет на встрече, кто ведёт и как подключиться."
           >
@@ -237,9 +237,9 @@ export function MasterclassesPage() {
                 ))}
               </ul>
             )}
-          </SectionCard>
+          </Section>
 
-          <SectionCard
+          <Section
             title={`Записи прошедших (${pastWithRecording.length})`}
             description="Прошедший мастер-класс публикуется только при наличии записи: её можно посмотреть прямо на сайте."
           >
@@ -255,7 +255,7 @@ export function MasterclassesPage() {
                 Записи прошедших мастер-классов
               </ActionLink>
             </p>
-          </SectionCard>
+          </Section>
 
           <p className="max-w-measure text-sm text-muted">
             Пока рассылка не подключена, о датах и изменениях Оргкомитет сообщает на этой странице и в сообществе во

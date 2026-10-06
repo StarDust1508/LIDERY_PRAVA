@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, DOCUMENT_TYPE_TITLES, type PublicDocument, api, formatMoscowDate } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useTrailLabel } from '@/components/Breadcrumbs';
 
@@ -184,7 +184,7 @@ export function LegalPage() {
             </Alert>
           ) : null}
 
-          <SectionCard title="Текст документа" description="Скачиваемая версия совпадает по тексту со страницей.">
+          <Section title="Текст документа" description="Скачиваемая версия совпадает по тексту со страницей.">
             {fileUrl ? (
               <div className="flex flex-col gap-4">
                 <object
@@ -215,10 +215,10 @@ export function LegalPage() {
             ) : (
               <p className="text-sm text-muted">Файл документа готовится к публикации.</p>
             )}
-          </SectionCard>
+          </Section>
         </>
       ) : (
-        <SectionCard title="Документ на утверждении" description="Публикуется после решения Правления Ассоциации.">
+        <Section title="Документ на утверждении" description="Публикуется после решения Правления Ассоциации.">
           <Prose>
             <p>{summary}</p>
             <p className="text-muted">
@@ -237,7 +237,7 @@ export function LegalPage() {
               </a>
             </p>
           </Prose>
-        </SectionCard>
+        </Section>
       )}
     </main>
   );

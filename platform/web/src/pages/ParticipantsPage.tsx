@@ -8,8 +8,8 @@ import {
   formatTimeLeft,
   pluralize,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 
@@ -109,7 +109,7 @@ export function ParticipantsPage() {
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
-      <SectionCard title="Сроки приёма заявок" description="Все сроки указаны по московскому времени.">
+      <Section title="Сроки приёма заявок" description="Все сроки указаны по московскому времени.">
         <dl className="grid gap-5 text-sm md:grid-cols-3">
           <div>
             <dt className="mono-label text-muted">Начало приёма</dt>
@@ -134,9 +134,9 @@ export function ParticipantsPage() {
           Дата подачи заявки — дата поступления материалов в электронную форму. Даты могут быть изменены решением
           Оргкомитета с публикацией не позднее чем за 5 календарных дней.
         </p>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Путь команды" description="Семь шагов от заявки до финала.">
+      <Section title="Путь команды" description="Семь шагов от заявки до финала.">
         <ol className="flex flex-col gap-5">
           {PATH_STEPS.map((step, index) => (
             <li
@@ -153,9 +153,9 @@ export function ParticipantsPage() {
             </li>
           ))}
         </ol>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Что читать дальше" description="Подстраницы раздела «Участникам».">
+      <Section title="Что читать дальше" description="Подстраницы раздела «Участникам».">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="border border-border p-5">
             <h3 className="text-h3 font-semibold">Требования к участникам</h3>
@@ -202,9 +202,9 @@ export function ParticipantsPage() {
             </p>
           </div>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Кто может участвовать" description="Коротко — о требованиях к участникам.">
+      <Section title="Кто может участвовать" description="Коротко — о требованиях к участникам.">
         <ul className="flex flex-col gap-3 text-sm">
           <li>Возраст — от 16 до 35 лет включительно на дату окончания приёма заявок.</li>
           <li>
@@ -227,19 +227,19 @@ export function ParticipantsPage() {
             Полные требования к участникам
           </Link>
         </p>
-      </SectionCard>
+      </Section>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <SectionCard title="Участие бесплатное" description="Организационный взнос не взимается.">
+        <Section title="Участие бесплатное" description="Организационный взнос не взимается.">
           <Prose>
             <p className="text-sm">
               Участие в конкурсе добровольное и бесплатное: организационный взнос не взимается. Отдельной платы за
               подачу заявки Положением не предусмотрено.
             </p>
           </Prose>
-        </SectionCard>
+        </Section>
 
-        <SectionCard
+        <Section
           title={`Обязательные материалы (${required.length})`}
           description="Комплект отборочного этапа по пункту 7.2 Положения."
         >
@@ -265,7 +265,7 @@ export function ParticipantsPage() {
               </p>
             </>
           )}
-        </SectionCard>
+        </Section>
       </div>
     </main>
   );

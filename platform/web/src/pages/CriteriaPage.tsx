@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { type PublicCriterion, EVALUATION_STAGES, api, pluralize } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useOrganizerText } from './StagesPage';
 
@@ -105,7 +105,7 @@ export function CriteriaPage() {
           <div className="flex flex-col gap-8">
             {groups.map(({ stage, items, total, anchor }) => (
               <div key={stage.value} id={anchor} className="scroll-mt-24">
-                <SectionCard
+                <Section
                   title={stage.title}
                   description={
                     stage.value === 'debate'
@@ -133,12 +133,12 @@ export function CriteriaPage() {
                   <p className="mt-4 text-sm">
                     Итого: <strong>{pluralize(total, ['балл', 'балла', 'баллов'])}</strong>.
                   </p>
-                </SectionCard>
+                </Section>
               </div>
             ))}
 
             <div id={RULES_ANCHOR} className="scroll-mt-24">
-              <SectionCard
+              <Section
                 title="Правила подсчёта"
                 description="Пункты 7.7, 8.5 и 9.4.2 Положения: как из оценок получается итоговый балл."
               >
@@ -153,18 +153,18 @@ export function CriteriaPage() {
                     (Приложение № 9), поэтому состав критериев и подсчёт всегда совпадают.
                   </p>
                 </Prose>
-              </SectionCard>
+              </Section>
             </div>
           </div>
         </div>
       )}
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

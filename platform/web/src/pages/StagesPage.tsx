@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { type PublicCriterion, EVALUATION_STAGES, api, formatMoscowDate, pluralize } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 
@@ -187,7 +187,7 @@ export function StagesPage() {
         </ActionLink>
       </div>
 
-      <SectionCard
+      <Section
         title="Критерии оценки"
         description="Раздел 10 Положения: у каждого этапа свои критерии и максимум баллов."
       >
@@ -214,9 +214,9 @@ export function StagesPage() {
             Критерии по этапам
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Апелляции"
         description="Итоги отборочного и первого этапов можно обжаловать; решения второго (финального) этапа — нет."
       >
@@ -231,14 +231,14 @@ export function StagesPage() {
             Порядок подачи апелляции
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

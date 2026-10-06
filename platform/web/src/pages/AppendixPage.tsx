@@ -1,5 +1,4 @@
-import { PageHeader, Prose } from '@/components/PageBlocks';
-import { SectionCard } from '@shared/index';
+import { PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { useSeo } from '@/lib/seo';
 
 // Приложение к Положению по номеру (ТЗ 08, п. 2.1).
@@ -14,14 +13,14 @@ export function AppendixPage() {
   return (
     <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
       <PageHeader eyebrow="Документы" title="Приложение к Положению" />
-      <SectionCard title="Раздел наполняется" description="Содержание готовится Оргкомитетом.">
+      <Section title="Раздел наполняется" description="Содержание готовится Оргкомитетом.">
         <Prose>
           <p>
             Материалы раздела публикуются после утверждения Оргкомитетом. Следите за новостями конкурса и
             обращайтесь с вопросами через раздел «Контакты».
           </p>
         </Prose>
-      </SectionCard>
+      </Section>
     </main>
   );
 }

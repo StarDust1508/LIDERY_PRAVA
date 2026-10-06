@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, type PublicExpert, type PublicPage, api, pluralize } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Оргкомитет и эксперты: органы конкурса по п. 10 ТЗ 02 и состав из `experts`
@@ -188,14 +188,14 @@ export function OrganizersPage() {
       />
 
       {page?.body ? (
-        <SectionCard title="О разделе" description="Текст, подготовленный Оргкомитетом.">
+        <Section title="О разделе" description="Текст, подготовленный Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{page.body}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
 
-      <SectionCard title="Органы конкурса" description="Задачи органов по Положению о конкурсе.">
+      <Section title="Органы конкурса" description="Задачи органов по Положению о конкурсе.">
         <dl className="grid gap-5 sm:grid-cols-2">
           {ORGANS.map((organ) => (
             <div key={organ.title}>
@@ -204,7 +204,7 @@ export function OrganizersPage() {
             </div>
           ))}
         </dl>
-      </SectionCard>
+      </Section>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
@@ -223,7 +223,7 @@ export function OrganizersPage() {
         <>
           {stages.map((stage) =>
             stage.people.length === 0 ? null : (
-              <SectionCard
+              <Section
                 key={stage.key}
                 title={stage.title}
                 description={`Состав: ${pluralize(stage.people.length, ['человек', 'человека', 'человек'])}.`}
@@ -233,7 +233,7 @@ export function OrganizersPage() {
                     <ExpertCard key={expert.id} expert={expert} />
                   ))}
                 </ul>
-              </SectionCard>
+              </Section>
             )
           )}
 

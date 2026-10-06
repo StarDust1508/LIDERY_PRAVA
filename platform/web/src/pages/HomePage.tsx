@@ -5,23 +5,29 @@ import {
   type PublicPartner,
   type SeasonResponse,
   api,
+  formatMoscowDate,
   formatMoscowHuman,
+  pluralize,
 } from '@shared/index';
-import { Alert, Button, SectionCard } from '@shared/index';
+import { Alert } from '@shared/index';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
+import { ActionLink, GridCell, HairlineGrid } from '@/components/PageBlocks';
 
-// Главная страница. Тексты — по Положению; бренд и оформление взяты из текущего
-// визуального языка сайта. Разделы «Архив законопроектов» и «Документы» ведут
-// к реальным данным из базы.
+// Главная страница конкурса.
+//
+// Оформление повторяет прежний сайт конкурса: первый экран во всю высоту с
+// фотографией, плакатный заголовок, сетки с волосяными линиями для показателей,
+// преимуществ и партнёров, тёмная полоса призыва к участию. Содержание — по
+// Положению и из базы: сроки, мастер-классы, партнёры.
 
 const STAGES = [
   {
     title: 'Отборочный этап',
-    text: 'Заочно: экспертиза законотворческих инициатив онлайн-комиссией. Нужны текст законопроекта и пояснительная записка.',
+    text: 'Заочно: экспертиза законотворческих инициатив Конкурсной комиссией. Нужны текст законопроекта и пояснительная записка.',
   },
   {
     title: 'Первый этап',
-    text: 'Дистанционно: видеопрезентация инициативы и команды во «ВКонтакте» с хэштегом #Лидеры_права_2027.',
+    text: 'Дистанционно: видеопрезентация инициативы и команды во «ВКонтакте», оценка видеороликов и материалов.',
   },
   {
     title: 'Второй (финальный) этап',
@@ -30,10 +36,30 @@ const STAGES = [
 ];
 
 const BENEFITS = [
-  { title: 'Стажировки', text: 'Ведущие юридические компании и органы власти для победителей и финалистов.' },
-  { title: 'Наставники', text: 'Работа с экспертами: преподаватели, практикующие юристы, представители власти и бизнеса.' },
-  { title: 'Публикация инициатив', text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы.' },
-  { title: 'Признание', text: 'Дипломы, публикации в сборниках и признание в профессиональном сообществе.' },
+  {
+    title: 'Стажировки',
+    text: 'Ведущие юридические компании и органы власти для победителей и финалистов.',
+    image: '/assets/benefits-person.jpg',
+    alt: 'Участник конкурса «Лидеры права» на выступлении',
+  },
+  {
+    title: 'Наставники',
+    text: 'Работа с экспертами: преподаватели, практикующие юристы, представители власти и бизнеса.',
+    image: '/assets/timeline-2025.jpg',
+    alt: 'Команда конкурса с наставником',
+  },
+  {
+    title: 'Публикация инициатив',
+    text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и публикуются в архиве.',
+    image: '/assets/timeline-2024.jpg',
+    alt: 'Защита законотворческой инициативы',
+  },
+  {
+    title: 'Признание',
+    text: 'Дипломы, публикации в сборниках и признание в профессиональном сообществе.',
+    image: '/assets/timeline-2022.jpg',
+    alt: 'Награждение победителей конкурса',
+  },
 ];
 
 export function HomePage() {
@@ -72,143 +98,288 @@ export function HomePage() {
     };
   }, []);
 
-  const open = season?.season.is_application_open === true;
+  const seasonInfo = season?.season ?? null;
+  const open = seasonInfo?.is_application_open === true;
+  const notStarted = seasonInfo?.application_not_started === true;
   const announced = masterclasses.filter((item) => item.status === 'announced');
 
   return (
-    <main className="mx-auto flex max-w-container flex-col gap-12 px-6 py-12">
-      {error ? <Alert tone="warning">{error}</Alert> : null}
-
-      <section className="border-b border-border pb-10">
-        <p className="mono-label text-muted">Сезон 2026/2027</p>
-        <h1 className="mt-3 text-display font-semibold tracking-[var(--tr-display)]">
-          Лидеры
-          <br />
-          права
-        </h1>
-        <p className="mt-5 max-w-measure text-lead">
-          Десятый ежегодный федеральный научно-образовательный конкурс для студентов и молодых специалистов. Участие
-          бесплатное: команда разрабатывает законотворческую инициативу, работает с наставниками и защищает её перед Жюри.
-        </p>
-        <div className="mt-7 flex flex-wrap items-center gap-4">
-          <Link to="/apply">
-            <Button>Подать заявку</Button>
-          </Link>
-          <Link to="/documents">
-            <Button variant="secondary">Документы конкурса</Button>
-          </Link>
+    <main>
+      {error ? (
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)] pt-6">
+          <Alert tone="warning">{error}</Alert>
         </div>
-        <dl className="mt-8 grid gap-4 text-sm md:grid-cols-3">
-          <div>
-            <dt className="mono-label text-muted">Приём заявок</dt>
-            <dd className="mt-1">{formatMoscowHuman(season?.season.application_open_at ?? null)}</dd>
-          </div>
-          <div>
-            <dt className="mono-label text-muted">Окончание приёма</dt>
-            <dd className="mt-1">{formatMoscowHuman(season?.season.application_close_at ?? null)}</dd>
-          </div>
-          <div>
-            <dt className="mono-label text-muted">Состояние</dt>
-            <dd className="mt-1">{open ? 'приём открыт' : 'приём заявок завершён'}</dd>
-          </div>
-        </dl>
-      </section>
+      ) : null}
 
-      <section aria-labelledby="stages-title">
-        <h2 id="stages-title" className="text-h2 font-semibold">
-          Этапы конкурса
-        </h2>
-        <div className="mt-5 grid gap-6 md:grid-cols-3">
-          {STAGES.map((stage) => (
-            <article key={stage.title} className="border border-border p-5">
-              <h3 className="text-h3 font-semibold">{stage.title}</h3>
-              <p className="mt-2 text-sm text-muted">{stage.text}</p>
-            </article>
-          ))}
-        </div>
-        <p className="mt-4 text-sm">
-          <Link to="/stages" className="text-accent underline underline-offset-2">
-            Календарь и критерии оценки
-          </Link>
-        </p>
-      </section>
+      {/* Первый экран: слева плакат и действия, справа фотография. */}
+      <section className="block border-b-0">
+        <div className="mx-auto grid max-w-container gap-10 px-[var(--gutter-wide)] lg:grid-cols-[1.35fr_0.65fr]">
+          <div className="flex flex-col justify-between gap-8">
+            <div className="mono-label flex flex-wrap justify-between gap-2 text-muted">
+              <span>Сезон 2026/2027</span>
+              <span>Три этапа · финал в Москве</span>
+            </div>
 
-      <section aria-labelledby="benefits-title">
-        <h2 id="benefits-title" className="text-h2 font-semibold">
-          Что получают участники
-        </h2>
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
-          {BENEFITS.map((benefit) => (
-            <article key={benefit.title} className="border-b border-border pb-4">
-              <h3 className="text-h3 font-semibold">{benefit.title}</h3>
-              <p className="mt-1 text-sm text-muted">{benefit.text}</p>
-            </article>
-          ))}
+            <div>
+              <h1 className="poster-hero">
+                Лидеры
+                <br />
+                права
+              </h1>
+              <p className="mt-6 max-w-measure text-lead">
+                Десятый ежегодный федеральный научно-образовательный конкурс для студентов и молодых специалистов.
+                Участие бесплатное: команда разрабатывает законотворческую инициативу, работает с наставниками и
+                защищает её перед Жюри.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
+              {open ? (
+                <ActionLink to="/apply">Подать заявку</ActionLink>
+              ) : (
+                <ActionLink to="/apply" variant="secondary">
+                  {notStarted ? 'Приём заявок ещё не открыт' : 'Приём заявок завершён'}
+                </ActionLink>
+              )}
+              <ActionLink to="/about/regulations" variant="secondary">
+                Положение о конкурсе
+              </ActionLink>
+              {notStarted && seasonInfo?.application_open_at ? (
+                <span className="text-sm text-muted">
+                  Приём откроется {formatMoscowDate(seasonInfo.application_open_at)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <figure className="media-frame min-h-[320px] lg:min-h-full">
+            <img src="/assets/benefits-person.jpg" alt="Участник конкурса «Лидеры права»" className="media-cover" />
+          </figure>
         </div>
       </section>
 
-      {announced.length > 0 ? (
-        <section aria-labelledby="masterclasses-title">
-          <h2 id="masterclasses-title" className="text-h2 font-semibold">
-            Ближайшие мастер-классы
+      {/* Показатели сезона: сетка с волосяными линиями. */}
+      <section className="block border-b-0 pt-0">
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+          <HairlineGrid columns="repeat(auto-fit, minmax(200px, 1fr))">
+            <GridCell num="10" title="Сезон конкурса" text="Конкурс проводится с 2017 года" />
+            <GridCell num="2–4" title="Человека в команде" text="Единоличное участие — по согласованию с Оргкомитетом" />
+            <GridCell num="70" title="Баллов отборочного этапа" text="Критерии оценки — раздел 10 Положения" />
+            <GridCell
+              num={open ? 'идёт' : notStarted ? 'скоро' : 'закрыт'}
+              title="Приём заявок"
+              text={
+                open
+                  ? `до ${formatMoscowHuman(seasonInfo?.application_close_at ?? null)}`
+                  : notStarted
+                    ? `с ${formatMoscowDate(seasonInfo?.application_open_at ?? null)}`
+                    : `завершён ${formatMoscowDate(seasonInfo?.application_close_at ?? null)}`
+              }
+            />
+          </HairlineGrid>
+        </div>
+      </section>
+
+      {/* Этапы конкурса. */}
+      <section className="block" aria-labelledby="stages-title">
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+          <h2 id="stages-title" className="poster-1 mb-8">
+            Этапы конкурса
           </h2>
-          <ul className="mt-5 flex flex-col gap-4">
-            {announced.map((item) => (
-              <li key={item.id} className="border-b border-border pb-3">
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-sm text-muted">
-                  {item.speaker} · {formatMoscowHuman(item.starts_at)}
-                </p>
-              </li>
+          <HairlineGrid>
+            {STAGES.map((stage) => (
+              <GridCell key={stage.title} title={stage.title} text={stage.text} />
             ))}
-          </ul>
-          <p className="mt-4 text-sm">
-            <Link to="/masterclasses" className="text-accent underline underline-offset-2">
-              Все мастер-классы
+          </HairlineGrid>
+          <p className="mt-6">
+            <Link to="/stages" className="text-accent underline underline-offset-2">
+              Календарь, критерии оценки и апелляции
             </Link>
           </p>
+        </div>
+      </section>
+
+      {/* Преимущества участия: карточки с фотографиями. */}
+      <section className="block block-sand" aria-labelledby="benefits-title">
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+          <h2 id="benefits-title" className="poster-1 mb-8">
+            Что получают участники
+          </h2>
+          <HairlineGrid columns="repeat(auto-fit, minmax(260px, 1fr))">
+            {BENEFITS.map((benefit) => (
+              <GridCell
+                key={benefit.title}
+                title={benefit.title}
+                text={benefit.text}
+                imageUrl={benefit.image}
+                imageAlt={benefit.alt}
+              />
+            ))}
+          </HairlineGrid>
+        </div>
+      </section>
+
+      {/* Мастер-классы для команд-финалистов. */}
+      {announced.length > 0 ? (
+        <section className="block" aria-labelledby="masterclasses-title">
+          <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+            <h2 id="masterclasses-title" className="poster-1 mb-8">
+              Ближайшие мастер-классы
+            </h2>
+            <HairlineGrid>
+              {announced.map((item) => (
+                <GridCell
+                  key={item.id}
+                  title={item.title}
+                  text={
+                    <>
+                      {item.speaker}
+                      <br />
+                      {formatMoscowHuman(item.starts_at)}
+                    </>
+                  }
+                  action={
+                    <Link
+                      to={`/masterclasses/${item.slug ?? `masterclass-${item.id}`}`}
+                      className="text-accent underline underline-offset-2"
+                    >
+                      Подробнее
+                    </Link>
+                  }
+                />
+              ))}
+            </HairlineGrid>
+            <p className="mt-6">
+              <Link to="/masterclasses" className="text-accent underline underline-offset-2">
+                Все мастер-классы
+              </Link>
+            </p>
+          </div>
         </section>
       ) : null}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <SectionCard title="Архив законопроектов" description="Инициативы, прошедшие конкурс: ориентир для новых участников.">
-          <Link to="/initiatives" className="text-accent underline underline-offset-2">
-            Открыть архив
-          </Link>
-        </SectionCard>
-        <SectionCard title="Победители" description="Команды и номинации по годам.">
-          <Link to="/winners" className="text-accent underline underline-offset-2">
-            Смотреть победителей
-          </Link>
-        </SectionCard>
-      </div>
+      {/* Архив, победители и история. */}
+      <section className="block" aria-labelledby="archive-title">
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+          <h2 id="archive-title" className="poster-1 mb-8">
+            Архив и победители
+          </h2>
+          <HairlineGrid>
+            <GridCell
+              title="Архив законопроектов"
+              text="Инициативы, прошедшие конкурс: ориентир для новых участников."
+              action={
+                <Link to="/initiatives" className="text-accent underline underline-offset-2">
+                  Открыть архив
+                </Link>
+              }
+            />
+            <GridCell
+              title="Победители"
+              text={`${pluralize(9, ['сезон', 'сезона', 'сезонов'])} конкурса: команды и номинации по годам.`}
+              action={
+                <Link to="/winners" className="text-accent underline underline-offset-2">
+                  Смотреть победителей
+                </Link>
+              }
+            />
+            <GridCell
+              title="История конкурса"
+              text="Как развивался конкурс и что изменилось в десятом сезоне."
+              action={
+                <Link to="/about/history" className="text-accent underline underline-offset-2">
+                  История конкурса
+                </Link>
+              }
+            />
+          </HairlineGrid>
+        </div>
+      </section>
 
-      {partners.length > 0 ? (
-        <section aria-labelledby="partners-title">
-          <h2 id="partners-title" className="text-h2 font-semibold">
+      {/* Партнёры. */}
+      <section className="block block-sand" aria-labelledby="partners-title">
+        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
+          <h2 id="partners-title" className="poster-1 mb-8">
             Партнёры конкурса
           </h2>
-          <ul className="mt-5 flex flex-wrap gap-6">
-            {partners.map((partner) => (
-              <li key={partner.id} className="border border-border p-4">
-                {partner.logo_url ? (
-                  <img src={partner.logo_url} alt={partner.name} className="h-12 w-auto object-contain" loading="lazy" />
-                ) : null}
-                <p className="mt-2 text-sm">{partner.name}</p>
-                {partner.url ? (
-                  <a href={partner.url} className="text-sm text-accent underline underline-offset-2">
-                    Перейти на сайт партнёра
-                  </a>
-                ) : null}
+          {partners.length > 0 ? (
+            <HairlineGrid columns="repeat(auto-fit, minmax(220px, 1fr))">
+              {partners.map((partner) => (
+                <GridCell
+                  key={partner.id}
+                  title={partner.name}
+                  text={partner.description}
+                  imageUrl={partner.logo_url ?? undefined}
+                  imageAlt={`Логотип: ${partner.name}`}
+                  action={
+                    partner.url ? (
+                      <a
+                        href={partner.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent underline underline-offset-2"
+                      >
+                        Сайт партнёра
+                      </a>
+                    ) : null
+                  }
+                />
+              ))}
+            </HairlineGrid>
+          ) : (
+            <p className="max-w-measure text-muted">
+              Учредитель конкурса — Ассоциация выпускников СЮИ – СГАП – СГЮА, генеральный партнёр — Общероссийская
+              общественная организация «Ассоциация юристов России». Остальные партнёры публикуются после утверждения
+              списка Оргкомитетом.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Призыв к участию: тёмная полоса прежнего сайта. */}
+      <section className="block block-ink border-b-0">
+        <div className="mx-auto grid max-w-container items-start gap-10 px-[var(--gutter-wide)] md:grid-cols-2">
+          <div>
+            <p className="mono-label text-accent-bright">Приём заявок — только на сайте</p>
+            <h2 className="poster-1 mt-4 text-[var(--paper)]">
+              Соберите команду
+              <br />и подайте заявку
+            </h2>
+          </div>
+          <div className="flex flex-col gap-6">
+            <p className="max-w-measure text-[color-mix(in_srgb,var(--paper)_90%,transparent)]">
+              Заявка заполняется по шагам: команда и инициатива, участники, наставники, конкурсные материалы, согласия
+              и проверка. Черновик сохраняется, поэтому заполнение можно прервать и продолжить.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <ActionLink to="/apply">Перейти к заявке</ActionLink>
+              <ActionLink to="/participants" variant="secondary">
+                Как участвовать
+              </ActionLink>
+            </div>
+            <ul className="mt-2 flex flex-col gap-2 text-sm">
+              <li>
+                Требования к участникам и состав команды —{' '}
+                <Link to="/participants/requirements" className="underline underline-offset-2">
+                  раздел «Участникам»
+                </Link>
               </li>
-            ))}
-          </ul>
-        </section>
-      ) : (
-        <p className="text-sm text-muted">
-          Список партнёров публикуется после подтверждения согласия на размещение логотипов (вопрос Оргкомитету).
-        </p>
-      )}
+              <li>
+                Состав конкурсных материалов по этапам —{' '}
+                <Link to="/participants/materials" className="underline underline-offset-2">
+                  требования к материалам
+                </Link>
+              </li>
+              <li>
+                Вопросы Оргкомитету —{' '}
+                <Link to="/contacts" className="underline underline-offset-2">
+                  контакты и форма обращения
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

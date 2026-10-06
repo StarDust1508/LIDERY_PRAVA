@@ -8,8 +8,8 @@ import {
   api,
   formatMoscowHuman,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, TableOfContents } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, TableOfContents, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 
@@ -107,7 +107,7 @@ export function VideoRequirementsPage() {
 
         <div className="flex min-w-0 flex-col gap-8">
           <div id="content">
-            <SectionCard title="Что показать в видеоролике" description="Представление команды и законотворческой инициативы.">
+            <Section title="Что показать в видеоролике" description="Представление команды и законотворческой инициативы.">
               <Prose>
                 <p className="text-sm">
                   Видеоролик знакомит Конкурсную комиссию с командой и её законотворческой инициативой. В нём нужно:
@@ -122,11 +122,11 @@ export function VideoRequirementsPage() {
                   Оценивается не только содержание, но и качество подачи: смотрите критерий оценки видеоролика ниже.
                 </p>
               </Prose>
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="format">
-            <SectionCard title="Длительность и формат" description="Пункт 8.2 Положения и Приложение № 7.">
+            <Section title="Длительность и формат" description="Пункт 8.2 Положения и Приложение № 7.">
               <ul className="flex flex-col gap-3 text-sm">
                 <li>
                   <strong>Длительность — до 5 минут.</strong> Более длинные ролики оцениваются по требованиям
@@ -148,11 +148,11 @@ export function VideoRequirementsPage() {
                   Открыть Приложения № 1–14
                 </Link>
               </p>
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="place">
-            <SectionCard title="Где публикуется" description="«ВКонтакте» — официальная площадка первого этапа (п. 8.3).">
+            <Section title="Где публикуется" description="«ВКонтакте» — официальная площадка первого этапа (п. 8.3).">
               <ul className="flex flex-col gap-3 text-sm">
                 <li>Публикация размещается на стене личной страницы или в сообществе команды во «ВКонтакте».</li>
                 <li>
@@ -174,11 +174,11 @@ export function VideoRequirementsPage() {
                   Требование к комплекту первого этапа: {requirement.description}
                 </p>
               ) : null}
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="dates">
-            <SectionCard title="Сроки" description="Все сроки указаны по московскому времени.">
+            <Section title="Сроки" description="Все сроки указаны по московскому времени.">
               <dl className="grid gap-5 text-sm md:grid-cols-2">
                 <div>
                   <dt className="mono-label text-muted">Подготовка и публикация во «ВКонтакте»</dt>
@@ -209,11 +209,11 @@ export function VideoRequirementsPage() {
                 Оргкомитет не учитывает накрученные реакции и вправе отстранить команду от номинации. Участие в номинации
                 не влияет на баллы первого этапа.
               </p>
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="criteria">
-            <SectionCard
+            <Section
               title="Кто оценивает и по каким критериям"
               description={`Конкурсная комиссия первого этапа. Максимум — ${totalScore} баллов от одного члена комиссии.`}
             >
@@ -247,11 +247,11 @@ export function VideoRequirementsPage() {
                   })}
                 </ul>
               )}
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="appendix">
-            <SectionCard
+            <Section
               title="Приложение № 7"
               description="Требования к видеоролику и презентационным материалам — полный текст."
             >
@@ -277,7 +277,7 @@ export function VideoRequirementsPage() {
                   </span>
                 )}
               </p>
-            </SectionCard>
+            </Section>
           </div>
         </div>
       </div>

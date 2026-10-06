@@ -5,7 +5,8 @@ import {
   api,
   formatMoscowDate,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
+import { Alert } from '@shared/index';
+import { Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Страница «Документы» (ТЗ 08, п. 2.1 и ТЗ 09, п. 4).
@@ -105,7 +106,7 @@ export function DocumentsPage() {
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
       {regulation ? (
-        <SectionCard
+        <Section
           title="Положение о конкурсе"
           description={`Версия ${regulation.version}, редакция от ${formatMoscowDate(regulation.revision_date)}.`}
         >
@@ -137,17 +138,17 @@ export function DocumentsPage() {
           ) : (
             <p className="text-sm text-muted">Файл Положения готовится к публикации.</p>
           )}
-        </SectionCard>
+        </Section>
       ) : null}
 
-      <SectionCard
+      <Section
         title={`Приложения № 1–14 (${appendices.length})`}
         description="Формы заявки, направлений, требований к материалам, регламент дебатов, оценочный лист и формы согласий. Единый PDF всех приложений."
       >
         {loading ? <p role="status">Загружаем документы…</p> : renderList(appendices)}
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Юридические документы"
         description="Оферта, обработка персональных данных, пользовательское соглашение, cookie, регламент Жюри. Документы публикуются после утверждения Правлением Ассоциации."
       >
@@ -159,7 +160,7 @@ export function DocumentsPage() {
         ) : (
           renderList(legal)
         )}
-      </SectionCard>
+      </Section>
 
       <p className="text-sm text-muted">
         Контакт по вопросам документов:{' '}

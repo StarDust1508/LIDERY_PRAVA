@@ -8,8 +8,8 @@ import {
   formatMoscowHuman,
   pluralize,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { formatPeriod, useOrganizerText } from './StagesPage';
@@ -105,7 +105,7 @@ export function StageFirstPage() {
 
       {error ? <Alert tone="warning">{error}</Alert> : null}
 
-      <SectionCard title="Сроки и порядок" description="Все даты — по московскому времени (МСК, UTC+3).">
+      <Section title="Сроки и порядок" description="Все даты — по московскому времени (МСК, UTC+3).">
         {season ? (
           <ul className="flex flex-col gap-5 text-sm">
             <li>
@@ -153,9 +153,9 @@ export function StageFirstPage() {
             Календарь конкурса
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Видеоролик во «ВКонтакте»"
         description="Пункты 8.2–8.4 Положения и Приложение № 7."
       >
@@ -182,9 +182,9 @@ export function StageFirstPage() {
             </ActionLink>
           ) : null}
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Приз зрительских симпатий" description="Зрительская номинация раздела 11 Положения.">
+      <Section title="Приз зрительских симпатий" description="Зрительская номинация раздела 11 Положения.">
         <Prose>
           <p>
             Номинацию получает команда, чья публикация с хэштегом <span className="font-mono">#ВПраве</span> набрала
@@ -196,9 +196,9 @@ export function StageFirstPage() {
             Конкурсной комиссии.
           </p>
         </Prose>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Критерии первого этапа"
         description="Пункт 10.3 Положения. Каждый критерий оценивается по шкале от 0 до 10."
       >
@@ -228,9 +228,9 @@ export function StageFirstPage() {
             </p>
           </>
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Что дальше" description="От первого этапа ко второму (финальному).">
+      <Section title="Что дальше" description="От первого этапа ко второму (финальному).">
         <Prose>
           <p>
             По итогам первого этапа определяются команды-финалисты. При равенстве баллов преимущество получает команда с
@@ -249,14 +249,14 @@ export function StageFirstPage() {
             Апелляции
           </ActionLink>
         </div>
-      </SectionCard>
+      </Section>
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
     </main>
   );

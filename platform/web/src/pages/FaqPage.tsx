@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { type PublicPage, type Season, api, formatMoscowHuman, pluralize } from '@shared/index';
-import { SectionCard } from '@shared/index';
-import { PageHeader, Prose } from '@/components/PageBlocks';
+import { PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { useSeason } from '@/lib/season';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
@@ -196,14 +195,14 @@ export function FaqPage() {
       />
 
       {page?.body ? (
-        <SectionCard title="О разделе" description="Текст, подготовленный Оргкомитетом.">
+        <Section title="О разделе" description="Текст, подготовленный Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{page.body}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
 
-      <SectionCard title="Вопросы и ответы" description="Ответы соответствуют действующей редакции Положения.">
+      <Section title="Вопросы и ответы" description="Ответы соответствуют действующей редакции Положения.">
         <dl className="flex max-w-measure flex-col gap-6">
           {items.map((item) => (
             <div key={item.id} id={item.id} className="scroll-mt-24 border-b border-border pb-5 last:border-b-0 last:pb-0">
@@ -221,7 +220,7 @@ export function FaqPage() {
             </div>
           ))}
         </dl>
-      </SectionCard>
+      </Section>
 
       <p className="text-sm text-muted">
         Не нашли ответ? Напишите на{' '}

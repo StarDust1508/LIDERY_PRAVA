@@ -16,13 +16,95 @@ export function PageHeader({
   lead?: ReactNode;
   actions?: ReactNode;
 }) {
+  // Оформление заголовка раздела — как на прежнем сайте конкурса: капс,
+  // чёрное начертание, крупный кегль, волосяная линия под блоком.
   return (
-    <header className="border-b border-border pb-6">
+    <header className="border-b border-border pb-8 pt-10">
       <p className="mono-label text-muted">{eyebrow}</p>
-      <h1 className="mt-2 max-w-measure text-h1 font-semibold tracking-[var(--tr-heading)]">{title}</h1>
-      {lead ? <p className="mt-4 max-w-measure text-lead text-muted">{lead}</p> : null}
-      {actions ? <div className="mt-5 flex flex-wrap gap-3">{actions}</div> : null}
+      <h1 className="poster-1 mt-3 max-w-[22ch] break-words">{title}</h1>
+      {lead ? <p className="mt-5 max-w-measure text-lead text-muted">{lead}</p> : null}
+      {actions ? <div className="mt-6 flex flex-wrap gap-3">{actions}</div> : null}
     </header>
+  );
+}
+
+/** Раздел страницы: крупный ритм, как на прежнем сайте (было `SectionCard`). */
+export function Section({
+  title,
+  description,
+  children,
+  footer,
+  actions,
+}: {
+  title?: string;
+  description?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <section className="block">
+      {title || description || actions ? (
+        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            {title ? <h2 className="poster-2">{title}</h2> : null}
+            {description ? <p className="mt-2 max-w-measure text-sm text-muted">{description}</p> : null}
+          </div>
+          {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
+        </header>
+      ) : null}
+      {children}
+      {footer ? <footer className="mt-6">{footer}</footer> : null}
+    </section>
+  );
+}
+
+/** Сетка с волосяными линиями: используется для показателей и карточек. */
+export function HairlineGrid({
+  children,
+  columns = 'repeat(auto-fit, minmax(220px, 1fr))',
+}: {
+  children: ReactNode;
+  columns?: string;
+}) {
+  return (
+    <div className="hairline-grid" style={{ gridTemplateColumns: columns }}>
+      {children}
+    </div>
+  );
+}
+
+/** Ячейка сетки: заголовок, текст и, при необходимости, изображение. */
+export function GridCell({
+  title,
+  text,
+  num,
+  imageUrl,
+  imageAlt,
+  imageCaption,
+  action,
+}: {
+  title?: string;
+  text?: ReactNode;
+  num?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  imageCaption?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="hairline-cell">
+      {imageUrl ? (
+        <figure className="media-frame mb-2 aspect-[4/3]">
+          <img src={imageUrl} alt={imageAlt ?? ''} loading="lazy" className="media-cover" />
+          {imageCaption ? <figcaption className="sr-only-text">{imageCaption}</figcaption> : null}
+        </figure>
+      ) : null}
+      {num ? <span className="stat-num">{num}</span> : null}
+      {title ? <h3 className="poster-3">{title}</h3> : null}
+      {text ? <div className="text-sm text-muted">{text}</div> : null}
+      {action ? <div className="mt-auto pt-3">{action}</div> : null}
+    </div>
   );
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, type PublicPage, type Season, type Winner, api, formatMoscowDate, formatMoscowHuman } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents, Section } from '@/components/PageBlocks';
 import { useSeason } from '@/lib/season';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
@@ -123,7 +123,7 @@ export function HistoryPage() {
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <div id="history" className="scroll-mt-24">
-            <SectionCard title="История конкурса" description="Как конкурс развивался с 2017 года.">
+            <Section title="История конкурса" description="Как конкурс развивался с 2017 года.">
               {page?.body ? (
                 <Prose>
                   <p className="whitespace-pre-line">{page.body}</p>
@@ -148,11 +148,11 @@ export function HistoryPage() {
                   </p>
                 </Prose>
               )}
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="season" className="scroll-mt-24">
-            <SectionCard title="Сроки текущего сезона" description="Все сроки — по московскому времени.">
+            <Section title="Сроки текущего сезона" description="Все сроки — по московскому времени.">
               {season ? (
                 <>
                   <dl className="grid gap-5 text-sm sm:grid-cols-2">
@@ -190,11 +190,11 @@ export function HistoryPage() {
                   .
                 </p>
               )}
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="seasons" className="scroll-mt-24">
-            <SectionCard
+            <Section
               title="Итоги по сезонам"
               description="Годы, номинации и команды, опубликованные в разделе «Победители»."
             >
@@ -234,7 +234,7 @@ export function HistoryPage() {
                   </p>
                 </>
               )}
-            </SectionCard>
+            </Section>
           </div>
         </div>
       </div>

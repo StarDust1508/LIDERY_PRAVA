@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Alert, Button, SectionCard, formatMoscowDate, formatMoscowHuman, pluralize } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable } from '@/components/PageBlocks';
+import { Alert, Button, formatMoscowDate, formatMoscowHuman, pluralize } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { formatPeriod } from './StagesPage';
@@ -163,7 +163,7 @@ export function CalendarPage() {
         </Alert>
       ) : null}
 
-      <SectionCard
+      <Section
         title="Календарный план"
         description="Таблица собрана из дат активного сезона; при изменении срока Оргкомитетом страница обновляется автоматически."
       >
@@ -188,9 +188,9 @@ export function CalendarPage() {
             }}
           />
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Правила работы со сроками" description="Пункты 6.2 и 6.3 Положения о конкурсе.">
+      <Section title="Правила работы со сроками" description="Пункты 6.2 и 6.3 Положения о конкурсе.">
         <Prose>
           <p>
             Даты могут меняться решением Оргкомитета. Об изменении срока Оргкомитет сообщает на официальных ресурсах
@@ -212,7 +212,7 @@ export function CalendarPage() {
             </p>
           ) : null}
         </Prose>
-      </SectionCard>
+      </Section>
     </main>
   );
 }

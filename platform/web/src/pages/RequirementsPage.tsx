@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { PARTICIPANT_CATEGORIES, formatMoscowHuman } from '@shared/index';
-import { SectionCard } from '@shared/index';
-import { PageHeader, Prose, ResponsiveTable } from '@/components/PageBlocks';
+import { PageHeader, Prose, ResponsiveTable, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 
@@ -96,7 +95,7 @@ export function RequirementsPage() {
         lead="Требования установлены разделом 4 Положения о конкурсе. Часть правил система проверяет автоматически при заполнении заявки, остальное проверяет Оргкомитет."
       />
 
-      <SectionCard title="Возраст и категории участников" description="Пункт 4.1 Положения.">
+      <Section title="Возраст и категории участников" description="Пункт 4.1 Положения.">
         <Prose>
           <p className="text-sm">
             Участвовать могут лица{' '}
@@ -114,9 +113,9 @@ export function RequirementsPage() {
             Юридическое образование не требуется: направление подготовки и место учёбы или работы не ограничивают участие.
           </p>
         </Prose>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Состав команды" description="Пункты 4.2–4.5 Положения.">
+      <Section title="Состав команды" description="Пункты 4.2–4.5 Положения.">
         <ul className="flex flex-col gap-3 text-sm">
           <li>
             <strong>От 2 до 4 человек</strong> в команде. Первым в заявке указывается капитан команды: он подписывает
@@ -139,9 +138,9 @@ export function RequirementsPage() {
             только по решению Оргкомитета при уважительных причинах.
           </li>
         </ul>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Наставники" description="Наставники сопровождают команду, но не входят в её состав.">
+      <Section title="Наставники" description="Наставники сопровождают команду, но не входят в её состав.">
         <ul className="flex flex-col gap-3 text-sm">
           <li>
             Наставников может быть <strong>не более двух</strong>.
@@ -153,9 +152,9 @@ export function RequirementsPage() {
           </li>
           <li>Наставника можно добавить или заменить до окончания приёма заявок; после — по обращению в Оргкомитет.</li>
         </ul>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Кто не допускается к участию" description="Пункт 4.9 Положения. Проверяет Оргкомитет.">
+      <Section title="Кто не допускается к участию" description="Пункт 4.9 Положения. Проверяет Оргкомитет.">
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
           <li>Победители I места прошлых лет.</li>
           <li>Члены Оргкомитета, Конкурсной комиссии, Жюри и Эксперты, а также их супруги и близкие родственники.</li>
@@ -165,9 +164,9 @@ export function RequirementsPage() {
           Эти ограничения проверяются вручную: автоматическая проверка невозможна, поэтому Оргкомитет сверяет сведения и
           фиксирует результат в карточке заявки.
         </p>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Правила участия и проверка в системе"
         description="Сводная таблица по разделу 4 Положения."
       >
@@ -182,7 +181,7 @@ export function RequirementsPage() {
             return <span className="text-muted">{row.check}</span>;
           }}
         />
-      </SectionCard>
+      </Section>
 
       <Prose>
         <p className="text-sm">

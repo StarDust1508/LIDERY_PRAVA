@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { type PublicPage, api } from '@shared/index';
-import { SectionCard } from '@shared/index';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
+import { Section } from '@/components/PageBlocks';
 
 // «О конкурсе»: описание, учредитель, история и частые вопросы.
 // Тексты берутся из редактируемых страниц (раздел «Страницы» в админке); пока
@@ -75,7 +75,7 @@ export function AboutPage() {
         </h1>
       </header>
 
-      <SectionCard title="О конкурсе" description="Описание и цели конкурса.">
+      <Section title="О конкурсе" description="Описание и цели конкурса.">
         {page?.body ? (
           <div className="flex max-w-measure flex-col gap-3 text-sm whitespace-pre-line">{page.body}</div>
         ) : (
@@ -98,9 +98,9 @@ export function AboutPage() {
             </p>
           </div>
         )}
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Учредитель" description="Оператор персональных данных конкурса.">
+      <Section title="Учредитель" description="Оператор персональных данных конкурса.">
         <p className="max-w-measure text-sm">
           Межрегиональная общественная организация выпускников Саратовской государственной юридической академии
           «Ассоциация выпускников СЮИ – СГАП – СГЮА». ОГРН 1087799025522, ИНН 7701360798. Юридический адрес: 107078,
@@ -111,9 +111,9 @@ export function AboutPage() {
             Контакты Оргкомитета
           </Link>
         </p>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="История конкурса" description="Сезоны 2017–2026.">
+      <Section title="История конкурса" description="Сезоны 2017–2026.">
         <p className="max-w-measure text-sm">
           Итоги прошлых сезонов публикуются в разделе{' '}
           <Link to="/winners" className="text-accent underline underline-offset-2">
@@ -121,9 +121,9 @@ export function AboutPage() {
           </Link>
           . Архив инициатив прошлых лет пополняется по мере подтверждения согласий участников.
         </p>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Частые вопросы" description="Ответы по Положению о конкурсе.">
+      <Section title="Частые вопросы" description="Ответы по Положению о конкурсе.">
         <dl className="flex flex-col gap-5">
           {FAQ.map((item) => (
             <div key={item.question}>
@@ -132,7 +132,7 @@ export function AboutPage() {
             </div>
           ))}
         </dl>
-      </SectionCard>
+      </Section>
 
       <p className="text-sm text-muted">
         Правовая основа:{' '}

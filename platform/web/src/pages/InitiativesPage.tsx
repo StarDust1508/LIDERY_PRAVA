@@ -8,7 +8,8 @@ import {
   actLevelTitle,
   api,
 } from '@shared/index';
-import { Alert, Button, SectionCard, SelectField, TextField } from '@shared/index';
+import { Alert, Button, SelectField, TextField } from '@shared/index';
+import { Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Архив законопроектов (ТЗ 02, п. 14): все инициативы, прошедшие конкурс.
@@ -110,7 +111,7 @@ export function InitiativesPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <SectionCard title="Поиск и фильтры" description={`Найдено инициатив: ${filtered.length}.`}>
+      <Section title="Поиск и фильтры" description={`Найдено инициатив: ${filtered.length}.`}>
         <form
           className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
           onSubmit={(event) => {
@@ -173,7 +174,7 @@ export function InitiativesPage() {
             </Button>
           </div>
         </form>
-      </SectionCard>
+      </Section>
 
       {loading ? (
         <p role="status">Загружаем архив…</p>

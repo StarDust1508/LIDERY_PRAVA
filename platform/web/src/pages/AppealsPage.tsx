@@ -1,6 +1,5 @@
 import { APPEAL_GROUNDS, pluralize } from '@shared/index';
-import { SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose } from '@/components/PageBlocks';
+import { ActionLink, PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { useOrganizerText } from './StagesPage';
@@ -64,7 +63,7 @@ export function AppealsPage() {
         }
       />
 
-      <SectionCard
+      <Section
         title="Основания"
         description="Пункт 12.2 Положения: апелляция подаётся только по перечисленным основаниям."
       >
@@ -81,9 +80,9 @@ export function AppealsPage() {
             ))}
           </ul>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Сроки" description="Пункты 12.3 и 12.4 Положения.">
+      <Section title="Сроки" description="Пункты 12.3 и 12.4 Положения.">
         <ul className="flex flex-col gap-5 text-sm">
           <li>
             <p className="mono-label text-muted">Подача апелляции</p>
@@ -101,9 +100,9 @@ export function AppealsPage() {
             </p>
           </li>
         </ul>
-      </SectionCard>
+      </Section>
 
-      <SectionCard title="Порядок подачи" description="Форма — Приложение № 14 к Положению.">
+      <Section title="Порядок подачи" description="Форма — Приложение № 14 к Положению.">
         <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
           <li>Капитан команды входит в личный кабинет и открывает раздел апелляций.</li>
           <li>Выбирает этап, указывает основание из перечня выше и излагает обстоятельства.</li>
@@ -122,9 +121,9 @@ export function AppealsPage() {
             допущенных команд (пункт 12.5 Положения).
           </p>
         </div>
-      </SectionCard>
+      </Section>
 
-      <SectionCard
+      <Section
         title="Решения второго (финального) этапа"
         description="Пункт 9.6 Положения: обжалованию не подлежат."
       >
@@ -134,14 +133,14 @@ export function AppealsPage() {
             Апелляции принимаются только по итогам отборочного и первого этапов.
           </p>
         </Prose>
-      </SectionCard>
+      </Section>
 
       {organizerText ? (
-        <SectionCard title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
+        <Section title="От Оргкомитета" description="Дополнительные сведения, опубликованные Оргкомитетом.">
           <Prose>
             <p className="whitespace-pre-line">{organizerText}</p>
           </Prose>
-        </SectionCard>
+        </Section>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-4 border border-border bg-raised px-5 py-4">

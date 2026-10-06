@@ -8,8 +8,8 @@ import {
   formatMoscowDate,
   formatMoscowHuman,
 } from '@shared/index';
-import { Alert, SectionCard } from '@shared/index';
-import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents } from '@/components/PageBlocks';
+import { Alert } from '@shared/index';
+import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
 // Конкурсные материалы (ТЗ 08, п. 2.1; ТЗ 02, п. 5).
@@ -133,7 +133,7 @@ export function MaterialsPage() {
 
         <div className="flex min-w-0 flex-col gap-8">
           <div id="composition">
-            <SectionCard
+            <Section
               title="Состав по этапам"
               description="Комплект и сроки ведёт Оргкомитет в системе конкурса; все сроки указаны по московскому времени."
             >
@@ -144,7 +144,7 @@ export function MaterialsPage() {
                   показывают одно и то же.
                 </p>
               </Prose>
-            </SectionCard>
+            </Section>
           </div>
 
           {loading ? (
@@ -152,7 +152,7 @@ export function MaterialsPage() {
           ) : (
             groups.map((group) => (
               <div id={group.id} key={group.id}>
-                <SectionCard
+                <Section
                   title={group.title}
                   description={
                     group.closeAt
@@ -209,13 +209,13 @@ export function MaterialsPage() {
                       }}
                     />
                   )}
-                </SectionCard>
+                </Section>
               </div>
             ))
           )}
 
           <div id="rules">
-            <SectionCard
+            <Section
               title="Правила приёма конкурсных материалов"
               description="Пункты 7.3–7.5 и 14.4 Положения."
             >
@@ -231,11 +231,11 @@ export function MaterialsPage() {
                   ? ` Ссылка на видеоролик первого этапа направляется в Оргкомитет не позднее ${formatMoscowHuman(videoLinkDue)}.`
                   : ''}
               </p>
-            </SectionCard>
+            </Section>
           </div>
 
           <div id="consents">
-            <SectionCard
+            <Section
               title="Согласия"
               description={
                 consents[0]?.revision_date
@@ -289,7 +289,7 @@ export function MaterialsPage() {
                   .
                 </p>
               </Prose>
-            </SectionCard>
+            </Section>
           </div>
         </div>
       </div>

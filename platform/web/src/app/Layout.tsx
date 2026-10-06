@@ -90,8 +90,8 @@ function DesktopSection({ section, active }: { section: NavSection; active: bool
         aria-haspopup="true"
         onClick={() => setOpen((value) => !value)}
         onKeyDown={onButtonKeyDown}
-        className={`flex items-center gap-1.5 py-2 text-sm underline-offset-4 hover:text-accent ${
-          active ? 'text-accent underline' : ''
+        className={`flex items-center gap-1.5 py-2 text-[0.78rem] uppercase tracking-[0.04em] hover:text-accent ${
+          active ? 'text-accent' : ''
         }`}
       >
         {section.title}
@@ -220,8 +220,10 @@ export function Layout() {
           Перейти к содержанию
         </a>
 
-        <header className="sticky top-0 z-40 border-b border-border bg-raised/95 backdrop-blur">
-          <div className="mx-auto flex max-w-container items-center justify-between gap-4 px-6 py-3">
+        {/* Шапка прежнего сайта: фиксированная полоса 64 px, полупрозрачный фон
+            бумаги, волосяная линия снизу, кнопки-«пилюли». */}
+        <header className="sticky top-0 z-40 border-b border-border bg-paper/85 backdrop-blur">
+          <div className="mx-auto flex h-16 max-w-container items-center justify-between gap-4 px-[var(--gutter-wide)]">
             <Link to="/" aria-label="Лидеры права – 2027, на главную" className="shrink-0">
               {compact ? <LogoMark size={30} /> : <Logo />}
             </Link>
@@ -241,14 +243,14 @@ export function Layout() {
             <div className="flex items-center gap-3">
               <Link
                 to="/cabinet"
-                className="mono-label hidden border border-border-strong px-4 py-2 hover:border-accent hover:text-accent sm:inline-flex"
+                className="mono-label hidden rounded-full border border-border-strong px-4 py-2 transition hover:border-accent hover:bg-accent-solid hover:text-on-accent sm:inline-flex"
               >
                 Личный кабинет
               </Link>
               {applicationOpen ? (
                 <Link
                   to="/apply"
-                  className="mono-label bg-accent-solid px-4 py-2 text-on-accent hover:bg-accent-solid-hover"
+                  className="mono-label rounded-full border border-border-strong bg-accent-solid px-4 py-2 text-on-accent transition hover:border-accent hover:bg-accent-solid-hover"
                 >
                   Подать заявку
                 </Link>
@@ -256,7 +258,7 @@ export function Layout() {
                 // До открытия приёма подпись «завершён» была бы неверной.
                 <Link
                   to="/apply"
-                  className="mono-label border border-border-strong px-4 py-2 hover:border-accent hover:text-accent"
+                  className="mono-label rounded-full border border-border-strong px-4 py-2 transition hover:border-accent hover:bg-accent-solid hover:text-on-accent"
                   title={`Приём заявок откроется ${formatMoscowHuman(openAt)}`}
                 >
                   Приём с {formatMoscowDate(openAt)}
@@ -264,7 +266,7 @@ export function Layout() {
               ) : (
                 <Link
                   to="/apply"
-                  className="mono-label border border-border-strong px-4 py-2 text-muted hover:border-accent hover:text-accent"
+                  className="mono-label rounded-full border border-border-strong px-4 py-2 text-muted transition hover:border-accent hover:text-accent"
                   title="Приём заявок завершён"
                 >
                   Приём заявок завершён
@@ -283,7 +285,7 @@ export function Layout() {
           </div>
 
           {!applicationOpen ? (
-            <p className="border-t border-border bg-sand px-6 py-2 text-center text-sm text-muted">
+            <p className="border-t border-border bg-sand px-[var(--gutter-wide)] py-2 text-center text-sm text-muted">
               {notStarted && openAt
                 ? `Приём заявок откроется ${formatMoscowHuman(openAt)}`
                 : closeAt
@@ -323,8 +325,8 @@ export function Layout() {
           <Outlet />
         </main>
 
-        <footer className="border-t border-border bg-sand">
-          <div className="mx-auto grid max-w-container gap-8 px-6 py-10 md:grid-cols-4">
+        <footer className="bg-paper pt-[clamp(3rem,8vh,6rem)]">
+          <div className="mx-auto grid max-w-container gap-10 px-[var(--gutter-wide)] pb-10 md:grid-cols-[1.4fr_1fr_1fr]">
             <div className="md:col-span-2">
               <Logo />
               <p className="mono-label mt-6">Учредитель конкурса</p>
@@ -339,7 +341,7 @@ export function Layout() {
               </p>
             </div>
             <div>
-              <p className="mono-label">Разделы</p>
+              <p className="mono-label text-accent">Разделы</p>
               <ul className="mt-3 flex flex-col gap-1 text-sm">
                 {NAV_SECTIONS.slice(0, 6).map((section) => (
                   <li key={section.title}>
@@ -351,7 +353,7 @@ export function Layout() {
               </ul>
             </div>
             <div>
-              <p className="mono-label">Контакты</p>
+              <p className="mono-label text-accent">Контакты</p>
               <ul className="mt-3 flex flex-col gap-1 text-sm">
                 <li>
                   <a href="mailto:ssla_av@mail.ru" className="underline underline-offset-2 hover:text-accent">
@@ -382,7 +384,7 @@ export function Layout() {
             </div>
           </div>
           <div className="border-t border-border">
-            <p className="mx-auto max-w-container px-6 py-4 text-sm text-muted">
+            <p className="mx-auto max-w-container px-[var(--gutter-wide)] py-4 text-sm text-muted">
               Сезон 2026/2027 · Десятый ежегодный федеральный научно-образовательный конкурс «Лидеры права – 2027»
             </p>
           </div>
