@@ -229,7 +229,7 @@ export function HomePage() {
 
       {/* Манифест: одна мысль на весь экран. */}
       <section className="block manifesto" id="manifesto">
-        <div className="wrap reveal is-in">
+        <div className="wrap">
           <div className="sec-label mono">(О конкурсе)</div>
           <p>
             Право <span className="red">начинается</span> с тех, кто <span className="mute">не боится</span> взять слово.
@@ -240,8 +240,8 @@ export function HomePage() {
       {/* Цифры сезона. */}
       <section className="block sand" id="stats">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Цифры сезона)</div>
-          <div className="stats reveal is-in">
+          <div className="sec-label mono">(Цифры сезона)</div>
+          <div className="stats">
             <div className="stat">
               <div className="num">2017</div>
               <div className="lbl mono">Год основания</div>
@@ -267,8 +267,8 @@ export function HomePage() {
       {/* История проекта: фотолента по годам. */}
       <section className="block" id="story">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(История проекта / 2017—2025)</div>
-          <div className="story-grid reveal is-in">
+          <div className="sec-label mono">(История проекта / 2017—2025)</div>
+          <div className="story-grid">
             {HISTORY.map((item, index) => (
               <Link
                 key={item.year}
@@ -296,8 +296,8 @@ export function HomePage() {
       {/* Этапы: маршрут участника. */}
       <section className="block sand" id="stages">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Этапы / маршрут участника)</div>
-          <div className="benefits-grid reveal is-in">
+          <div className="sec-label mono">(Этапы / маршрут участника)</div>
+          <div className="benefits-grid">
             {STAGES.map((stage) => (
               <article key={stage.title} className="bcard">
                 <h3>{stage.title}</h3>
@@ -314,8 +314,8 @@ export function HomePage() {
       {/* Что получают участники. */}
       <section className="block" id="benefits">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Что вы получите / после конкурса)</div>
-          <div className="benefits-grid reveal is-in">
+          <div className="sec-label mono">(Что вы получите / после конкурса)</div>
+          <div className="benefits-grid">
             {BENEFITS.map((benefit) => (
               <article key={benefit.title} className="bcard">
                 <div className="duo bcard-photo">
@@ -332,9 +332,9 @@ export function HomePage() {
       {/* Партнёры. */}
       <section className="block sand" id="partners">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Партнёры / нам доверяют)</div>
+          <div className="sec-label mono">(Партнёры / нам доверяют)</div>
           {partners.length > 0 ? (
-            <div className="partners-grid reveal is-in">
+            <div className="partners-grid">
               {partners.map((partner) => (
                 <article key={partner.id} className="bcard">
                   {partner.logo_url ? (
@@ -353,7 +353,7 @@ export function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="partners-grid reveal is-in">
+            <div className="partners-grid">
               <article className="bcard">
                 <h3>Ассоциация выпускников СЮИ – СГАП – СГЮА</h3>
                 <p>Учредитель конкурса. Утверждает Положение, состав органов конкурса и выступает оператором персональных данных.</p>
@@ -370,9 +370,9 @@ export function HomePage() {
       {/* Подать заявку: тёмный блок прежнего сайта. */}
       <section className="block apply" id="apply">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Подать заявку)</div>
+          <div className="sec-label mono">(Подать заявку)</div>
           <div className="apply-grid">
-            <div className="apply-info reveal is-in">
+            <div className="apply-info">
               <h2>
                 Подать
                 <br />
@@ -384,7 +384,7 @@ export function HomePage() {
               </p>
               <span className="badge mono">{deadlineLabel}</span>
             </div>
-            <div className="reveal is-in">
+            <div className="reveal">
               <Link to="/apply" className="cta-big">
                 Заполнить
                 <sup>↗</sup>
@@ -412,8 +412,8 @@ export function HomePage() {
       {announced.length > 0 ? (
         <section className="block">
           <div className="wrap">
-            <div className="sec-label mono reveal is-in">(Мастер-классы / для финалистов)</div>
-            <div className="benefits-grid reveal is-in">
+            <div className="sec-label mono">(Мастер-классы / для финалистов)</div>
+            <div className="benefits-grid">
               {announced.map((item) => (
                 <article key={item.id} className="bcard">
                   <h3>{item.title}</h3>
@@ -433,15 +433,15 @@ export function HomePage() {
       {/* Вопросы и ответы. */}
       <section className="block" id="faq">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Вопросы и ответы)</div>
+          <div className="sec-label mono">(Вопросы и ответы)</div>
           <div className="faq-shell">
-            <div className="faq-head reveal is-in">
+            <div className="faq-head">
               <h2>
                 Вопросы
                 <br />и ответы
               </h2>
             </div>
-            <div className="faq-list reveal is-in">
+            <div className="faq-list">
               {FAQ.map((item, index) => (
                 <FaqRow key={item.question} item={item} index={index} />
               ))}
@@ -453,8 +453,8 @@ export function HomePage() {
       {/* Финальный призыв. */}
       <section className="cta" id="cta">
         <div className="wrap">
-          <div className="sec-label mono reveal is-in">(Подать заявку)</div>
-          <Link to="/apply" className="cta-big reveal is-in">
+          <div className="sec-label mono">(Подать заявку)</div>
+          <Link to="/apply" className="cta-big">
             Стать
             <br />
             лидером

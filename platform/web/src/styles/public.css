@@ -1,0 +1,383 @@
+/* ============================================================================
+   Адаптация оформления прежнего сайта к новой структуре страниц.
+
+   Прежний сайт состоял из одной главной и нескольких простых страниц, поэтому
+   его стили описывают заголовки контекстно: `.hero h1`, `.apply-info h2`,
+   `.faq-head h2`, `.bcard h3`. У платформы маршрутов больше сорока, и заголовки
+   разделов стоят внутри блоков `.block`, где своей шкалы не было — страницы
+   выглядели как неоформленный текст.
+
+   Здесь собраны только те правила, которых в прежней вёрстке нет:
+     1. шкала заголовков разделов и .phero для внутренних страниц;
+     2. каркас страницы (`.site main` вместо Tailwind-обёрток);
+     3. посадка шапки в реальные ширины экрана;
+     4. служебные детали: бегущая строка, состояния ссылок, отступы.
+
+   Файл подключается после site.css, поэтому правила прежнего оформления
+   остаются в силе, а эти их дополняют. Значения — из токенов прежнего сайта.
+   ========================================================================== */
+
+/* ── 1. Каркас публичной страницы ───────────────────────────────────────────── */
+
+.site main {
+  /* Страницы платформы размечают отступы блоками `.block`, а не обёрткой. */
+  display: block;
+  padding: 0;
+}
+
+/* Заголовок страницы, если страница не использует компонент .phero. */
+.site main > header:first-child:not(.hero):not(.phero) {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: clamp(8rem, 18vh, 12rem) var(--gutter) clamp(2.5rem, 6vh, 5rem);
+  border-bottom: 1px solid var(--line);
+}
+
+.site main > header:first-child:not(.hero):not(.phero) h1 {
+  /* Внутренние страницы: заголовки здесь длиннее, чем «Победители» на прежнем
+     сайте, поэтому кегль умеренный — плакатный размер остаётся у первого экрана
+     главной и у финального призыва. */
+  font-weight: 900;
+  font-size: clamp(2.2rem, 6.2vw, 5.2rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  max-width: 22ch;
+  text-wrap: balance;
+}
+
+.site main > header:first-child:not(.hero):not(.phero) .mono-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--red-deep);
+  margin-bottom: 1.6rem;
+}
+
+.site main > header:first-child:not(.hero):not(.phero) .mono-label::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--red-deep);
+}
+
+/* Содержимое, стоящее прямо в main (без блока), получает ту же сетку. */
+.site main > p,
+.site main > ul,
+.site main > ol,
+.site main > div:not(.block):not(.wrap) {
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ── 2. Шкала заголовков разделов ───────────────────────────────────────────── */
+
+.site .block h2,
+.site main h2 {
+  font-weight: 900;
+  /* Уровень раздела: заметно меньше заголовка страницы, иначе блоки спорят
+     друг с другом и страница выглядит «кричащей». */
+  font-size: clamp(1.5rem, 2.4vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  max-width: 26ch;
+}
+
+.site .block h3,
+.site main h3 {
+  font-weight: 800;
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  line-height: 1.16;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.site .block p,
+.site main p {
+  max-width: 68ch;
+}
+
+.site .block > .wrap > * + * {
+  margin-top: 1.6rem;
+}
+
+/* Метка раздела в блоках платформы: как `.sec-label` прежнего сайта. */
+.site .block .mono-label {
+  color: var(--red-deep);
+  letter-spacing: 0.08em;
+}
+
+/* ── 3. Посадка шапки: ни одна кнопка не должна обрезаться ──────────────────── */
+
+.site .nav-inner {
+  height: 64px;
+  gap: 0.8rem;
+}
+
+.site .nav-links {
+  gap: clamp(0.5rem, 1vw, 1.1rem);
+  min-width: 0;
+}
+
+.site .nav-links a,
+.site .nav-item > button {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.site .nav-cta {
+  padding: 0.42rem 0.8rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.site .nav-mark {
+  flex-shrink: 0;
+}
+
+.site .nav-mark sup {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+}
+
+/* До 1280 px раскрытые разделы не помещаются в строку — работает меню. */
+@media (max-width: 1279px) {
+  .site .nav-links {
+    display: none;
+  }
+
+  .site .nav-burger {
+    display: flex;
+  }
+}
+
+@media (min-width: 1280px) {
+  .site .nav-burger {
+    display: none;
+  }
+}
+
+/* ── 4. Служебные детали ────────────────────────────────────────────────────── */
+
+/* Бегущая строка прежнего сайта: короткий акцент между первым экраном и текстом. */
+.site .marquee {
+  background: var(--red);
+  color: #fff;
+  overflow: hidden;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 0.7rem 0;
+}
+
+.site .marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: lp-scrollx 30s linear infinite;
+}
+
+.site .marquee-track span {
+  font-weight: 800;
+  font-size: clamp(1.1rem, 2.6vw, 2rem);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  padding: 0 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.site .marquee-track span::after {
+  content: '✺';
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.6em;
+}
+
+@keyframes lp-scrollx {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site .marquee-track {
+    animation: none;
+  }
+}
+
+/* Ссылки в тексте: подчёркивание как в прежней вёрстке, без «синей» заливки. */
+.site main a:not(.nav-cta):not(.cta-big):not(.story-link) {
+  color: var(--red-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.site main a:not(.nav-cta):not(.cta-big):not(.story-link):hover {
+  color: var(--red);
+  text-decoration-thickness: 2px;
+}
+
+/* Таблицы данных (критерии, календарь, комплект) — прежняя строгая сетка. */
+.site .block table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.site .block table th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  text-align: left;
+  padding: 0.9rem 1rem 0.9rem 0;
+  border-bottom: 1px solid var(--ink);
+}
+
+.site .block table td {
+  padding: 0.9rem 1rem 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+/* Карточки-плитки внутри блоков: одинаковое поведение при наведении. */
+.site .bcard {
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.site .bcard:hover {
+  background: var(--sand);
+}
+
+.site .block.sand .bcard:hover {
+  background: var(--paper);
+}
+
+/* Формы публичной части (обращения, фильтры) — в языке прежнего сайта. */
+.site main input,
+.site main select,
+.site main textarea {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  padding: 0.7rem 0.85rem;
+  min-height: 44px;
+  width: 100%;
+}
+
+.site main input:focus-visible,
+.site main select:focus-visible,
+.site main textarea:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* ── 5. Плотность главной страницы ─────────────────────────────────────────── */
+
+/* Ритм блоков: прежние 11vh хороши для одной главной, но у платформы десятки
+   страниц, и на длинных разделах такой шаг превращался в пустые экраны. */
+.site .block {
+  padding: clamp(3.2rem, 8vh, 6.5rem) 0;
+}
+
+/* Фотолента «История проекта»: кадры прежней вёрстки на широком экране
+   получались выше 800 px, поэтому высота ограничена, а пропорции заданы
+   явно — лента читается как галерея, а не как шесть экранов подряд. */
+.site .pcard .duo {
+  aspect-ratio: 4 / 3;
+  max-height: 360px;
+}
+
+.site .pcard.s-a .duo {
+  aspect-ratio: 16 / 10;
+  max-height: 420px;
+}
+
+.site .story-grid {
+  row-gap: clamp(1.6rem, 3vw, 2.6rem);
+  align-items: start;
+}
+
+.site .pcard .pdesc {
+  max-width: 34ch;
+}
+
+/* Карточки преимуществ: фото сверху, но не во всю высоту. */
+.site .bcard-photo .duo {
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  max-height: 240px;
+}
+
+/* Партнёры: логотипы не растягиваются на всю плитку. */
+.site .partners-grid .bcard .duo img {
+  object-fit: contain;
+  padding: 1.2rem;
+  background: var(--paper);
+}
+
+/* Таблицы и списки внутри блоков не должны «прилипать» к метке раздела. */
+.site .block .sec-label + * {
+  margin-top: 0;
+}
+
+/* Плитки преимуществ: пять карточек в трёх колонках оставляли пустую ячейку —
+   сетка сама подбирает число колонок и растягивает последний ряд. */
+.site .benefits-grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* В блоках этапов карточек три — им нужна ровная тройка на широком экране. */
+.site #stages .benefits-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* ── 6. Состояния загрузки и пустые списки ─────────────────────────────────── */
+
+/* Пока данные идут, блок не должен выглядеть пустым: строка состояния в языке
+   прежнего сайта плюс мягкая пульсация. */
+.site [role='status'],
+.site .loading-note {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+  animation: lp-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes lp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site [role='status'],
+  .site .loading-note {
+    animation: none;
+  }
+}
+
+/* Карточки внутри сеток не должны растягиваться на пустую высоту. */
+.site .hairline-grid > *,
+.site .benefits-grid > *,
+.site .partners-grid > * {
+  align-self: start;
+}
+
+/* Длинные таблицы критериев: заголовок раздела не должен «уезжать» от таблицы. */
+.site .block table + * {
+  margin-top: 1.4rem;
+}
