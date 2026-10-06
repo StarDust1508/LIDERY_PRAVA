@@ -66,8 +66,17 @@ export function Layout() {
   const closeAt = season?.application_close_at ?? null;
   const openAt = season?.application_open_at ?? null;
 
-  const applyLabel = applicationOpen ? 'Подать заявку' : notStarted ? 'Приём заявок закрыт' : 'Приём завершён';
   const openDay = shortDate(openAt);
+  // До открытия приёма кнопка не должна называться «приём закрыт»: она ведёт на
+  // страницу подачи, где объяснены сроки, и подпись «Заявка с 11 ноября» честнее
+  // сообщает состояние (ТЗ 06, п. 6).
+  const applyLabel = applicationOpen
+    ? 'Подать заявку'
+    : notStarted && openDay
+      ? `Заявка с ${openDay}`
+      : notStarted
+        ? 'Приём ещё не открыт'
+        : 'Приём завершён';
 
   return (
     <BreadcrumbsProvider>
@@ -145,7 +154,9 @@ export function Layout() {
 
           <main id="main">
             <Outlet />
-            <PageNav />
+            {/* На страницах приложений свой переход «приложение к приложению» —
+                общий «назад/далее» здесь дублировал бы его. */}
+            {/^\/legal\/appendix\//.test(location.pathname) ? null : <PageNav />}
           </main>
 
           {/* Подвал-карта сайта: каждый раздел и каждая страница. */}

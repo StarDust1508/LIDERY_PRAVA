@@ -72,10 +72,12 @@ export function AppendixPage() {
     <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
       <PageHeader
         eyebrow="Документы"
-        title={current ? current.title : number ? `Приложение № ${number}` : 'Приложение к Положению'}
+        // В заголовке — номер приложения: полное название документа занимает
+        // несколько строк и уместнее в подписи под заголовком.
+        title={number ? `Приложение № ${number}` : 'Приложение к Положению'}
         lead={
           current
-            ? `Редакция от ${formatMoscowDate(current.revision_date)}, версия ${current.version}.`
+            ? `${current.title}. Редакция от ${formatMoscowDate(current.revision_date)}, версия ${current.version}.`
             : undefined
         }
       />

@@ -41,7 +41,11 @@ export function PageHeader({
         ) : (
           <div className="crumbs mono">{eyebrow}</div>
         )}
-        <h1>{title}</h1>
+        {/* Длинный заголовок (полное название документа, приложения) набран
+            меньшим кеглем: плакатный размер рассчитан на короткие названия
+            разделов, а «Приложение № 11. Согласие законного представителя…»
+            занимало несколько экранов и читалось как плакат. */}
+        <h1 className={title.length > 60 ? 'phero-title-long' : undefined}>{title}</h1>
         {lead ? <p className="lead">{lead}</p> : null}
         {actions ? <div className="mt-6 flex flex-wrap gap-3">{actions}</div> : null}
       </div>
