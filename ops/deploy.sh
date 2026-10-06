@@ -61,10 +61,14 @@ note "репозиторий: $REPO_DIR"
 note "развёртывание: $WWW_DIR"
 note "порт API: $API_PORT"
 
-# Сборка идёт с NODE_ENV=development: файл окружения выше подставляет
-# NODE_ENV=production, а при нём npm не ставит devDependencies — без них нет
-# ни компилятора TypeScript, ни сборщика интерфейсов. Режим production нужен
-# только запущенному сервису, он приходит из EnvironmentFile юнита.
+# Установка зависимостей идёт с NODE_ENV=development: файл окружения выше
+# подставляет NODE_ENV=production, а при нём npm не ставит devDependencies —
+# без них нет ни компилятора TypeScript, ни сборщика интерфейсов.
+#
+# Сама сборка интерфейсов, наоборот, запускается с NODE_ENV=production: иначе
+# Vite подставляет отладочные сборки React (react-dom.development, jsxDEV) —
+# они вдвое тяжелее и заметно медленнее. Обнаружено на боевом сайте: бандл был
+# 1,08 МБ вместо 0,51 МБ.
 step "1/5 Сборка API"
 if [ -f "$REPO_DIR/platform/server/package-lock.json" ]; then
     run bash -c "cd '$REPO_DIR/platform/server' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund"
@@ -84,13 +88,13 @@ if [ -f "$REPO_DIR/platform/shared/package.json" ]; then
     note "зависимости общего модуля: platform/shared"
 fi
 if [ -d "$REPO_DIR/platform/web" ]; then
-    run bash -c "cd '$REPO_DIR/platform/web' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=development npm run build"
+    run bash -c "cd '$REPO_DIR/platform/web' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=production npm run build"
     note "публичная сборка: platform/web"
 else
     note "platform/web ещё нет — пропускаю (пакет 5)"
 fi
 if [ -d "$REPO_DIR/platform/admin" ]; then
-    run bash -c "cd '$REPO_DIR/platform/admin' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=development npm run build"
+    run bash -c "cd '$REPO_DIR/platform/admin' && NODE_ENV=development npm ci --include=dev --no-audit --no-fund && NODE_ENV=production npm run build"
     note "сборка админки: platform/admin"
 else
     note "platform/admin ещё нет — пропускаю (пакет 4)"
