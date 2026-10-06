@@ -10,51 +10,86 @@ export function PageHeader({
   title,
   lead,
   actions,
+  breadcrumbs: crumbs,
 }: {
   eyebrow: string;
   title: string;
   lead?: ReactNode;
   actions?: ReactNode;
+  /** Крошки прежнего сайта: «Главная / Раздел» (ТЗ 08, п. 1.3.4). */
+  breadcrumbs?: Array<{ title: string; path: string }>;
 }) {
-  // Оформление заголовка раздела — как на прежнем сайте конкурса: капс,
-  // чёрное начертание, крупный кегль, волосяная линия под блоком.
+  // Разметка повторяет .phero прежнего сайта: крошки, плакатный заголовок,
+  // лид и волосяная линия под блоком.
   return (
-    <header className="border-b border-border pb-8 pt-10">
-      <p className="mono-label text-muted">{eyebrow}</p>
-      <h1 className="poster-1 mt-3 max-w-[22ch] break-words">{title}</h1>
-      {lead ? <p className="mt-5 max-w-measure text-lead text-muted">{lead}</p> : null}
-      {actions ? <div className="mt-6 flex flex-wrap gap-3">{actions}</div> : null}
+    <header className="phero">
+      <div className="wrap">
+        {crumbs && crumbs.length > 0 ? (
+          <div className="crumbs mono">
+            {crumbs.map((crumb, index) => (
+              <span key={crumb.path}>
+                {index > 0 ? <span aria-hidden="true">/</span> : null}{' '}
+                {index === crumbs.length - 1 ? (
+                  <span aria-current="page">{crumb.title}</span>
+                ) : (
+                  <Link to={crumb.path}>{crumb.title}</Link>
+                )}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="crumbs mono">{eyebrow}</div>
+        )}
+        <h1>{title}</h1>
+        {lead ? <p className="lead">{lead}</p> : null}
+        {actions ? <div className="mt-6 flex flex-wrap gap-3">{actions}</div> : null}
+      </div>
     </header>
   );
 }
 
-/** Раздел страницы: крупный ритм, как на прежнем сайте (было `SectionCard`). */
+/**
+ * Раздел страницы: блок прежнего сайта (`.block` с `.sec-label` и заголовком).
+ * Используется всеми публичными страницами вместо карточек, поэтому блоки
+ * выглядят одинаково по всему сайту.
+ */
 export function Section({
   title,
   description,
   children,
   footer,
   actions,
+  sand = false,
+  label,
+  id,
 }: {
   title?: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
   actions?: ReactNode;
+  /** Песочный фон: чередование блоков, как на прежнем сайте. */
+  sand?: boolean;
+  /** Метка раздела в скобках: «(О конкурсе)». */
+  label?: string;
+  id?: string;
 }) {
   return (
-    <section className="block">
-      {title || description || actions ? (
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            {title ? <h2 className="poster-2">{title}</h2> : null}
-            {description ? <p className="mt-2 max-w-measure text-sm text-muted">{description}</p> : null}
+    <section className={`block${sand ? ' sand' : ''}`} id={id}>
+      <div className="wrap">
+        {label ? <div className="sec-label mono">{label}</div> : null}
+        {title || description || actions ? (
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              {title ? <h2>{title}</h2> : null}
+              {description ? <p className="max-w-measure text-sm">{description}</p> : null}
+            </div>
+            {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
           </div>
-          {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
-        </header>
-      ) : null}
-      {children}
-      {footer ? <footer className="mt-6">{footer}</footer> : null}
+        ) : null}
+        {children}
+        {footer ? <footer className="mt-6">{footer}</footer> : null}
+      </div>
     </section>
   );
 }

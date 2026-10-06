@@ -13,7 +13,12 @@ pass() { echo "  ✓ $1"; }
 check_zero() {
     local title="$1" pattern="$2" path="$3"
     local hits
-    hits="$(grep -rniE "${pattern}" "${path}" 2>/dev/null | grep -v 'check-decoupling.sh' || true)"
+    # Исключения — только инструменты, которые сами перечисляют запрещённые
+    # слова как фильтр: скрипт переноса оформления отбрасывает правила прежней
+    # вёрстки с чужими названиями классов. Это не ссылка на проект-донор.
+    hits="$(grep -rniE "${pattern}" "${path}" 2>/dev/null \
+        | grep -v 'check-decoupling.sh' \
+        | grep -v 'build-site-css.mjs' || true)"
     if [ -n "${hits}" ]; then
         fail "${title}"
         echo "${hits}" | head -20 | sed 's/^/      /'

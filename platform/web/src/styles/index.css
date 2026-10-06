@@ -229,3 +229,177 @@
     }
   }
 }
+
+/* ── Дополнения к оформлению прежнего сайта ──────────────────────────────────
+   Классы ниже отсутствовали в прежней вёрстке: подменю разделов (ТЗ 08, п. 1.1),
+   полоса состояния приёма и мобильное меню. Значения — из токенов прежнего
+   сайта, поэтому визуально они не отличаются от остальных блоков. */
+@layer components {
+  .site .nav-links > ul {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.8rem, 1.8vw, 2rem);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site .nav-item {
+    position: relative;
+  }
+
+  .site .nav-item > button {
+    font: inherit;
+    font-size: 0.78rem;
+    color: var(--ink);
+    background: none;
+    border: 0;
+    padding: 0.25rem 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .site .nav-item > button:hover,
+  .site .nav-item > button.is-active {
+    color: var(--red-deep);
+  }
+
+  .site .nav-sub {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 0.6rem);
+    min-width: 280px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 0.6rem 0;
+    list-style: none;
+    margin: 0;
+    z-index: 120;
+  }
+
+  .site .nav-sub.is-open {
+    display: block;
+  }
+
+  .site .nav-sub a {
+    display: block;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+
+  .site .nav-sub a:hover {
+    background: var(--sand);
+    color: var(--red-deep);
+  }
+
+  .site .nav-note {
+    background: var(--sand);
+    border-top: 1px solid var(--line);
+    text-align: center;
+    padding: 0.5rem var(--gutter);
+    font-size: 0.7rem;
+    color: var(--ink-60);
+  }
+
+  .site-mobile-menu {
+    position: fixed;
+    inset: 64px 0 0 0;
+    z-index: 90;
+    background: var(--paper);
+    overflow-y: auto;
+    padding: 1.5rem var(--gutter) 3rem;
+  }
+
+  .site .nav-mobile,
+  .site .nav-mobile-sub {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site .nav-mobile-item > button {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 0;
+    font: inherit;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .site .nav-mobile-sub {
+    padding: 0.4rem 0 1rem 1rem;
+  }
+
+  .site .nav-mobile-sub a {
+    display: block;
+    padding: 0.45rem 0;
+    color: var(--ink);
+  }
+
+  .site-mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: 1.5rem;
+  }
+
+  /* Ссылка-крошка в заголовке раздела: прежняя вёрстка вела по якорям. */
+  .site .crumbs a {
+    color: var(--red-deep);
+    text-decoration: none;
+  }
+
+  .site .crumbs a:hover {
+    text-decoration: underline;
+  }
+
+  .site .phero .lead {
+    max-width: 46rem;
+    margin-top: 1.6rem;
+    font-size: clamp(1rem, 1.4vw, 1.2rem);
+    line-height: 1.45;
+    color: var(--ink-60);
+  }
+}
+
+/* Перечень ссылок в блоке подачи заявки: в прежней вёрстке это был столбец
+   ссылок рядом с формой; саму форму заменил мастер на /apply. */
+@layer components {
+  .site .apply-list {
+    list-style: none;
+    margin: 1.8rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-size: 0.72rem;
+  }
+
+  .site .apply-list a {
+    color: var(--paper);
+    border-bottom: 1px solid rgba(245, 241, 233, 0.32);
+    padding-bottom: 0.2rem;
+  }
+
+  .site .apply-list a:hover {
+    color: var(--red);
+    border-color: var(--red);
+  }
+
+  /* Столбец действий в тёмном блоке: заголовок и ссылки не должны слипаться. */
+  .site .apply-grid > div:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

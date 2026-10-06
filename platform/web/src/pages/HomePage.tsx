@@ -7,27 +7,25 @@ import {
   api,
   formatMoscowDate,
   formatMoscowHuman,
-  pluralize,
 } from '@shared/index';
 import { Alert } from '@shared/index';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
-import { ActionLink, GridCell, HairlineGrid } from '@/components/PageBlocks';
 
 // Главная страница конкурса.
 //
-// Оформление повторяет прежний сайт конкурса: первый экран во всю высоту с
-// фотографией, плакатный заголовок, сетки с волосяными линиями для показателей,
-// преимуществ и партнёров, тёмная полоса призыва к участию. Содержание — по
-// Положению и из базы: сроки, мастер-классы, партнёры.
+// Композиция и классы — прежнего сайта: hero с фотографией, манифест, «Цифры
+// сезона», «История проекта», «Этапы», «Что вы получите», «Партнёры», блок подачи
+// заявки, «Вопросы и ответы» и финальный призыв. Содержание — по Положению и из
+// базы: сроки, мастер-классы, партнёры.
 
 const STAGES = [
   {
     title: 'Отборочный этап',
-    text: 'Заочно: экспертиза законотворческих инициатив Конкурсной комиссией. Нужны текст законопроекта и пояснительная записка.',
+    text: 'Дистанционно: экспертиза законотворческих инициатив Конкурсной комиссией. Нужны текст законопроекта и пояснительная записка.',
   },
   {
     title: 'Первый этап',
-    text: 'Дистанционно: видеопрезентация инициативы и команды во «ВКонтакте», оценка видеороликов и материалов.',
+    text: 'Дистанционно: видеопрезентация инициативы и команды во «ВКонтакте», оценка видеороликов и материалов этапа.',
   },
   {
     title: 'Второй (финальный) этап',
@@ -37,30 +35,98 @@ const STAGES = [
 
 const BENEFITS = [
   {
-    title: 'Стажировки',
-    text: 'Ведущие юридические компании и органы власти для победителей и финалистов.',
+    title: 'Наставничество',
+    text: 'Работа с экспертами: преподаватели, практикующие юристы, представители органов власти и бизнеса.',
     image: '/assets/benefits-person.jpg',
-    alt: 'Участник конкурса «Лидеры права» на выступлении',
   },
   {
-    title: 'Наставники',
-    text: 'Работа с экспертами: преподаватели, практикующие юристы, представители власти и бизнеса.',
+    title: 'Стажировки',
+    text: 'Ведущие юридические компании и органы власти для победителей и финалистов.',
     image: '/assets/timeline-2025.jpg',
-    alt: 'Команда конкурса с наставником',
   },
   {
     title: 'Публикация инициатив',
-    text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и публикуются в архиве.',
+    text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и попадают в архив.',
     image: '/assets/timeline-2024.jpg',
-    alt: 'Защита законотворческой инициативы',
   },
   {
-    title: 'Признание',
-    text: 'Дипломы, публикации в сборниках и признание в профессиональном сообществе.',
+    title: 'Публичность',
+    text: 'Защита инициативы перед экспертным сообществом и освещение в сообществе конкурса.',
     image: '/assets/timeline-2022.jpg',
-    alt: 'Награждение победителей конкурса',
+  },
+  {
+    title: 'Нетворкинг',
+    text: 'Знакомства с участниками, наставниками и членами Конкурсной комиссии из разных регионов.',
+    image: '/assets/timeline-2020.jpg',
   },
 ];
+
+const HISTORY = [
+  { year: '2017', image: '/assets/timeline-2017.jpg', text: 'Первый сезон конкурса: заявки студентов и первые законотворческие инициативы.' },
+  { year: '2019', image: '/assets/timeline-2019.jpg', text: 'Конкурс выходит за пределы одного региона, появляются наставники-практики.' },
+  { year: '2020', image: '/assets/timeline-2020.jpg', text: 'Дистанционный формат этапов и работа команд из разных субъектов Российской Федерации.' },
+  { year: '2022', image: '/assets/timeline-2022.jpg', text: 'Инициативы участников направляются субъектам права законодательной инициативы.' },
+  { year: '2024', image: '/assets/timeline-2024.jpg', text: 'Финал в Москве: групповые выступления, дебаты и Гранд-финал.' },
+  { year: '2025', image: '/assets/timeline-2025.jpg', text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.' },
+];
+
+const FAQ = [
+  {
+    question: 'Кто может участвовать в конкурсе?',
+    answer: 'Лица от 16 до 35 лет включительно на дату окончания приёма заявок. Юридическое образование не обязательно.',
+    path: '/about/faq',
+  },
+  {
+    question: 'Сколько человек в команде?',
+    answer: 'От 2 до 4 человек. Единоличное участие — по письменному согласованию с Оргкомитетом.',
+    path: '/participants/requirements',
+  },
+  {
+    question: 'Куда подавать заявку?',
+    answer: 'Только на этом сайте, в разделе «Подать заявку». Внешние формы не используются.',
+    path: '/apply',
+  },
+  {
+    question: 'Нужно ли загружать подписанные согласия?',
+    answer: 'Согласия оформляются электронно при подаче заявки. Исключение — участники младше 18 лет: нужен скан согласия законного представителя.',
+    path: '/legal/pdn-consent-minor',
+  },
+  {
+    question: 'Как узнать итоги этапа?',
+    answer: 'Протоколы публикуются на сайте, баллы видны в личном кабинете. Срок подачи апелляции — два рабочих дня с момента опубликования протокола.',
+    path: '/stages/appeals',
+  },
+];
+
+/** Строка «Вопросы и ответы»: разметка прежнего сайта (кнопка + ответ). */
+function FaqRow({ item, index }: { item: { question: string; answer: string; path: string }; index: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`faq-item${open ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="faq-question"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="faq-num">{String(index + 1).padStart(2, '0')}</span>
+        <span className="faq-q-text">{item.question}</span>
+        <span className="faq-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" strokeWidth={2.5} strokeLinecap="round">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+        </span>
+      </button>
+      <div className="faq-answer" style={{ maxHeight: open ? '24rem' : 0 }}>
+        <p>{item.answer}</p>
+        <p>
+          <Link to={item.path}>Подробнее →</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export function HomePage() {
   const [season, setSeason] = useState<SeasonResponse | null>(null);
@@ -102,284 +168,300 @@ export function HomePage() {
   const open = seasonInfo?.is_application_open === true;
   const notStarted = seasonInfo?.application_not_started === true;
   const announced = masterclasses.filter((item) => item.status === 'announced');
+  const deadlineLabel = open
+    ? `Приём заявок открыт до ${formatMoscowHuman(seasonInfo?.application_close_at ?? null)}`
+    : notStarted
+      ? `Приём заявок откроется ${formatMoscowHuman(seasonInfo?.application_open_at ?? null)}`
+      : `Приём заявок завершён ${formatMoscowDate(seasonInfo?.application_close_at ?? null)}`;
 
   return (
-    <main>
+    <>
       {error ? (
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)] pt-6">
+        <div className="wrap" style={{ paddingTop: '1.5rem' }}>
           <Alert tone="warning">{error}</Alert>
         </div>
       ) : null}
 
-      {/* Первый экран: слева плакат и действия, справа фотография. */}
-      <section className="block border-b-0">
-        <div className="mx-auto grid max-w-container gap-10 px-[var(--gutter-wide)] lg:grid-cols-[1.35fr_0.65fr]">
-          <div className="flex flex-col justify-between gap-8">
-            <div className="mono-label flex flex-wrap justify-between gap-2 text-muted">
-              <span>Сезон 2026/2027</span>
-              <span>Три этапа · финал в Москве</span>
-            </div>
-
-            <div>
-              <h1 className="poster-hero">
-                Лидеры
-                <br />
-                права
-              </h1>
-              <p className="mt-6 max-w-measure text-lead">
-                Десятый ежегодный федеральный научно-образовательный конкурс для студентов и молодых специалистов.
-                Участие бесплатное: команда разрабатывает законотворческую инициативу, работает с наставниками и
-                защищает её перед Жюри.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
-              {open ? (
-                <ActionLink to="/apply">Подать заявку</ActionLink>
-              ) : (
-                <ActionLink to="/apply" variant="secondary">
-                  {notStarted ? 'Приём заявок ещё не открыт' : 'Приём заявок завершён'}
-                </ActionLink>
-              )}
-              <ActionLink to="/about/regulations" variant="secondary">
-                Положение о конкурсе
-              </ActionLink>
-              {notStarted && seasonInfo?.application_open_at ? (
-                <span className="text-sm text-muted">
-                  Приём откроется {formatMoscowDate(seasonInfo.application_open_at)}
-                </span>
-              ) : null}
-            </div>
+      {/* Первый экран: плакат слева, фотография финала справа. */}
+      <header className="hero" id="home">
+        <div className="hero-left">
+          <div className="hero-topmeta mono">
+            <span>Юридический конкурс — Россия</span>
+            <span>2017—2027</span>
           </div>
-
-          <figure className="media-frame min-h-[320px] lg:min-h-full">
-            <img src="/assets/benefits-person.jpg" alt="Участник конкурса «Лидеры права»" className="media-cover" />
-          </figure>
+          <h1 aria-label="Лидеры права">
+            Лидеры
+            <br />
+            <span className="red">права</span>
+          </h1>
+          <div className="hero-photo-band">
+            <div className="duo">
+              <img
+                src="/assets/timeline-2024.jpg"
+                alt="Финал конкурса «Лидеры права» 2024 года"
+                width={1280}
+                height={854}
+                loading="eager"
+              />
+            </div>
+            <div className="tag mono">[ Финал · 2024 ]</div>
+          </div>
+          <div className="hero-bottom">
+            <p className="hero-statement">
+              Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
+              стажировки и публикацию законотворческих инициатив.
+            </p>
+          </div>
         </div>
-      </section>
-
-      {/* Показатели сезона: сетка с волосяными линиями. */}
-      <section className="block border-b-0 pt-0">
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-          <HairlineGrid columns="repeat(auto-fit, minmax(200px, 1fr))">
-            <GridCell num="10" title="Сезон конкурса" text="Конкурс проводится с 2017 года" />
-            <GridCell num="2–4" title="Человека в команде" text="Единоличное участие — по согласованию с Оргкомитетом" />
-            <GridCell num="70" title="Баллов отборочного этапа" text="Критерии оценки — раздел 10 Положения" />
-            <GridCell
-              num={open ? 'идёт' : notStarted ? 'скоро' : 'закрыт'}
-              title="Приём заявок"
-              text={
-                open
-                  ? `до ${formatMoscowHuman(seasonInfo?.application_close_at ?? null)}`
-                  : notStarted
-                    ? `с ${formatMoscowDate(seasonInfo?.application_open_at ?? null)}`
-                    : `завершён ${formatMoscowDate(seasonInfo?.application_close_at ?? null)}`
-              }
+        <div className="hero-photo">
+          <div className="duo">
+            <img
+              src="/assets/timeline-2024.jpg"
+              alt="Финал конкурса «Лидеры права» 2024 года"
+              width={1280}
+              height={854}
+              loading="eager"
             />
-          </HairlineGrid>
+          </div>
+          <div className="tag mono">[ Финал · 2024 ]</div>
         </div>
-      </section>
+      </header>
 
-      {/* Этапы конкурса. */}
-      <section className="block" aria-labelledby="stages-title">
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-          <h2 id="stages-title" className="poster-1 mb-8">
-            Этапы конкурса
-          </h2>
-          <HairlineGrid>
-            {STAGES.map((stage) => (
-              <GridCell key={stage.title} title={stage.title} text={stage.text} />
-            ))}
-          </HairlineGrid>
-          <p className="mt-6">
-            <Link to="/stages" className="text-accent underline underline-offset-2">
-              Календарь, критерии оценки и апелляции
-            </Link>
+      {/* Манифест: одна мысль на весь экран. */}
+      <section className="block manifesto" id="manifesto">
+        <div className="wrap reveal is-in">
+          <div className="sec-label mono">(О конкурсе)</div>
+          <p>
+            Право <span className="red">начинается</span> с тех, кто <span className="mute">не боится</span> взять слово.
           </p>
         </div>
       </section>
 
-      {/* Преимущества участия: карточки с фотографиями. */}
-      <section className="block block-sand" aria-labelledby="benefits-title">
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-          <h2 id="benefits-title" className="poster-1 mb-8">
-            Что получают участники
-          </h2>
-          <HairlineGrid columns="repeat(auto-fit, minmax(260px, 1fr))">
-            {BENEFITS.map((benefit) => (
-              <GridCell
-                key={benefit.title}
-                title={benefit.title}
-                text={benefit.text}
-                imageUrl={benefit.image}
-                imageAlt={benefit.alt}
-              />
-            ))}
-          </HairlineGrid>
+      {/* Цифры сезона. */}
+      <section className="block sand" id="stats">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Цифры сезона)</div>
+          <div className="stats reveal is-in">
+            <div className="stat">
+              <div className="num">2017</div>
+              <div className="lbl mono">Год основания</div>
+            </div>
+            <div className="stat">
+              <div className="num">
+                <span className="red">10</span>
+              </div>
+              <div className="lbl mono">Сезон конкурса</div>
+            </div>
+            <div className="stat">
+              <div className="num">70</div>
+              <div className="lbl mono">Баллов отборочного этапа</div>
+            </div>
+            <div className="stat">
+              <div className="num">2–4</div>
+              <div className="lbl mono">Человека в команде</div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Мастер-классы для команд-финалистов. */}
-      {announced.length > 0 ? (
-        <section className="block" aria-labelledby="masterclasses-title">
-          <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-            <h2 id="masterclasses-title" className="poster-1 mb-8">
-              Ближайшие мастер-классы
-            </h2>
-            <HairlineGrid>
-              {announced.map((item) => (
-                <GridCell
-                  key={item.id}
-                  title={item.title}
-                  text={
-                    <>
-                      {item.speaker}
-                      <br />
-                      {formatMoscowHuman(item.starts_at)}
-                    </>
-                  }
-                  action={
-                    <Link
-                      to={`/masterclasses/${item.slug ?? `masterclass-${item.id}`}`}
-                      className="text-accent underline underline-offset-2"
-                    >
-                      Подробнее
-                    </Link>
-                  }
-                />
-              ))}
-            </HairlineGrid>
-            <p className="mt-6">
-              <Link to="/masterclasses" className="text-accent underline underline-offset-2">
-                Все мастер-классы
+      {/* История проекта: фотолента по годам. */}
+      <section className="block" id="story">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(История проекта / 2017—2025)</div>
+          <div className="story-grid reveal is-in">
+            {HISTORY.map((item, index) => (
+              <Link
+                key={item.year}
+                to="/about/history"
+                className={`pcard ${['s-a', 's-b', 's-c', 's-b', 's-a', 's-c'][index] ?? 's-c'}`}
+              >
+                <div className={`duo${index % 3 === 2 ? ' ink' : ''}`}>
+                  <img src={item.image} alt={`Конкурс «Лидеры права» в ${item.year} году`} loading="lazy" />
+                </div>
+                <div className="meta">
+                  <span className="pyear">{item.year}</span>
+                  <span className="pdesc mono">{item.text}</span>
+                </div>
               </Link>
-            </p>
+            ))}
           </div>
-        </section>
-      ) : null}
+          <div className="story-cta">
+            <Link to="/winners" className="story-link mono">
+              Победители прошлых сезонов →
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      {/* Архив, победители и история. */}
-      <section className="block" aria-labelledby="archive-title">
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-          <h2 id="archive-title" className="poster-1 mb-8">
-            Архив и победители
-          </h2>
-          <HairlineGrid>
-            <GridCell
-              title="Архив законопроектов"
-              text="Инициативы, прошедшие конкурс: ориентир для новых участников."
-              action={
-                <Link to="/initiatives" className="text-accent underline underline-offset-2">
-                  Открыть архив
-                </Link>
-              }
-            />
-            <GridCell
-              title="Победители"
-              text={`${pluralize(9, ['сезон', 'сезона', 'сезонов'])} конкурса: команды и номинации по годам.`}
-              action={
-                <Link to="/winners" className="text-accent underline underline-offset-2">
-                  Смотреть победителей
-                </Link>
-              }
-            />
-            <GridCell
-              title="История конкурса"
-              text="Как развивался конкурс и что изменилось в десятом сезоне."
-              action={
-                <Link to="/about/history" className="text-accent underline underline-offset-2">
-                  История конкурса
-                </Link>
-              }
-            />
-          </HairlineGrid>
+      {/* Этапы: маршрут участника. */}
+      <section className="block sand" id="stages">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Этапы / маршрут участника)</div>
+          <div className="benefits-grid reveal is-in">
+            {STAGES.map((stage) => (
+              <article key={stage.title} className="bcard">
+                <h3>{stage.title}</h3>
+                <p>{stage.text}</p>
+              </article>
+            ))}
+          </div>
+          <p style={{ marginTop: '1.5rem' }}>
+            <Link to="/stages">Календарь, критерии оценки и апелляции →</Link>
+          </p>
+        </div>
+      </section>
+
+      {/* Что получают участники. */}
+      <section className="block" id="benefits">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Что вы получите / после конкурса)</div>
+          <div className="benefits-grid reveal is-in">
+            {BENEFITS.map((benefit) => (
+              <article key={benefit.title} className="bcard">
+                <div className="duo bcard-photo">
+                  <img src={benefit.image} alt="" loading="lazy" />
+                </div>
+                <h3>{benefit.title}</h3>
+                <p>{benefit.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Партнёры. */}
-      <section className="block block-sand" aria-labelledby="partners-title">
-        <div className="mx-auto max-w-container px-[var(--gutter-wide)]">
-          <h2 id="partners-title" className="poster-1 mb-8">
-            Партнёры конкурса
-          </h2>
+      <section className="block sand" id="partners">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Партнёры / нам доверяют)</div>
           {partners.length > 0 ? (
-            <HairlineGrid columns="repeat(auto-fit, minmax(220px, 1fr))">
+            <div className="partners-grid reveal is-in">
               {partners.map((partner) => (
-                <GridCell
-                  key={partner.id}
-                  title={partner.name}
-                  text={partner.description}
-                  imageUrl={partner.logo_url ?? undefined}
-                  imageAlt={`Логотип: ${partner.name}`}
-                  action={
-                    partner.url ? (
-                      <a
-                        href={partner.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent underline underline-offset-2"
-                      >
-                        Сайт партнёра
-                      </a>
-                    ) : null
-                  }
-                />
+                <article key={partner.id} className="bcard">
+                  {partner.logo_url ? (
+                    <div className="duo bcard-photo">
+                      <img src={partner.logo_url} alt={`Логотип: ${partner.name}`} loading="lazy" />
+                    </div>
+                  ) : null}
+                  <h3>{partner.name}</h3>
+                  {partner.description ? <p>{partner.description}</p> : null}
+                  {partner.url ? (
+                    <a href={partner.url} target="_blank" rel="noopener noreferrer">
+                      Сайт партнёра →
+                    </a>
+                  ) : null}
+                </article>
               ))}
-            </HairlineGrid>
+            </div>
           ) : (
-            <p className="max-w-measure text-muted">
-              Учредитель конкурса — Ассоциация выпускников СЮИ – СГАП – СГЮА, генеральный партнёр — Общероссийская
-              общественная организация «Ассоциация юристов России». Остальные партнёры публикуются после утверждения
-              списка Оргкомитетом.
-            </p>
+            <div className="partners-grid reveal is-in">
+              <article className="bcard">
+                <h3>Ассоциация выпускников СЮИ – СГАП – СГЮА</h3>
+                <p>Учредитель конкурса. Утверждает Положение, состав органов конкурса и выступает оператором персональных данных.</p>
+              </article>
+              <article className="bcard">
+                <h3>Ассоциация юристов России</h3>
+                <p>Генеральный партнёр конкурса. Остальные партнёры публикуются после утверждения списка Оргкомитетом.</p>
+              </article>
+            </div>
           )}
         </div>
       </section>
 
-      {/* Призыв к участию: тёмная полоса прежнего сайта. */}
-      <section className="block block-ink border-b-0">
-        <div className="mx-auto grid max-w-container items-start gap-10 px-[var(--gutter-wide)] md:grid-cols-2">
-          <div>
-            <p className="mono-label text-accent-bright">Приём заявок — только на сайте</p>
-            <h2 className="poster-1 mt-4 text-[var(--paper)]">
-              Соберите команду
-              <br />и подайте заявку
-            </h2>
-          </div>
-          <div className="flex flex-col gap-6">
-            <p className="max-w-measure text-[color-mix(in_srgb,var(--paper)_90%,transparent)]">
-              Заявка заполняется по шагам: команда и инициатива, участники, наставники, конкурсные материалы, согласия
-              и проверка. Черновик сохраняется, поэтому заполнение можно прервать и продолжить.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <ActionLink to="/apply">Перейти к заявке</ActionLink>
-              <ActionLink to="/participants" variant="secondary">
-                Как участвовать
-              </ActionLink>
+      {/* Подать заявку: тёмный блок прежнего сайта. */}
+      <section className="block apply" id="apply">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Подать заявку)</div>
+          <div className="apply-grid">
+            <div className="apply-info reveal is-in">
+              <h2>
+                Подать
+                <br />
+                <span className="red">заявку</span>
+              </h2>
+              <p>
+                Заявка заполняется на сайте по шагам: команда и инициатива, участники, наставники, конкурсные материалы и
+                согласия. Черновик сохраняется — заполнение можно прервать и продолжить.
+              </p>
+              <span className="badge mono">{deadlineLabel}</span>
             </div>
-            <ul className="mt-2 flex flex-col gap-2 text-sm">
-              <li>
-                Требования к участникам и состав команды —{' '}
-                <Link to="/participants/requirements" className="underline underline-offset-2">
-                  раздел «Участникам»
-                </Link>
-              </li>
-              <li>
-                Состав конкурсных материалов по этапам —{' '}
-                <Link to="/participants/materials" className="underline underline-offset-2">
-                  требования к материалам
-                </Link>
-              </li>
-              <li>
-                Вопросы Оргкомитету —{' '}
-                <Link to="/contacts" className="underline underline-offset-2">
-                  контакты и форма обращения
-                </Link>
-              </li>
-            </ul>
+            <div className="reveal is-in">
+              <Link to="/apply" className="cta-big">
+                Заполнить
+                <sup>↗</sup>
+              </Link>
+              <ul className="apply-list">
+                <li>
+                  <Link to="/participants/requirements">Требования к участникам</Link>
+                </li>
+                <li>
+                  <Link to="/participants/materials">Конкурсные материалы</Link>
+                </li>
+                <li>
+                  <Link to="/about/regulations">Положение и приложения</Link>
+                </li>
+                <li>
+                  <Link to="/about/faq">Частые вопросы</Link>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
-    </main>
+
+      {/* Мастер-классы: добавляются, когда Оргкомитет публикует анонсы. */}
+      {announced.length > 0 ? (
+        <section className="block">
+          <div className="wrap">
+            <div className="sec-label mono reveal is-in">(Мастер-классы / для финалистов)</div>
+            <div className="benefits-grid reveal is-in">
+              {announced.map((item) => (
+                <article key={item.id} className="bcard">
+                  <h3>{item.title}</h3>
+                  <p>
+                    {item.speaker}
+                    <br />
+                    {formatMoscowHuman(item.starts_at)}
+                  </p>
+                  <Link to={`/masterclasses/${item.slug ?? `masterclass-${item.id}`}`}>Подробнее →</Link>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Вопросы и ответы. */}
+      <section className="block" id="faq">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Вопросы и ответы)</div>
+          <div className="faq-shell">
+            <div className="faq-head reveal is-in">
+              <h2>
+                Вопросы
+                <br />и ответы
+              </h2>
+            </div>
+            <div className="faq-list reveal is-in">
+              {FAQ.map((item, index) => (
+                <FaqRow key={item.question} item={item} index={index} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Финальный призыв. */}
+      <section className="cta" id="cta">
+        <div className="wrap">
+          <div className="sec-label mono reveal is-in">(Подать заявку)</div>
+          <Link to="/apply" className="cta-big reveal is-in">
+            Стать
+            <br />
+            лидером
+            <sup>↗</sup>
+          </Link>
+        </div>
+      </section>
+    </>
   );
 }

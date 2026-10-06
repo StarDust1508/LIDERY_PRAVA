@@ -6,6 +6,9 @@ import { createRoot } from 'react-dom/client';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/index.css';
+// Оформление прежнего сайта конкурса (перенесено скриптом build-site-css.mjs).
+// Идёт последним: правила ограничены областью .site и описывают публичную часть.
+import './site/site.css';
 
 import { App } from './app/App';
 
