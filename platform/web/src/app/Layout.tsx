@@ -163,7 +163,11 @@ export function Layout() {
   return (
     <BreadcrumbsProvider>
       <div className="site">
-        <a href="#main" className="sr-only-text no-print">
+        {/* Ссылка «к содержанию»: видна только при переходе с клавиатуры. */}
+        <a
+          href="#main"
+          className="no-print sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-accent focus:bg-raised focus:px-4 focus:py-2"
+        >
           Перейти к содержанию
         </a>
 
