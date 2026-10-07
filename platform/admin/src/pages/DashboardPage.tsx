@@ -238,14 +238,16 @@ export function DashboardPage() {
           >
             <ul className="grid gap-4 md:grid-cols-2">
               <li>
+                {/* Переход сразу в отфильтрованный список (ТЗ 07, п. 1.7):
+                    счётчик без фильтра заставлял искать очередь вручную. */}
                 <Link
-                  to="/applications"
+                  to="/applications?tech_status_filter=pending&remarks=any"
                   className="flex h-full flex-col gap-1 border border-border px-5 py-4 hover:border-accent"
                 >
                   <span className="mono-label text-muted">Необработанные заявки</span>
                   <span className="text-h3 font-semibold">{attention.applications_pending}</span>
                   <span className="text-sm text-muted">
-                    Ожидают технической проверки и находятся в работе. Фильтр по статусу выбирается в разделе «Заявки».
+                    Ожидают технической проверки и находятся в работе — открывается список с этим фильтром.
                   </span>
                 </Link>
               </li>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import {
   AdminApiError,
@@ -18,7 +19,10 @@ import { saveBlob } from '../lib/download';
 export function ApplicationsPage() {
   const [rows, setRows] = useState<AdminApplicationRow[]>([]);
   const [search, setSearch] = useState('');
-  const [techStatus, setTechStatus] = useState('');
+  // Статус проверки приходит из адреса: со сводки счётчик ведёт сразу в
+  // отфильтрованный список (ТЗ 07, п. 1.7), а ссылку можно переслать.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [techStatus, setTechStatus] = useState(searchParams.get('tech_status_filter') ?? '');
   // Фильтры приёмной кампании (ТЗ 07, п. 2.2): сезон, направление, источник,
   // период подачи и наличие замечаний. Раньше был только статус проверки.
   const [seasonId, setSeasonId] = useState('');
@@ -226,6 +230,13 @@ export function ApplicationsPage() {
           className="grid gap-4 md:grid-cols-[2fr,1fr,auto]"
           onSubmit={(event) => {
             event.preventDefault();
+            // Ссылка на отфильтрованный список должна оставаться рабочей:
+            // фильтр по статусу сохраняется в адресе.
+            const next = new URLSearchParams(searchParams);
+            if (techStatus === '') next.delete('tech_status_filter');
+            else next.set('tech_status_filter', techStatus);
+            next.delete('remarks');
+            setSearchParams(next, { replace: true });
             void load();
           }}
         >
