@@ -1190,6 +1190,77 @@ print('ok' if not any(i.get('title') == 'Приёмочный отменённы
 " 2>/dev/null || echo error)
 [ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
+# ── Авторы инициативы и массовый импорт (ТЗ 07, п. 2.14а) ───────────────────
+step "Авторы инициативы и импорт архива"
+
+AUTHOR_INIT=$(psql_db "SELECT id FROM liders.initiatives ORDER BY id LIMIT 1")
+expect "автор добавляется в карточку" 201 -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/${AUTHOR_INIT}/authors" \
+    -H 'Content-Type: application/json' \
+    -d '{"full_name":"Приёмочный Автор Тестович","organization":"СГЮА","region":"Саратовская область","is_published":false}'
+AUTHOR_ID=$(python3 -c "import json;d=json.load(open('$BODY'));print(d.get('id',''))" 2>/dev/null || echo '')
+expect "автор без согласия скрыт" 200 -H "$AUTH" -X PATCH "${BASE}/api/admin/initiatives/${AUTHOR_INIT}/authors/${AUTHOR_ID}" \
+    -H 'Content-Type: application/json' -d '{"is_published":true}'
+AUTHOR_LIST=$(curl -s -H "$AUTH" "${BASE}/api/admin/initiatives/${AUTHOR_INIT}/authors" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data', d) if isinstance(d, dict) else d
+flag = next((row.get('is_published') for row in rows if str(row.get('id')) == '${AUTHOR_ID}'), None)
+print('ok' if flag is True else 'no')
+" 2>/dev/null || echo error)
+[ "$AUTHOR_LIST" = "ok" ] && ok "отметка публикации автора сохранена" || bad "отметка автора не сохранилась: $AUTHOR_LIST"
+expect "автор удаляется" 200 -H "$AUTH" -X DELETE "${BASE}/api/admin/initiatives/${AUTHOR_INIT}/authors/${AUTHOR_ID}"
+
+# Импорт: предпросмотр CSV и XLSX, затем запись.
+printf 'Название;Команда;Год;Уровень акта;Место;Аннотация\nПриёмочная работа импорта;Приёмочная команда;2024;federal;3;Проверка импорта\nРабота без года;Вторая команда;неверный;regional;1;Проверка ошибки\n' > /tmp/lp_acc_import.csv
+expect "предпросмотр CSV проходит" 200 -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/import/preview" \
+    -F "file=@/tmp/lp_acc_import.csv;type=text/csv"
+IMPORT_PREVIEW=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+rows = d.get('rows') or []
+with_errors = [r for r in rows if r.get('errors')]
+print('ok' if d.get('total') == 2 and len(with_errors) == 1 and d.get('ready') == 1 else 'no')
+" 2>/dev/null || echo error)
+[ "$IMPORT_PREVIEW" = "ok" ] && ok "предпросмотр распознал строки и ошибку в году" || bad "предпросмотр: $IMPORT_PREVIEW"
+
+# Предпросмотр ничего не записывает в базу.
+IMPORTED_BEFORE=$(psql_db "SELECT count(*) FROM liders.initiatives WHERE title='Приёмочная работа импорта'")
+[ "${IMPORTED_BEFORE:-1}" = "0" ] && ok "предпросмотр не меняет архив" || bad "предпросмотр записал данные: ${IMPORTED_BEFORE}"
+
+IMPORT_ROWS=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+rows = [{'row': r['row'], 'values': r['values']} for r in (d.get('rows') or []) if r.get('values', {}).get('title')]
+print(json.dumps({'rows': rows}, ensure_ascii=False))
+" 2>/dev/null || echo '{"rows":[]}')
+curl -s -o "$BODY" -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/import" -H 'Content-Type: application/json' -d "$IMPORT_ROWS" >/dev/null
+unwrap_body "$BODY"
+IMPORTED_CREATED=$(psql_db "SELECT count(*) FROM liders.initiatives WHERE title='Приёмочная работа импорта' AND is_published = FALSE")
+[ "${IMPORTED_CREATED:-0}" = "1" ] && ok "импорт создал работу (непубликованной)" || bad "импорт не создал работу: ${IMPORTED_CREATED}"
+IMPORT_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='initiatives_import'")
+[ "${IMPORT_LOGGED:-0}" -ge 1 ] && ok "импорт записан в журнал" || bad "импорт не попал в журнал"
+
+# XLSX: файл собирается системной выгрузкой (проверяется и сборка, и разбор).
+# Прогон самодостаточен: файл создаётся здесь, а не берётся из окружения.
+if (cd "$SERVER_DIR" && node --import tsx -e "
+import { writeFileSync } from 'node:fs';
+import { buildXlsx } from '${ROOT}/platform/shared/src/xlsx.ts';
+const bytes = buildXlsx('Импорт', ['Название','Команда','Год','Уровень акта','Место'], [['Работа из XLSX','Команда XLSX','2025','regional','2']]);
+writeFileSync('/tmp/lp_acc_import.xlsx', bytes);
+") >/dev/null 2>&1 && [ -s /tmp/lp_acc_import.xlsx ]; then
+    ok "файл XLSX для проверки собран системной выгрузкой"
+else
+    bad "файл XLSX для проверки не собран"
+fi
+expect "предпросмотр XLSX проходит" 200 -H "$AUTH" -X POST "${BASE}/api/admin/initiatives/import/preview" \
+    -F "file=@/tmp/lp_acc_import.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSX_ROWS=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+print(d.get('format'), d.get('total'), (d.get('rows') or [{}])[0].get('values', {}).get('title'))
+" 2>/dev/null || echo 'error')
+[ "${XLSX_ROWS%% *}" = "xlsx" ] && ok "XLSX распознан: ${XLSX_ROWS}" || bad "XLSX не распознан: $XLSX_ROWS"
+
 # ── Бланки согласий, ответы на обращения, фильтры архива (ТЗ 06–07) ─────────
 step "Бланки согласий, ответ на обращение, фильтры архива и настройки"
 

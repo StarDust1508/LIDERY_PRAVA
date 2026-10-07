@@ -17,6 +17,8 @@ import { EvaluationPage } from '../pages/EvaluationPage';
 import { LeadsPage } from '../pages/LeadsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MaterialsPage } from '../pages/MaterialsPage';
+import { InitiativeAuthorsPage } from '../pages/InitiativeAuthorsPage';
+import { InitiativesImportPage } from '../pages/InitiativesImportPage';
 import { RankingsPage } from '../pages/RankingsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
@@ -84,6 +86,8 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { to: '/documents', title: 'Документы' },
       { to: '/winners', title: 'Победители' },
       { to: '/initiatives', title: 'Архив законопроектов' },
+      { to: '/initiative-authors', title: 'Авторы инициатив' },
+      { to: '/initiatives-import', title: 'Импорт архива', adminOnly: true },
       { to: '/pages', title: 'Страницы сайта', adminOnly: true },
       { to: '/partners', title: 'Партнёры' },
     ],
@@ -335,6 +339,8 @@ function AdminShell() {
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/evaluation" element={<EvaluationPage />} />
             <Route path="/evaluation/:teamId" element={<EvaluationPage />} />
+            <Route path="/initiative-authors" element={<InitiativeAuthorsPage />} />
+            <Route path="/initiatives-import" element={<InitiativesImportPage />} />
             <Route path="/rankings" element={<RankingsPage canPublish={isAdmin} />} />
             <Route path="/appeals" element={<AppealsPage />} />
             <Route path="/leads" element={<LeadsPage />} />

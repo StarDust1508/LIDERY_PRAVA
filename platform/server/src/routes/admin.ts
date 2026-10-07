@@ -6,6 +6,7 @@ import { toCsv } from '../lib/csv.js';
 import { MAX_FILE_SIZE, PUBLIC_BASE_URL } from '../config.js';
 import { hasValidSignature, sanitizeFileName } from '../lib/media-content.js';
 import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
+import { parseTableFile } from '../lib/tabular.js';
 import { generateExpertToken, hashExpertToken } from './expert.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
 import { writeAudit } from '../lib/audit.js';
@@ -3040,6 +3041,277 @@ router.get(
         appeals_open: 0,
         leads_new: 0,
       },
+    });
+  })
+);
+
+// ─── Массовый импорт архива инициатив (ТЗ 07, п. 2.14а) ─────────────────────
+//
+// Импорт идёт в два шага: сначала предпросмотр (что распознано, что не так),
+// затем запись. Оргкомитет загружает выгрузку прошлых сезонов и видит результат
+// до того, как данные попадут в архив.
+
+/** Поля, которые принимаются из таблицы. Заголовки ищутся по-русски и по-английски. */
+const IMPORT_COLUMNS: Record<string, string[]> = {
+  title: ['название', 'наименование', 'title', 'инициатива'],
+  team_name: ['команда', 'team', 'team_name'],
+  archive_year: ['год', 'год архива', 'archive_year', 'year'],
+  act_level: ['уровень акта', 'уровень', 'act_level'],
+  result_place: ['место', 'результат', 'result_place'],
+  nomination: ['номинация', 'nomination'],
+  annotation: ['аннотация', 'annotation', 'описание'],
+  proposed_initiator: ['субъект инициативы', 'proposed_initiator', 'инициатор'],
+  direction: ['направление', 'direction'],
+};
+
+/** Целое из значения таблицы: пустое и null остаются null, а не превращаются в 0. */
+function importInt(value: unknown, max = 100000): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > max) return null;
+  return parsed;
+}
+
+function normalizeHeader(value: string): string {
+  return value.trim().toLowerCase().replace(/ё/g, 'е');
+}
+
+/** Сопоставляет колонки файла с полями инициативы. */
+function mapImportColumns(headers: string[]): Record<string, number> {
+  const mapping: Record<string, number> = {};
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeader(header);
+    for (const [field, aliases] of Object.entries(IMPORT_COLUMNS)) {
+      if (mapping[field] !== undefined) continue;
+      if (aliases.some((alias) => normalizeHeader(alias) === normalized)) {
+        mapping[field] = index;
+        return;
+      }
+    }
+  });
+  return mapping;
+}
+
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+}).single('file');
+
+// POST /api/admin/initiatives/import/preview — разбор файла без записи в базу.
+router.post(
+  '/initiatives/import/preview',
+  requireAdminRole('admin'),
+  importUpload,
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Приложите файл CSV или XLSX' });
+      return;
+    }
+
+    let table;
+    try {
+      table = parseTableFile(file.buffer, file.originalname);
+    } catch (error) {
+      res.status(400).json({ error: `Не удалось прочитать файл: ${(error as Error).message}` });
+      return;
+    }
+
+    const mapping = mapImportColumns(table.headers);
+    if (mapping.title === undefined) {
+      res.status(400).json({
+        error:
+          'В файле не найдена колонка с названием инициативы. Ожидаются заголовки: ' +
+          '«Название», «Команда», «Год», «Уровень акта», «Место», «Номинация», «Аннотация», «Направление».',
+        headers: table.headers,
+      });
+      return;
+    }
+
+    const directions = await query('SELECT id, title FROM directions');
+    const directionByName = new Map(
+      directions.rows.map((row) => [normalizeHeader(String(row.title)), Number(row.id)])
+    );
+    const seasons = await query('SELECT id, year FROM seasons');
+    const seasonByYear = new Map(seasons.rows.map((row) => [Number(row.year), Number(row.id)]));
+    const existing = await query('SELECT title, archive_year FROM initiatives');
+    const existingKeys = new Set(
+      existing.rows.map((row) => `${normalizeHeader(String(row.title))}|${row.archive_year ?? ''}`)
+    );
+
+    const cell = (row: string[], field: string): string => {
+      const index = mapping[field];
+      return index === undefined ? '' : (row[index] ?? '').trim();
+    };
+
+    const rows = table.rows.map((row, index) => {
+      const errors: string[] = [];
+      const title = cell(row, 'title');
+      if (title.length < 3) errors.push('Не указано название инициативы');
+
+      const yearRaw = cell(row, 'archive_year');
+      const year = yearRaw === '' ? null : Number.parseInt(yearRaw, 10);
+      if (yearRaw !== '' && (!Number.isInteger(year) || Number(year) < 2017 || Number(year) > 2100)) {
+        errors.push(`Некорректный год: ${yearRaw}`);
+      }
+
+      const placeRaw = cell(row, 'result_place');
+      const place = placeRaw === '' ? null : Number.parseInt(placeRaw, 10);
+      if (placeRaw !== '' && (!Number.isInteger(place) || Number(place) < 1 || Number(place) > 100)) {
+        errors.push(`Некорректное место: ${placeRaw}`);
+      }
+
+      const directionTitle = cell(row, 'direction');
+      const directionId = directionTitle === '' ? null : directionByName.get(normalizeHeader(directionTitle)) ?? null;
+      if (directionTitle !== '' && directionId === null) {
+        errors.push(`Направление не найдено: ${directionTitle}`);
+      }
+
+      const seasonId = year !== null ? seasonByYear.get(year) ?? null : null;
+      const isDuplicate = title !== '' && existingKeys.has(`${normalizeHeader(title)}|${year ?? ''}`);
+      if (isDuplicate) errors.push('Такая инициатива уже есть в архиве — строка будет обновлена');
+
+      return {
+        row: index + 2,
+        values: {
+          title,
+          team_name: cell(row, 'team_name') || null,
+          archive_year: year,
+          act_level: cell(row, 'act_level') || null,
+          result_place: place,
+          nomination: cell(row, 'nomination') || null,
+          annotation: cell(row, 'annotation') || null,
+          proposed_initiator: cell(row, 'proposed_initiator') || null,
+          direction_id: directionId,
+          season_id: seasonId,
+        },
+        errors,
+        is_duplicate: isDuplicate,
+      };
+    });
+
+    res.json({
+      format: table.format,
+      file_name: file.originalname,
+      headers: table.headers,
+      mapping,
+      total: rows.length,
+      ready: rows.filter((row) => row.errors.length === 0).length,
+      // Предупреждения о дублях не мешают записи: строка обновит существующую.
+      blocked: rows.filter((row) => row.errors.some((error) => !error.startsWith('Такая инициатива'))).length,
+      rows,
+    });
+  })
+);
+
+// POST /api/admin/initiatives/import — запись подготовленных строк.
+router.post(
+  '/initiatives/import',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    if (rows.length === 0) {
+      res.status(400).json({ error: 'Передайте строки для импорта' });
+      return;
+    }
+
+    // Сезон обязателен для инициативы: если год из файла не совпал ни с одним
+    // сезоном, работа привязывается к активному — иначе строка не запишется.
+    const activeSeason = await query('SELECT id FROM seasons WHERE is_active = TRUE ORDER BY id LIMIT 1');
+    const activeSeasonId = activeSeason.rows[0]?.id === undefined ? null : Number(activeSeason.rows[0].id);
+
+    let created = 0;
+    let updated = 0;
+    const skipped: number[] = [];
+
+    for (const raw of rows) {
+      const item = raw as Record<string, unknown>;
+      const rowNumber = Number(item.row ?? 0);
+      const values = (item.values ?? {}) as Record<string, unknown>;
+      const title = optionalText(values.title, 300);
+      if (!title) {
+        skipped.push(rowNumber);
+        continue;
+      }
+
+      const year = Number.isInteger(Number(values.archive_year)) ? Number(values.archive_year) : null;
+      const existing = await query(
+        `SELECT id FROM initiatives
+          WHERE lower(title) = lower($1) AND COALESCE(archive_year, 0) = COALESCE($2, 0)
+          LIMIT 1`,
+        [title, year]
+      );
+
+      if (existing.rows.length > 0) {
+        await query(
+          `UPDATE initiatives
+              SET team_name = COALESCE($1, team_name),
+                  annotation = COALESCE($2, annotation),
+                  act_level = COALESCE($3, act_level),
+                  result_place = COALESCE($4, result_place),
+                  nomination = COALESCE($5, nomination),
+                  proposed_initiator = COALESCE($6, proposed_initiator),
+                  direction_id = COALESCE($7, direction_id),
+                  season_id = COALESCE($8, season_id),
+                  updated_at = now()
+            WHERE id = $9`,
+          [
+            optionalText(values.team_name, 200),
+            optionalText(values.annotation, 1000),
+            optionalText(values.act_level, 32),
+            importInt(values.result_place, 100),
+            optionalText(values.nomination, 200),
+            optionalText(values.proposed_initiator, 300),
+            importInt(values.direction_id),
+            importInt(values.season_id),
+            existing.rows[0].id,
+          ]
+        );
+        updated += 1;
+        continue;
+      }
+
+      const slug = await uniqueSlug(slugify(title), async (candidate) => {
+        const clash = await query('SELECT 1 FROM initiatives WHERE slug = $1 LIMIT 1', [candidate]);
+        return clash.rows.length > 0;
+      });
+
+      await query(
+        `INSERT INTO initiatives
+           (season_id, direction_id, slug, title, annotation, act_level, proposed_initiator,
+            team_name, result_place, nomination, archive_year, is_published)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE)`,
+        [
+          importInt(values.season_id) ?? activeSeasonId,
+          importInt(values.direction_id),
+          slug,
+          title,
+          optionalText(values.annotation, 1000),
+          optionalText(values.act_level, 32),
+          optionalText(values.proposed_initiator, 300),
+          optionalText(values.team_name, 200),
+          Number.isInteger(Number(values.result_place)) ? Number(values.result_place) : null,
+          optionalText(values.nomination, 200),
+          year,
+        ]
+      );
+      created += 1;
+    }
+
+    await writeAudit({
+      action: 'initiatives_import',
+      entity: 'initiatives',
+      after: { created, updated, skipped: skipped.length },
+      req,
+    });
+
+    res.json({
+      success: true,
+      created,
+      updated,
+      skipped,
+      note: 'Импортированные инициативы не публикуются автоматически: решение о публикации принимает Оргкомитет.',
     });
   })
 );

@@ -385,6 +385,81 @@ export const adminApi = {
     return response.blob();
   },
 
+  /** Предпросмотр массового импорта архива (ТЗ 07, п. 2.14а). */
+  previewInitiativesImport: async (file: File): Promise<{
+    format: string;
+    file_name: string;
+    headers: string[];
+    total: number;
+    ready: number;
+    blocked: number;
+    rows: Array<{ row: number; values: Record<string, unknown>; errors: string[]; is_duplicate: boolean }>;
+  }> => {
+    const token = getAdminToken();
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch('/api/admin/initiatives/import/preview', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const raw = await response.text();
+    let payload: unknown = {};
+    if (raw !== '') {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = {};
+      }
+    }
+    if (!response.ok) throwAdminError(response.status, payload);
+    return unwrapEnvelope(payload);
+  },
+
+  /** Запись подготовленных строк импорта. */
+  applyInitiativesImport: (rows: Array<{ row: number; values: Record<string, unknown> }>) =>
+    adminRequest<{ success: boolean; created: number; updated: number; skipped: number[]; note: string }>(
+      '/api/admin/initiatives/import',
+      { method: 'POST', body: JSON.stringify({ rows }) }
+    ),
+
+  /** Авторы инициативы (ТЗ 07, п. 2.14а): публикуются выборочно, по согласию. */
+  initiativeAuthors: (initiativeId: number) =>
+    adminRequest<
+      Array<{
+        id: number;
+        full_name: string;
+        organization: string | null;
+        region: string | null;
+        is_published: boolean;
+        sort_order: number;
+      }>
+    >(`/api/admin/initiatives/${initiativeId}/authors`),
+
+  addInitiativeAuthor: (
+    initiativeId: number,
+    payload: { full_name: string; organization?: string | null; region?: string | null; is_published?: boolean; sort_order?: number }
+  ) =>
+    adminRequest<{ id: number; full_name: string }>(`/api/admin/initiatives/${initiativeId}/authors`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateInitiativeAuthor: (
+    initiativeId: number,
+    authorId: number,
+    payload: { full_name?: string; organization?: string | null; region?: string | null; is_published?: boolean; sort_order?: number }
+  ) =>
+    adminRequest<{ id: number }>(`/api/admin/initiatives/${initiativeId}/authors/${authorId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteInitiativeAuthor: (initiativeId: number, authorId: number) =>
+    adminRequest<{ success: boolean }>(`/api/admin/initiatives/${initiativeId}/authors/${authorId}`, {
+      method: 'DELETE',
+    }),
+
   /** Матрица «команда × эксперт» с прогрессом заполнения (ТЗ 07, п. 2.7). */
   evaluationMatrix: (seasonId: number, stage: string) =>
     adminRequest<{
