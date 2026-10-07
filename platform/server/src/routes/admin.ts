@@ -3590,7 +3590,7 @@ router.use(
       // редактируется: от него считается порядок и ссылки в sitemap.
     ],
     orderBy: 'archive_year DESC NULLS LAST, sort_order, title',
-    filters: ['slug', 'act_level'],
+    filters: ['slug', 'act_level', 'season_id', 'direction_id', 'is_published', 'archive_year'],
     searchFields: ['title', 'team_name', 'annotation'],
   })
 );
@@ -3761,6 +3761,23 @@ router.post(
       return;
     }
 
+    // Предупреждения, а не отказ: без согласия автора работа публикуется
+    // обезличенно, без лицензии — без файлов. Оргкомитет должен видеть это до
+    // решения, а не узнавать из жалобы (ТЗ 07, п. 2.14а; Приложение № 12).
+    const flags = await query(
+      'SELECT authors_public, files_public FROM initiatives WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    const warnings: string[] = [];
+    if (publish) {
+      if (flags.rows[0]?.authors_public !== true) {
+        warnings.push('Авторы будут опубликованы обезличенно: нет согласия по Приложению № 12.');
+      }
+      if (flags.rows[0]?.files_public !== true) {
+        warnings.push('Файлы работы не публикуются: нет лицензии на использование материалов (Приложение № 13).');
+      }
+    }
+
     const result = await query(
       `UPDATE initiatives
           SET is_published = $1,
@@ -3770,7 +3787,61 @@ router.post(
         RETURNING id, is_published, published_at`,
       [publish, id]
     );
-    res.json(result.rows[0]);
+    res.json({ ...result.rows[0], warnings });
+  })
+);
+
+// POST /api/admin/leads/:id/respond — ответ на обращение (ТЗ 07, п. 2.15).
+//
+// Письмо не отправляется: почтовый транспорт не выбран (решение Р7, вопрос
+// В4/Т2). Ответ фиксируется в карточке обращения с автором и временем, а текст
+// можно согласовать заранее по шаблонам из настроек — когда транспорт появится,
+// отправка включится без переписывания данных.
+router.post(
+  '/leads/:id/respond',
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор обращения' });
+      return;
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const text = requiredText(body.response_text ?? body.text, 5000);
+    if (!text) {
+      res.status(400).json({ error: 'Укажите текст ответа' });
+      return;
+    }
+
+    const existing = await query('SELECT id, status FROM leads WHERE id = $1 LIMIT 1', [id]);
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: 'Обращение не найдено' });
+      return;
+    }
+
+    const updated = await query(
+      `UPDATE leads
+          SET response_text = $1, responded_at = now(), responded_by = $2,
+              status = 'answered', updated_at = now()
+        WHERE id = $3
+        RETURNING id, status, response_text, responded_at, responded_by`,
+      [text, adminUserId(req), id]
+    );
+
+    await writeAudit({
+      action: 'lead_answered',
+      entity: 'leads',
+      entityId: id,
+      before: { status: existing.rows[0].status },
+      after: { status: 'answered' },
+      req,
+    });
+
+    res.json({
+      ...updated.rows[0],
+      delivery: 'recorded',
+      delivery_note:
+        'Ответ сохранён в карточке обращения. Отправка письмом включится вместе с почтовым транспортом — текст уже готов к отправке.',
+    });
   })
 );
 

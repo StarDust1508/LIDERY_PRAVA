@@ -57,6 +57,18 @@ export interface ResourceConfig {
   orderHint?: string;
 }
 
+/** Годы архива: с первого сезона до текущего. */
+const ARCHIVE_YEARS = Array.from({ length: 12 }, (_, index) => {
+  const year = 2017 + index;
+  return { value: String(year), title: String(year) };
+});
+
+/** Состояние публикации: опубликовано или нет. */
+const PUBLICATION_STATES = [
+  { value: 'true', title: 'Опубликовано' },
+  { value: 'false', title: 'Не опубликовано' },
+];
+
 const ACT_LEVELS = [
   { value: 'federal', title: 'Федеральный закон' },
   { value: 'regional', title: 'Закон субъекта Российской Федерации' },
@@ -436,8 +448,12 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'is_published', title: 'Опубликовано', type: 'bool', inList: true },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
     ],
+    // Фильтры архива (ТЗ 07, п. 2.14а): сезон, направление, год, уровень акта и
+    // состояние публикации — иначе в архиве за несколько сезонов не разобраться.
     filters: [
       { name: 'act_level', title: 'Уровень акта', options: ACT_LEVELS },
+      { name: 'archive_year', title: 'Год архива', options: ARCHIVE_YEARS },
+      { name: 'is_published', title: 'Публикация', options: PUBLICATION_STATES },
     ],
     searchable: true,
     emptyText: 'Архив пуст. Инициативы попадают сюда после решения Оргкомитета о публикации.',

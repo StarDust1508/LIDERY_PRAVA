@@ -2,7 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer from 'multer';
 import { MAX_FILE_SIZE } from '../config.js';
 import { query, withTransaction } from '../db.js';
-import { asyncHandler, parsePositiveInt } from '../lib/http.js';
+import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import {
   MATERIAL_URL_POLICY_MESSAGE,
   isAllowedMaterialUrl,
@@ -14,6 +14,7 @@ import {
   type SubmissionContext,
 } from '../lib/application-submission.js';
 import { buildApplicationFormDocx, loadApplicationFormData } from '../lib/application-form.js';
+import { buildConsentDocx, isConsentKind } from '../lib/consent-forms.js';
 import { clearTeamSessionCookie } from '../lib/team-session.js';
 import { convertDocxToPdf } from '../lib/docx-to-pdf.js';
 import {
@@ -1527,6 +1528,82 @@ router.get(
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
     res.setHeader('Content-Disposition', `attachment; filename="zayavka-${data.application.public_number ?? 'lidery-prava'}.docx"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.send(buffer);
+  })
+);
+
+// GET /api/cabinet/consent-form.docx?kind=… — бланк согласия для архива команды
+// (ТЗ 06, п. 1.3). Доступен после отправки заявки: до этого согласия ещё не
+// даны, и бланк не имеет смысла.
+router.get(
+  '/consent-form.docx',
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const kind = queryString(req.query.kind);
+    if (!isConsentKind(kind)) {
+      res.status(400).json({
+        error: 'Укажите вид согласия: pdn (№ 10), distribution (№ 12), legal_representative (№ 11), media (№ 13).',
+      });
+      return;
+    }
+
+    const data = await loadApplicationFormData(context.teamId);
+    if (!data) {
+      res.status(404).json({ error: 'Заявка не найдена' });
+      return;
+    }
+    if (!data.application.submitted_at) {
+      res.status(409).json({
+        error: 'Бланки согласий формируются после отправки заявки: до этого согласия не зафиксированы.',
+      });
+      return;
+    }
+
+    const participantId = parsePositiveInt(queryString(req.query.participant_id));
+    const participant =
+      (participantId !== null
+        ? data.participants.find((row) => Number(row.id) === participantId)
+        : undefined) ?? data.participants[0];
+    if (!participant) {
+      res.status(404).json({ error: 'Участник не найден' });
+      return;
+    }
+
+    const version = await query(
+      `SELECT d.version, d.revision_date
+         FROM documents d
+        WHERE d.is_active = TRUE AND d.type IN ('appendix', 'consent_distribution', 'consent_legal_representative', 'license_terms')
+        ORDER BY d.revision_date DESC
+        LIMIT 1`
+    );
+
+    const buffer = buildConsentDocx(kind, {
+      teamName: String(data.team.name ?? ''),
+      directionTitle: (data.team.direction_title as string | null) ?? null,
+      publicNumber: (data.application.public_number as string | null) ?? null,
+      version: String(version.rows[0]?.version ?? '2026-10-04'),
+      revisionDate: (version.rows[0]?.revision_date as string | null) ?? null,
+      participant: {
+        full_name: String(participant.full_name ?? ''),
+        birth_date: (participant.birth_date as string | null) ?? null,
+        email: (participant.email as string | null) ?? null,
+        phone: (participant.phone as string | null) ?? null,
+        organization: (participant.organization as string | null) ?? null,
+        region: (participant.region as string | null) ?? null,
+        settlement: (participant.settlement as string | null) ?? null,
+        citizenship: (participant.citizenship as string | null) ?? null,
+        is_minor: participant.is_minor === true,
+      },
+    });
+
+    void logAccess(context, req, 'consent_form_downloaded', { kind, participant_id: participant.id });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="soglasie-${kind}-${participant.id}.docx"`);
     res.setHeader('Content-Length', String(buffer.length));
     res.send(buffer);
   })

@@ -1190,6 +1190,64 @@ print('ok' if not any(i.get('title') == 'Приёмочный отменённы
 " 2>/dev/null || echo error)
 [ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
+# ── Бланки согласий, ответы на обращения, фильтры архива (ТЗ 06–07) ─────────
+step "Бланки согласий, ответ на обращение, фильтры архива и настройки"
+
+# Бланк согласия формируется после отправки заявки (ТЗ 06, п. 1.3).
+for kind in pdn distribution legal_representative media; do
+    CODE=$(curl -s -o "/tmp/lp_acc_consent_${kind}.docx" -w '%{http_code}' \
+        -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/consent-form.docx?kind=${kind}")
+    if [ "$CODE" = "200" ] && head -c 2 "/tmp/lp_acc_consent_${kind}.docx" | grep -q 'PK'; then
+        ok "бланк согласия (${kind}) формируется как DOCX"
+    else
+        bad "бланк согласия (${kind}): код ${CODE}"
+    fi
+done
+expect "неизвестный вид согласия отклоняется" 400 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/consent-form.docx?kind=unknown"
+
+# Ответ на обращение (ТЗ 07, п. 2.15): текст сохраняется в карточке.
+LEAD_ID=$(psql_db "SELECT id FROM liders.leads ORDER BY id DESC LIMIT 1")
+expect "ответ без текста отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/leads/${LEAD_ID}/respond" \
+    -H 'Content-Type: application/json' -d '{"response_text":"  "}'
+expect "ответ на обращение сохраняется" 200 -H "$AUTH" -X POST "${BASE}/api/admin/leads/${LEAD_ID}/respond" \
+    -H 'Content-Type: application/json' -d '{"response_text":"Приёмочный ответ: заявка проверена, материалы приняты."}'
+LEAD_STATE=$(psql_db "SELECT status || ':' || COALESCE(responded_by::text, '') FROM liders.leads WHERE id=${LEAD_ID}")
+case "$LEAD_STATE" in
+    answered:*) ok "обращение помечено отвеченным с автором ответа" ;;
+    *) bad "состояние обращения после ответа: ${LEAD_STATE:-?}" ;;
+esac
+LEAD_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='lead_answered'")
+[ "${LEAD_LOGGED:-0}" -ge 1 ] && ok "ответ на обращение записан в журнал" || bad "ответ не попал в журнал"
+
+# Фильтры архива инициатив (ТЗ 07, п. 2.14а).
+expect "фильтр архива по сезону" 200 -H "$AUTH" "${BASE}/api/admin/initiatives?season_id=1"
+expect "фильтр архива по направлению" 200 -H "$AUTH" "${BASE}/api/admin/initiatives?direction_id=${DIRECTION_ID}"
+expect "фильтр архива по публикации" 200 -H "$AUTH" "${BASE}/api/admin/initiatives?is_published=true"
+
+# Предупреждения при публикации без согласия и лицензии (ТЗ 07, п. 2.14а).
+WARN_ID=$(psql_db "SELECT id FROM liders.initiatives ORDER BY id LIMIT 1")
+psql_db "UPDATE liders.initiatives SET is_published = FALSE, authors_public = FALSE, files_public = FALSE WHERE id = ${WARN_ID}" >/dev/null
+expect "публикация без согласия и лицензии проходит с предупреждениями" 200 -H "$AUTH" \
+    -X POST "${BASE}/api/admin/initiatives/${WARN_ID}/publish" -H 'Content-Type: application/json' -d '{"is_published":true}'
+WARN_COUNT=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+print(len(d.get('warnings') or []))
+" 2>/dev/null || echo 0)
+[ "${WARN_COUNT:-0}" -ge 2 ] && ok "предупреждений о публикации: ${WARN_COUNT}" || bad "предупреждений получено: ${WARN_COUNT}"
+
+# Настройки: включатели функций, реквизиты оператора и шаблоны писем (ТЗ 07, п. 2.16).
+expect "настройки отдаются" 200 -H "$AUTH" "${BASE}/api/admin/settings"
+SETTINGS_OK=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+rows = d.get('data', d) if isinstance(d, dict) else d
+keys = {row.get('key') for row in rows} if isinstance(rows, list) else set()
+need = {'features.application_open', 'features.mailing', 'operator.name', 'operator.inn', 'mail.templates.application_received'}
+print('ok' if need <= keys else 'нет: ' + ', '.join(sorted(need - keys)))
+" 2>/dev/null || echo error)
+[ "$SETTINGS_OK" = "ok" ] && ok "в настройках есть включатели, реквизиты и шаблоны писем" || bad "настройки неполны: $SETTINGS_OK"
+
 # ── Матрица оценок, PDF протокола и сводка (ТЗ 07, п. 2.1, 2.7, 2.8) ────────
 step "Матрица «команда × эксперт», протокол этапа и сроки на сводке"
 

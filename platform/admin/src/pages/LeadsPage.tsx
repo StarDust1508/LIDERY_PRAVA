@@ -52,6 +52,9 @@ export function LeadsPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [statusDraft, setStatusDraft] = useState('new');
   const [commentDraft, setCommentDraft] = useState('');
+  // Ответ на обращение (ТЗ 07, п. 2.15): текст фиксируется в карточке, письмо
+  // включится вместе с почтовым транспортом.
+  const [responseDraft, setResponseDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export function LeadsPage() {
     setSelectedId(lead.id);
     setStatusDraft(lead.status);
     setCommentDraft(lead.admin_comment ?? '');
+    setResponseDraft(lead.response_text ?? '');
     setNotice(null);
     setError(null);
   }
@@ -119,6 +123,27 @@ export function LeadsPage() {
       if (status !== '' && status !== statusDraft) setSelectedId(null);
     } catch (caught) {
       setError(explain(caught, 'Не удалось сохранить обращение.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Ответ на обращение: текст ответа сохраняется в карточке (ТЗ 07, п. 2.15). */
+  async function respond(lead: AdminLead) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await adminApi.respondLead(lead.id, responseDraft.trim());
+      setStatusDraft(result.status);
+      setNotice(
+        result.delivery_note ??
+          `Ответ по обращению № ${lead.id} сохранён. Отправка письмом включится вместе с почтовым транспортом.`
+      );
+      await load();
+      if (status !== '' && status !== 'answered') setSelectedId(null);
+    } catch (caught) {
+      setError(explain(caught, 'Не удалось сохранить ответ.'));
     } finally {
       setBusy(false);
     }
@@ -322,9 +347,26 @@ export function LeadsPage() {
               value={commentDraft}
               maxLength={3000}
               onChange={(event) => setCommentDraft(event.target.value)}
-              hint="Служебная запись: что ответили и когда. Участнику не показывается — ответ отправьте письмом."
+              hint="Служебная запись для внутреннего разбора: участнику не показывается."
+            />
+            {/* Ответ на обращение (ТЗ 07, п. 2.15): текст сохраняется в карточке
+                и будет отправлен, когда подключится почтовый транспорт. */}
+            <TextAreaField
+              id="lead-response"
+              label="Ответ участнику"
+              value={responseDraft}
+              maxLength={5000}
+              onChange={(event) => setResponseDraft(event.target.value)}
+              hint="Текст ответа сохраняется в карточке обращения. Отправка письмом включится вместе с почтовым транспортом."
             />
           </div>
+
+          {selected.response_text ? (
+            <p className="mt-3 text-sm text-muted">
+              Ответ записан {selected.responded_at ? formatMoscowHuman(selected.responded_at) : ''}
+              {selected.responded_by ? ` (пользователь № ${selected.responded_by})` : ''}.
+            </p>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button
@@ -339,6 +381,15 @@ export function LeadsPage() {
               onClick={() => void save(selected)}
             >
               Сохранить обращение
+            </Button>
+            <Button
+              type="button"
+              loading={busy}
+              disabled={responseDraft.trim().length < 3}
+              title={responseDraft.trim().length < 3 ? 'Введите текст ответа участнику' : undefined}
+              onClick={() => void respond(selected)}
+            >
+              Сохранить ответ участнику
             </Button>
             <Button
               type="button"

@@ -430,4 +430,34 @@ export const api = {
     }
     return response.blob();
   },
+
+  /**
+   * Бланк согласия для архива команды (ТЗ 06, п. 1.3): Приложения № 10–13.
+   * Доступен после отправки заявки: до неё согласия не зафиксированы.
+   */
+  cabinetConsentForm: async (
+    kind: 'pdn' | 'distribution' | 'legal_representative' | 'media',
+    participantId?: number
+  ): Promise<Blob> => {
+    const params = new URLSearchParams({ kind });
+    if (participantId !== undefined) params.set('participant_id', String(participantId));
+    const response = await fetch(`/api/cabinet/consent-form.docx?${params.toString()}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      let message = 'Не удалось сформировать бланк согласия.';
+      try {
+        const body = (await response.json()) as { error?: unknown };
+        const nested = (typeof body.error === 'object' && body.error !== null ? body.error : {}) as {
+          message?: unknown;
+        };
+        if (typeof body.error === 'string') message = body.error;
+        else if (typeof nested.message === 'string') message = nested.message;
+      } catch {
+        // Ответ без JSON — оставляем сообщение по умолчанию.
+      }
+      throw new ApiError(response.status, message);
+    }
+    return response.blob();
+  },
 };

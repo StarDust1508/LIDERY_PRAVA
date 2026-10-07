@@ -557,6 +557,16 @@ export const adminApi = {
   updateLead: (id: number, payload: { status?: string; admin_comment?: string | null }) =>
     adminRequest<AdminLead>(`/api/admin/leads/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
+  /**
+   * Ответ на обращение (ТЗ 07, п. 2.15). Письмо не отправляется: почтовый
+   * транспорт не выбран, поэтому ответ фиксируется в карточке обращения.
+   */
+  respondLead: (id: number, responseText: string) =>
+    adminRequest<AdminLead & { delivery?: string; delivery_note?: string }>(`/api/admin/leads/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ response_text: responseText }),
+    }),
+
   appeals: (params: { status?: string; stage?: string } = {}) => adminRequest<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
 
   // Поля решения по апелляции: статус, решение, обоснование и ссылка на протокол

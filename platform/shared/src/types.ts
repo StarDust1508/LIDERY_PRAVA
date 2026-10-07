@@ -880,6 +880,10 @@ export interface AdminLead {
   status: string;
   team_id: number | null;
   admin_comment: string | null;
+  /** Текст ответа на обращение и момент ответа (ТЗ 07, п. 2.15). */
+  response_text?: string | null;
+  responded_at?: string | null;
+  responded_by?: number | null;
   created_at: string;
   updated_at: string;
 }

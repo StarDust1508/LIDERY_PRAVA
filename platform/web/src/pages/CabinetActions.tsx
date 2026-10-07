@@ -603,6 +603,7 @@ function CabinetToolbar({
   extra?: ReactNode;
 }) {
   const [formBusy, setFormBusy] = useState<'docx' | 'pdf' | null>(null);
+  const [consentBusy, setConsentBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revokeBusy, setRevokeBusy] = useState(false);
@@ -632,6 +633,20 @@ function CabinetToolbar({
       );
     } finally {
       setFormBusy(null);
+    }
+  }
+
+  /** Бланк согласия для архива: Приложения № 10–13 (ТЗ 06, п. 1.3). */
+  async function downloadConsent(kind: 'pdn' | 'distribution' | 'legal_representative' | 'media') {
+    setFormError(null);
+    setConsentBusy(kind);
+    try {
+      const blob = await api.cabinetConsentForm(kind);
+      saveBlob(blob, `soglasie-${kind}.docx`);
+    } catch (caught) {
+      setFormError(caught instanceof ApiError ? caught.message : 'Не удалось сформировать бланк согласия.');
+    } finally {
+      setConsentBusy(null);
     }
   }
 
@@ -707,6 +722,54 @@ function CabinetToolbar({
           <p className="text-sm text-muted">
             Если на сервере нет LibreOffice, PDF недоступен — появится сообщение выше, скачайте DOCX.
           </p>
+        </div>
+      </section>
+
+      {/* Бланки согласий (Приложения № 10–13): согласия даны электронно, но
+          команда может скачать заполненные бланки для архива или подписания
+          (ТЗ 06, п. 1.3). */}
+      <section className="border border-border bg-surface">
+        <h2 className="mono-label border-b border-border px-5 py-3 text-muted">Бланки согласий</h2>
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <p className="text-sm text-muted">
+            Согласия оформлены электронно при подаче заявки. Бланки заполнены данными участников — их можно
+            скачать для архива или подписать по требованию организации. Для участников младше 18 лет подписанный
+            бланк Приложения&nbsp;№&nbsp;11 загружается сканом.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              loading={consentBusy === 'pdn'}
+              disabled={consentBusy !== null}
+              onClick={() => void downloadConsent('pdn')}
+            >
+              Согласие на обработку (№ 10)
+            </Button>
+            <Button
+              variant="secondary"
+              loading={consentBusy === 'distribution'}
+              disabled={consentBusy !== null}
+              onClick={() => void downloadConsent('distribution')}
+            >
+              Согласие на распространение (№ 12)
+            </Button>
+            <Button
+              variant="secondary"
+              loading={consentBusy === 'legal_representative'}
+              disabled={consentBusy !== null}
+              onClick={() => void downloadConsent('legal_representative')}
+            >
+              Согласие законного представителя (№ 11)
+            </Button>
+            <Button
+              variant="secondary"
+              loading={consentBusy === 'media'}
+              disabled={consentBusy !== null}
+              onClick={() => void downloadConsent('media')}
+            >
+              Изображение и материалы (№ 13)
+            </Button>
+          </div>
         </div>
       </section>
 
