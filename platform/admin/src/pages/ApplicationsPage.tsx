@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AdminApiError,
-  type AdminApplicationRow,
+  TECH_STATUS_TITLES,
   adminApi,
   formatMoscowHuman,
-  TECH_STATUS_TITLES,
   teamStatusTitle,
+  xlsxBlob,
+  type AdminApplicationRow,
 } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, SelectField, TextField } from '@shared/index';
 import { saveBlob } from '../lib/download';
@@ -169,6 +170,31 @@ export function ApplicationsPage() {
     }
   }
 
+  /** Выгрузка списка заявок в XLSX (ТЗ 07, п. 1.8). */
+  function exportXlsx() {
+    const headers = [
+      'Номер заявки',
+      'Команда',
+      'Статус проверки',
+      'Статус команды',
+      'Направление',
+      'Подана',
+      'Участников',
+      'Материалов',
+    ];
+    const data = rows.map((row) => [
+      row.public_number ?? '',
+      row.team_name ?? '',
+      TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status,
+      teamStatusTitle(row.team_status),
+      row.direction_title ?? '',
+      row.submitted_at ? formatMoscowHuman(row.submitted_at) : '',
+      Number(row.participants_count ?? 0),
+      Number(row.materials_count ?? 0),
+    ]);
+    saveBlob(xlsxBlob('Заявки', headers, data), `zayavki-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   const newCount = rows.filter((row) => row.tech_status === 'pending').length;
   const fixCount = rows.filter((row) => row.tech_status === 'fix_required').length;
 
@@ -185,6 +211,9 @@ export function ApplicationsPage() {
             </Button>
             <Button variant="secondary" onClick={() => void exportCsv()} loading={exporting}>
               Выгрузить CSV
+            </Button>
+            <Button variant="secondary" disabled={rows.length === 0} onClick={exportXlsx}>
+              Выгрузить XLSX
             </Button>
           </div>
         }

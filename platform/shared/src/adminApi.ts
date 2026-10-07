@@ -385,6 +385,53 @@ export const adminApi = {
     return response.blob();
   },
 
+  /** Матрица «команда × эксперт» с прогрессом заполнения (ТЗ 07, п. 2.7). */
+  evaluationMatrix: (seasonId: number, stage: string) =>
+    adminRequest<{
+      stage: string;
+      min_evaluations: number;
+      experts: Array<{ id: number; full_name: string; role: string | null }>;
+      rows: Array<{
+        team_id: number;
+        team_name: string;
+        direction_title: string | null;
+        cells: Array<{ expert_id: number; filled: boolean; total_score: string | number | null; is_conflicted: boolean }>;
+        evaluations_count: number;
+        is_ready: boolean;
+      }>;
+    }>(`/api/admin/evaluations/matrix${queryString({ season_id: seasonId, stage })}`),
+
+  /** Загрузка PDF протокола этапа (ТЗ 07, п. 2.8). */
+  uploadRankingsProtocol: async (seasonId: number, stage: string, file: File): Promise<{ file_url: string; rows: number }> => {
+    const token = getAdminToken();
+    const form = new FormData();
+    form.append('season_id', String(seasonId));
+    form.append('stage', stage);
+    form.append('file', file);
+    const response = await fetch('/api/admin/rankings/protocol', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const raw = await response.text();
+    let payload: unknown = {};
+    if (raw !== '') {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = {};
+      }
+    }
+    if (!response.ok) throwAdminError(response.status, payload);
+    return unwrapEnvelope<{ file_url: string; rows: number }>(payload);
+  },
+
+  removeRankingsProtocol: (seasonId: number, stage: string) =>
+    adminRequest<{ success: boolean; updated: number }>(
+      `/api/admin/rankings/protocol${queryString({ season_id: seasonId, stage })}`,
+      { method: 'DELETE' }
+    ),
+
   recalculateRankings: (seasonId: number, stage: string) =>
     adminRequest<{ stage: string; teams: unknown[]; message?: string }>('/api/admin/rankings/recalculate', {
       method: 'POST',

@@ -195,7 +195,40 @@ export function DashboardPage() {
 
       {stats !== null ? (
         <>
-          <SectionCard
+          {(stats?.upcoming_deadlines ?? []).length > 0 || (stats?.appeal_windows ?? []).length > 0 ? (
+        <SectionCard
+          title="Ближайшие сроки"
+          description="Сроки приёма, досдачи по замечаниям, мастер-классы и открытые окна апелляций."
+        >
+          <ul className="flex flex-col gap-2 text-sm">
+            {(stats?.upcoming_deadlines ?? []).map((item) => (
+              <li key={`${item.kind}-${item.title}-${item.at}`} className="flex flex-wrap items-baseline justify-between gap-3">
+                <span>
+                  <span className="mono-label">
+                    {item.kind === 'application_close'
+                      ? 'приём заявок'
+                      : item.kind === 'material_fix'
+                        ? 'досдача'
+                        : 'мастер-класс'}
+                  </span>{' '}
+                  {item.title}
+                </span>
+                <span className="text-muted">{formatMoscowHuman(item.at)}</span>
+              </li>
+            ))}
+            {(stats?.appeal_windows ?? []).map((item) => (
+              <li key={`appeal-${item.stage}-${item.closes_at}`} className="flex flex-wrap items-baseline justify-between gap-3">
+                <span>
+                  <span className="mono-label">апелляции</span> {item.stage} — {item.season_title}
+                </span>
+                <span className="text-muted">до {formatMoscowHuman(item.closes_at)}</span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard
             title="Требует решения"
             description={
               selectedSeason

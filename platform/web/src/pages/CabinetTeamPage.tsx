@@ -412,6 +412,43 @@ function TeamSection({
       ) : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
 
+      {/* Опубликованные результаты: баллы, место и протокол этапа
+          (ТЗ 06, п. 2; ТЗ 07, п. 2.8). Пока протокол не опубликован, блок
+          не показывается — преждевременные цифры вводили бы в заблуждение. */}
+      {(data.team.results ?? []).length > 0 ? (
+        <CabinetSection
+          title="Результаты этапов"
+          description="Баллы и протоколы публикуются после решения Оргкомитета."
+        >
+          <ul className="flex flex-col gap-3 text-sm">
+            {(data.team.results ?? []).map((result) => (
+              <li key={result.stage} className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border pb-3 last:border-b-0">
+                <span>
+                  <span className="mono-label">{result.stage}</span>{' '}
+                  {result.average_score === null ? '' : `средний балл ${Number(result.average_score).toFixed(2)}`}
+                  {result.place ? `, место ${result.place}` : ''}
+                </span>
+                <span className="flex flex-wrap items-center gap-3">
+                  <span className="text-muted">
+                    {result.published_at ? `опубликовано ${formatMoscowHuman(result.published_at)}` : ''}
+                  </span>
+                  {result.protocol_url ? (
+                    <a
+                      className="text-accent underline underline-offset-2"
+                      href={result.protocol_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Протокол этапа (PDF)
+                    </a>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </CabinetSection>
+      ) : null}
+
       <CabinetSection title="Название и направление" description="Так команда указывается в протоколах этапов.">
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField

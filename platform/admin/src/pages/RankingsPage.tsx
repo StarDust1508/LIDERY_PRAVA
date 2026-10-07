@@ -58,6 +58,37 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
     void load();
   }, [load]);
 
+  async function uploadProtocol() {
+    if (!protocolFile || seasonId === '') return;
+    setProtocolBusy(true);
+    setError(null);
+    try {
+      const result = await adminApi.uploadRankingsProtocol(Number(seasonId), stage, protocolFile);
+      setProtocolFile(null);
+      setNotice(`Протокол загружен, записей обновлено: ${result.rows}.`);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось загрузить протокол.');
+    } finally {
+      setProtocolBusy(false);
+    }
+  }
+
+  async function removeProtocol() {
+    if (seasonId === '') return;
+    setProtocolBusy(true);
+    setError(null);
+    try {
+      await adminApi.removeRankingsProtocol(Number(seasonId), stage);
+      setNotice('Протокол убран: ссылка исчезнет из личного кабинета участников.');
+      await load();
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось убрать протокол.');
+    } finally {
+      setProtocolBusy(false);
+    }
+  }
+
   async function run(action: () => Promise<string>) {
     setBusy(true);
     setError(null);
@@ -75,10 +106,17 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
   const teamName = (id: number) => teams.find((team) => team.id === id)?.name ?? `Команда ${id}`;
   const teamStatus = (id: number) => teams.find((team) => team.id === id)?.status ?? '';
   const published = rows.filter((row) => row.is_published).length;
+  const currentProtocolUrl =
+    (rows.find((row) => (row as { protocol_url?: string | null }).protocol_url) as
+      | { protocol_url?: string | null }
+      | undefined)?.protocol_url ?? null;
   // Подтверждение публикации и снятия протокола (ТЗ 07, п. 1.5, 2.8).
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [unpublishReason, setUnpublishReason] = useState('');
+  // PDF протокола этапа (ТЗ 07, п. 2.8): загружается вместе с публикацией.
+  const [protocolFile, setProtocolFile] = useState<File | null>(null);
+  const [protocolBusy, setProtocolBusy] = useState(false);
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-6 py-8">
@@ -212,6 +250,55 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
+
+      <SectionCard
+        title="PDF протокола этапа"
+        description="Протокол публикуется вместе с рейтингом: участники скачивают его из личного кабинета."
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-end">
+          <div className="md:w-96">
+            <label className="mono-label text-muted" htmlFor="protocol-file">
+              Файл протокола (PDF)
+            </label>
+            <input
+              id="protocol-file"
+              type="file"
+              accept="application/pdf"
+              className="mt-2 block w-full border border-border-strong bg-raised px-3 py-2 text-sm"
+              onChange={(event) => setProtocolFile(event.target.files?.[0] ?? null)}
+            />
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <Button
+              type="button"
+              loading={protocolBusy}
+              disabled={protocolFile === null || seasonId === ''}
+              onClick={() => void uploadProtocol()}
+            >
+              Загрузить протокол
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={protocolBusy}
+              disabled={seasonId === '' || currentProtocolUrl === null}
+              onClick={() => void removeProtocol()}
+            >
+              Убрать протокол
+            </Button>
+          </div>
+        </div>
+        {currentProtocolUrl ? (
+          <p className="mt-3 text-sm">
+            Текущий протокол:{' '}
+            <a className="text-accent underline underline-offset-2" href={currentProtocolUrl} target="_blank" rel="noreferrer">
+              открыть PDF
+            </a>
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Протокол этого этапа ещё не загружен.</p>
+        )}
+      </SectionCard>
 
       <SectionCard title="Этап" description={`Записей в рейтинге: ${rows.length}; опубликовано: ${published}.`}>
         <div className="grid gap-4 md:grid-cols-2">

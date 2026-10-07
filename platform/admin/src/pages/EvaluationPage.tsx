@@ -46,6 +46,19 @@ export function EvaluationPage() {
   const [expertAccessDays, setExpertAccessDays] = useState('14');
   const [expertAccessBusy, setExpertAccessBusy] = useState(false);
   const [expertAccessInfo, setExpertAccessInfo] = useState<string | null>(null);
+  // Матрица «команда × эксперт» с прогрессом заполнения (ТЗ 07, п. 2.7).
+  const [matrix, setMatrix] = useState<{
+    experts: Array<{ id: number; full_name: string; role: string | null }>;
+    rows: Array<{
+      team_id: number;
+      team_name: string;
+      direction_title: string | null;
+      cells: Array<{ expert_id: number; filled: boolean; total_score: string | number | null; is_conflicted: boolean }>;
+      evaluations_count: number;
+      is_ready: boolean;
+    }>;
+    min_evaluations: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,15 +67,27 @@ export function EvaluationPage() {
     let active = true;
     void (async () => {
       try {
-        const [criteriaData, expertsData, teamsData] = await Promise.all([
+        const [criteriaData, expertsData, teamsData, seasonsData] = await Promise.all([
           adminApi.criteria(stage),
           adminApi.experts(),
           adminApi.teams(),
+          adminApi.seasons(),
         ]);
         if (!active) return;
         setCriteria(criteriaData);
         setExperts(expertsData.filter((expert) => expert.stage === stage && expert.is_active));
         setTeams(teamsData);
+        // Матрица заполняется по активному сезону: она показывает готовность
+        // этапа к публикации протокола.
+        const activeSeason = seasonsData.find((season) => season.is_active) ?? seasonsData[0];
+        if (activeSeason) {
+          void adminApi
+            .evaluationMatrix(activeSeason.id, stage)
+            .then((data) => {
+              if (active) setMatrix(data);
+            })
+            .catch(() => undefined);
+        }
         setScores((current) => {
           const next = { ...current };
           for (const criterion of criteriaData) {
@@ -207,6 +232,63 @@ export function EvaluationPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
+
+      {matrix && matrix.rows.length > 0 ? (
+        <SectionCard
+          title="Матрица «команда × эксперт»"
+          description={`По каждой работе нужно не менее ${matrix.min_evaluations} оценок. Оценки с конфликтом интересов в подсчёт не входят.`}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
+              <caption className="sr-only-text">Прогресс оценивания работ этапа</caption>
+              <thead>
+                <tr className="border-b border-border-strong text-left">
+                  <th scope="col" className="py-2 pr-4">
+                    Работа
+                  </th>
+                  {matrix.experts.map((expert) => (
+                    <th key={expert.id} scope="col" className="py-2 pr-4">
+                      {expert.full_name}
+                    </th>
+                  ))}
+                  <th scope="col" className="py-2">
+                    Готовность
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.rows.map((row) => (
+                  <tr key={row.team_id} className="border-b border-border align-top">
+                    <td className="py-2 pr-4">
+                      {row.team_name}
+                      {row.direction_title ? <span className="text-muted"> — {row.direction_title}</span> : null}
+                    </td>
+                    {row.cells.map((cell) => (
+                      <td key={`${row.team_id}-${cell.expert_id}`} className="py-2 pr-4">
+                        {cell.filled ? (
+                          <span className={cell.is_conflicted ? 'text-warning' : 'text-success'}>
+                            {cell.is_conflicted
+                              ? 'конфликт интересов'
+                              : `✓ ${Number(cell.total_score ?? 0).toFixed(2)}`}
+                          </span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="py-2">
+                      <span className={row.is_ready ? 'text-success' : 'text-danger'}>
+                        {row.evaluations_count} из {matrix.min_evaluations}
+                        {row.is_ready ? '' : ' — публикация невозможна'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Доступ эксперта к внесению оценок"

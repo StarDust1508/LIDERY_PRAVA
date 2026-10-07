@@ -1190,6 +1190,60 @@ print('ok' if not any(i.get('title') == 'Приёмочный отменённы
 " 2>/dev/null || echo error)
 [ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
+# ── Матрица оценок, PDF протокола и сводка (ТЗ 07, п. 2.1, 2.7, 2.8) ────────
+step "Матрица «команда × эксперт», протокол этапа и сроки на сводке"
+
+expect "матрица оценивания отдаётся" 200 -H "$AUTH" "${BASE}/api/admin/evaluations/matrix?season_id=1&stage=selection"
+MATRIX_OK=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+rows = d.get('rows') or []
+experts = d.get('experts') or []
+ok = bool(rows) and bool(experts) and d.get('min_evaluations') == 3
+cells = all(len(row.get('cells') or []) == len(experts) for row in rows)
+ready = all('is_ready' in row and 'evaluations_count' in row for row in rows)
+print('ok' if ok and cells and ready else 'no')
+" 2>/dev/null || echo error)
+[ "$MATRIX_OK" = "ok" ] && ok "матрица содержит работы, экспертов и готовность" || bad "матрица неполна: $MATRIX_OK"
+
+# Протокол этапа: PDF загружается и становится доступен участникам.
+printf '%%PDF-1.4
+1 0 obj<<>>endobj
+trailer<<>>
+%%%%EOF
+' > /tmp/lp_acc_protocol.pdf
+expect "PDF протокола загружается" 201 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/protocol" \
+    -F "season_id=1" -F "stage=selection" -F "file=@/tmp/lp_acc_protocol.pdf;type=application/pdf"
+PROTOCOL_URL=$(python3 -c "import json;d=json.load(open('$BODY'));print(d.get('file_url',''))" 2>/dev/null || echo '')
+[ -n "$PROTOCOL_URL" ] && ok "в ответе есть ссылка на протокол" || bad "нет ссылки на загруженный протокол"
+# Тип проверяется по содержимому, а не по расширению: magic-байты PDF.
+printf 'not a pdf at all' > /tmp/lp_acc_notpdf.pdf
+expect "файл без сигнатуры PDF отклоняется" 415 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/protocol" \
+    -F "season_id=1" -F "stage=selection" -F "file=@/tmp/lp_acc_notpdf.pdf;type=application/pdf"
+RANKING_PROTOCOL=$(curl -s -H "$AUTH" "${BASE}/api/admin/rankings?season_id=1&stage=selection" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data', d) if isinstance(d, dict) else d
+print('ok' if any(r.get('protocol_url') for r in rows) else 'no')
+" 2>/dev/null || echo error)
+[ "$RANKING_PROTOCOL" = "ok" ] && ok "протокол виден в рейтинге этапа" || bad "протокол не виден в рейтинге: $RANKING_PROTOCOL"
+CABINET_PROTOCOL=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/team" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+d = d.get('data', d) if isinstance(d, dict) and 'data' in d else d
+results = d.get('results') or []
+print('ok' if isinstance(results, list) and all('protocol_url' in r for r in results) else 'no')
+" 2>/dev/null || echo error)
+[ "$CABINET_PROTOCOL" = "ok" ] && ok "кабинет получает результаты с протоколом" || bad "кабинет без результатов: $CABINET_PROTOCOL"
+
+expect "сводка отдаёт ближайшие сроки" 200 -H "$AUTH" "${BASE}/api/admin/stats?season_id=1"
+DEADLINES_OK=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+print('ok' if isinstance(d.get('upcoming_deadlines'), list) and isinstance(d.get('appeal_windows'), list) else 'no')
+" 2>/dev/null || echo error)
+[ "$DEADLINES_OK" = "ok" ] && ok "сводка содержит сроки и окна апелляций" || bad "сводка без сроков: $DEADLINES_OK"
+
 # ── Доступ эксперта к внесению оценок (ТЗ 07, п. 2.5) ───────────────────────
 step "Доступ эксперта: выдача ссылки, работы этапа, оценка"
 

@@ -301,6 +301,17 @@ router.get(
       res.status(404).json({ error: 'Команда не найдена' });
       return;
     }
+    const results = await query(
+      `SELECT stage, place, average_score, is_published, published_at, protocol_note,
+              CASE WHEN protocol_media_id IS NOT NULL
+                   THEN '/api/media/file/' || protocol_media_id::text
+                   ELSE NULL END AS protocol_url
+         FROM rankings
+        WHERE team_id = $1 AND is_published = TRUE
+        ORDER BY stage`,
+      [context.teamId]
+    );
+
     res.json({
       id: bundle.team.id,
       season_id: bundle.team.season_id,
@@ -323,6 +334,9 @@ router.get(
       tech_status: bundle.team.tech_status ?? null,
       participants: bundle.participants,
       mentors: bundle.mentors,
+      // Опубликованные результаты: баллы, место и протокол этапа (ТЗ 06, п. 2;
+      // ТЗ 07, п. 2.8 — протокол публикуется вместе с рейтингом).
+      results: results.rows,
     });
   })
 );

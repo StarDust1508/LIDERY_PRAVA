@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminApiError, adminApi, formatMoscowHuman } from '@shared/index';
+import {
+  AdminApiError,
+  adminApi,
+  formatMoscowHuman,
+  xlsxBlob,
+} from '@shared/index';
 import { Alert, Button, SectionCard, SelectField, TextAreaField, TextField } from '@shared/index';
 import type { ResourceConfig, ResourceField } from '../lib/resources';
+import { saveBlob } from '../lib/download';
 
 // Универсальный экран раздела админки (ТЗ 07, п. 1.4 и 3).
 //
@@ -297,6 +303,13 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   }
 
   /** Выгрузка текущей выборки: те же фильтры, что на экране (ТЗ 07, п. 1.8). */
+  /** Выгрузка в XLSX (ТЗ 07, п. 1.8): тот же список, что и в CSV. */
+  function exportXlsx() {
+    const headers = config.fields.map((field) => field.title);
+    const data = rows.map((row) => config.fields.map((field) => displayValue(row, field)));
+    saveBlob(xlsxBlob(config.title.slice(0, 31), headers, data), `${config.key}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   function exportCsv() {
     const header = config.fields.map((field) => field.title);
     const lines = [header.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(';')];
@@ -397,6 +410,9 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
             </Button>
             <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportCsv}>
               Выгрузить CSV
+            </Button>
+            <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportXlsx}>
+              Выгрузить XLSX
             </Button>
           </div>
         }

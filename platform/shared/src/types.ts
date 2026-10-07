@@ -142,6 +142,16 @@ export interface TeamResponse {
   tech_status: string | null;
   participants: Participant[];
   mentors: Mentor[];
+  /** Опубликованные результаты этапов: баллы, место и протокол (ТЗ 06, п. 2). */
+  results?: Array<{
+    stage: string;
+    place: number | null;
+    average_score: string | number | null;
+    is_published: boolean;
+    published_at: string | null;
+    protocol_note: string | null;
+    protocol_url: string | null;
+  }>;
 }
 
 export interface Material {
@@ -809,6 +819,16 @@ export interface AdminStats {
     appeals_open: number;
     leads_new: number;
   };
+  /** Ближайшие сроки: приём заявок, досдача материалов, мастер-классы (ТЗ 07, п. 2.1). */
+  upcoming_deadlines?: Array<{ kind: string; title: string; at: string }>;
+  /** Открытые окна апелляций: этап и дата закрытия. */
+  appeal_windows?: Array<{
+    season_title: string;
+    stage: string;
+    published_at: string | null;
+    closes_at: string;
+    appeal_window_days: number;
+  }>;
 }
 
 /** Найденный субъект персональных данных (ТЗ 11, п. 6). */

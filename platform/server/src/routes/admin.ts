@@ -1,8 +1,10 @@
 import { Router, type Request, type Response } from 'express';
+import multer from 'multer';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { toCsv } from '../lib/csv.js';
-import { PUBLIC_BASE_URL } from '../config.js';
+import { MAX_FILE_SIZE, PUBLIC_BASE_URL } from '../config.js';
+import { hasValidSignature, sanitizeFileName } from '../lib/media-content.js';
 import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { generateExpertToken, hashExpertToken } from './expert.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
@@ -1482,6 +1484,12 @@ router.patch(
   })
 );
 
+// Загрузка PDF протокола: файл читается в память, как и остальные документы.
+const protocolUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+}).single('file');
+
 // ─── Доступ эксперта к внесению оценок (ТЗ 07, п. 2.5) ──────────────────────
 
 // POST /api/admin/experts/:id/access — выдать разовую ссылку эксперту.
@@ -1901,6 +1909,83 @@ router.get(
   })
 );
 
+// GET /api/admin/evaluations/matrix — матрица «команда × эксперт» с прогрессом
+// заполнения (ТЗ 07, п. 2.7).
+//
+// Оргкомитету нужен не список оценок, а картина: по какой работе кем оценка уже
+// внесена, где оценки не хватает и сколько их всего. Из этого видно готовность
+// этапа к публикации протокола.
+router.get(
+  '/evaluations/matrix',
+  asyncHandler(async (req, res) => {
+    const seasonId = parsePositiveInt(queryString(req.query.season_id));
+    const stage = queryString(req.query.stage);
+    if (seasonId === null || !stage || !STAGES.includes(stage as (typeof STAGES)[number])) {
+      res.status(400).json({ error: 'Укажите сезон и этап' });
+      return;
+    }
+
+    const teams = await query(
+      `SELECT t.id, t.name, d.title AS direction_title
+         FROM teams t
+         LEFT JOIN directions d ON d.id = t.direction_id
+        WHERE t.season_id = $1
+          AND t.status NOT IN ('disqualified', 'withdrawn')
+        ORDER BY t.name`,
+      [seasonId]
+    );
+
+    const experts = await query(
+      `SELECT id, full_name, role FROM experts
+        WHERE stage = $1 AND is_active = TRUE
+        ORDER BY role DESC, full_name`,
+      [stage]
+    );
+
+    const evaluations = await query(
+      `SELECT e.team_id, e.expert_id, e.total_score, COALESCE(e.is_conflicted, FALSE) AS is_conflicted
+         FROM evaluations e
+         JOIN teams t ON t.id = e.team_id
+        WHERE t.season_id = $1 AND e.stage = $2`,
+      [seasonId, stage]
+    );
+
+    const byKey = new Map<string, { total_score: string | number; is_conflicted: boolean }>();
+    for (const row of evaluations.rows) {
+      byKey.set(`${row.team_id}:${row.expert_id}`, {
+        total_score: row.total_score,
+        is_conflicted: row.is_conflicted === true,
+      });
+    }
+
+    res.json({
+      stage,
+      min_evaluations: 3,
+      experts: experts.rows.map((row) => ({ id: Number(row.id), full_name: String(row.full_name), role: row.role })),
+      rows: teams.rows.map((team) => {
+        const cells = experts.rows.map((expert) => {
+          const cell = byKey.get(`${team.id}:${expert.id}`);
+          return {
+            expert_id: Number(expert.id),
+            filled: cell !== undefined,
+            total_score: cell?.total_score ?? null,
+            is_conflicted: cell?.is_conflicted ?? false,
+          };
+        });
+        const counted = cells.filter((cell) => cell.filled && !cell.is_conflicted).length;
+        return {
+          team_id: Number(team.id),
+          team_name: String(team.name),
+          direction_title: team.direction_title ?? null,
+          cells,
+          evaluations_count: counted,
+          is_ready: counted >= 3,
+        };
+      }),
+    });
+  })
+);
+
 // POST /api/admin/evaluations — выставление или обновление оценки.
 router.post(
   '/evaluations',
@@ -2077,7 +2162,9 @@ router.get(
       where.push(`r.stage = $${params.length}`);
     }
     const result = await query(
-      `SELECT r.*, t.name AS team_name, t.status AS team_status
+      `SELECT r.*, CASE WHEN r.protocol_media_id IS NOT NULL
+                        THEN '/api/media/file/' || r.protocol_media_id::text
+                        ELSE NULL END AS protocol_url, t.name AS team_name, t.status AS team_status
          FROM rankings r
          JOIN teams t ON t.id = r.team_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
@@ -2085,6 +2172,90 @@ router.get(
       params
     );
     res.json(result.rows);
+  })
+);
+
+// POST /api/admin/rankings/protocol — загрузить PDF протокола этапа
+// (ТЗ 07, п. 2.8, п. 3). Файл становится публичным: протокол открыт участникам.
+router.post(
+  '/rankings/protocol',
+  requireAdminRole('admin'),
+  protocolUpload,
+  asyncHandler(async (req, res) => {
+    const seasonId = parsePositiveInt(req.body?.season_id);
+    const stage = String(req.body?.stage ?? '');
+    if (seasonId === null || !STAGES.includes(stage as (typeof STAGES)[number])) {
+      res.status(400).json({ error: 'Укажите сезон и этап' });
+      return;
+    }
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Приложите PDF протокола' });
+      return;
+    }
+    if (file.mimetype !== 'application/pdf' || !hasValidSignature(file)) {
+      res.status(415).json({ error: 'Протокол принимается только в формате PDF' });
+      return;
+    }
+
+    const media = await query(
+      `INSERT INTO media (file_name, file_url, file_type, file_size, file_data, is_public, category)
+       VALUES ($1, '', $2, $3, $4, TRUE, 'protocol')
+       RETURNING id`,
+      [sanitizeFileName(file.originalname), file.mimetype, file.size, file.buffer]
+    );
+    const mediaId = String(media.rows[0].id);
+    const fileUrl = `/api/media/file/${mediaId}`;
+    await query('UPDATE media SET file_url = $1 WHERE id = $2', [fileUrl, mediaId]);
+
+    const updated = await query(
+      `UPDATE rankings SET protocol_media_id = $1, updated_at = now()
+        WHERE season_id = $2 AND stage = $3
+        RETURNING id`,
+      [mediaId, seasonId, stage]
+    );
+    if (updated.rows.length === 0) {
+      res.status(404).json({ error: 'Рейтинг этапа ещё не рассчитан: сначала рассчитайте рейтинг.' });
+      return;
+    }
+
+    await writeAudit({
+      action: 'rankings_protocol_uploaded',
+      entity: 'rankings',
+      entityId: `${seasonId}:${stage}`,
+      after: { media_id: mediaId, file_name: file.originalname, rows: updated.rows.length },
+      req,
+    });
+
+    res.status(201).json({ success: true, media_id: mediaId, file_url: fileUrl, rows: updated.rows.length });
+  })
+);
+
+// DELETE /api/admin/rankings/protocol — убрать протокол этапа.
+router.delete(
+  '/rankings/protocol',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const seasonId = parsePositiveInt(queryString(req.query.season_id));
+    const stage = queryString(req.query.stage);
+    if (seasonId === null || !stage) {
+      res.status(400).json({ error: 'Укажите сезон и этап' });
+      return;
+    }
+    const result = await query(
+      `UPDATE rankings SET protocol_media_id = NULL, updated_at = now()
+        WHERE season_id = $1 AND stage = $2
+        RETURNING id`,
+      [seasonId, stage]
+    );
+    await writeAudit({
+      action: 'rankings_protocol_removed',
+      entity: 'rankings',
+      entityId: `${seasonId}:${stage}`,
+      after: { rows: result.rows.length },
+      req,
+    });
+    res.json({ success: true, updated: result.rows.length });
   })
 );
 
@@ -2818,12 +2989,51 @@ router.get(
          (SELECT count(*)::int FROM leads WHERE status = 'new') AS leads_new`
     );
 
+    // Ближайшие дедлайны (ТЗ 07, п. 2.1): срок приёма заявок и материалов,
+    // сроки досдачи по замечаниям и ближайшие мастер-классы. Оргкомитет должен
+    // видеть на сводке, что горит, а не искать по разделам.
+    const deadlines = await query(
+      `SELECT 'application_close' AS kind, s.title AS title, s.application_close_at AS at
+         FROM seasons s
+        WHERE s.is_active = TRUE AND s.application_close_at IS NOT NULL AND s.application_close_at > now()
+        UNION ALL
+       SELECT 'material_fix' AS kind,
+              'Досдача: ' || COALESCE(mt.title, am.type) AS title,
+              am.fix_deadline AS at
+         FROM application_materials am
+         LEFT JOIN teams t ON t.id = am.team_id
+         LEFT JOIN material_requirements mt ON mt.type = am.type AND mt.season_id = t.season_id
+        WHERE am.status = 'needs_fix' AND am.fix_deadline IS NOT NULL AND am.fix_deadline > now()
+        UNION ALL
+       SELECT 'masterclass' AS kind, m.title AS title, m.starts_at AS at
+         FROM masterclasses m
+        WHERE m.status = 'announced' AND m.starts_at IS NOT NULL AND m.starts_at > now()
+        ORDER BY at
+        LIMIT 10`
+    );
+
+    // Открытое окно апелляций: срок подачи считается от публикации протокола.
+    const appealWindow = await query(
+      `SELECT s.title AS season_title, r.stage, max(r.published_at) AS published_at,
+              (max(r.published_at) + (s.appeal_window_days || ' days')::interval) AS closes_at,
+              s.appeal_window_days
+         FROM rankings r
+         JOIN seasons s ON s.id = r.season_id
+        WHERE r.is_published = TRUE
+        GROUP BY s.title, r.stage, s.appeal_window_days
+       HAVING (max(r.published_at) + (s.appeal_window_days || ' days')::interval) > now()
+        ORDER BY closes_at
+        LIMIT 5`
+    );
+
     res.json({
       teams_by_status: teamsByStatus.rows,
       applications_by_status: applications.rows,
       leads_by_status: leads.rows,
       materials_by_status: materials.rows,
       rankings_by_stage: rankings.rows,
+      upcoming_deadlines: deadlines.rows,
+      appeal_windows: appealWindow.rows,
       attention: attention.rows[0] ?? {
         applications_pending: 0,
         materials_needs_fix: 0,
