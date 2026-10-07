@@ -1894,6 +1894,10 @@ router.get(
       params.push(stage);
       where.push(`e.stage = $${params.length}`);
     }
+    // Постраничность и общее число оценок (ТЗ 05, п. 1.4): список нужен для
+    // сверки полноты оценивания, и «сколько всего» здесь важнее первых строк.
+    const page = paginationOf(req);
+    const filtered = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
     const result = await query(
       `SELECT e.*, t.name AS team_name,
               ex.full_name AS expert_name, jm.full_name AS jury_name
@@ -1901,11 +1905,16 @@ router.get(
          JOIN teams t ON t.id = e.team_id
          LEFT JOIN experts ex ON ex.id = e.expert_id
          LEFT JOIN jury_members jm ON jm.id = e.jury_member_id
-         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+         ${filtered}
         ORDER BY e.created_at DESC
-        LIMIT 1000`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM evaluations e JOIN teams t ON t.id = e.team_id ${filtered}`,
+      params
+    );
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );

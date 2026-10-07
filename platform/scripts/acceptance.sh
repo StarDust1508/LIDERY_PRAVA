@@ -1198,6 +1198,26 @@ print('ok' if not any(i.get('title') == 'Приёмочный отменённы
 " 2>/dev/null || echo error)
 [ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
+# ── Постраничность служебных списков (ТЗ 05, п. 1.4) ────────────────────────
+step "Постраничность списка оценок и материалов"
+
+EVAL_PAGED=$(curl -s -H "$AUTH" "${BASE}/api/admin/evaluations?stage=selection&perPage=1" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+meta = d.get('meta') or {}
+rows = d.get('data') or []
+print('ok' if meta.get('perPage') == 1 and 'total' in meta and len(rows) <= 1 else 'no')
+" 2>/dev/null || echo error)
+[ "$EVAL_PAGED" = "ok" ] && ok "список оценок отдаёт meta и учитывает размер страницы" || bad "список оценок без meta: $EVAL_PAGED"
+MATERIALS_PAGED=$(curl -s -H "$AUTH" "${BASE}/api/admin/materials?perPage=1" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+meta = d.get('meta') or {}
+rows = d.get('data') or []
+print('ok' if meta.get('perPage') == 1 and 'total' in meta and len(rows) <= 1 else 'no')
+" 2>/dev/null || echo error)
+[ "$MATERIALS_PAGED" = "ok" ] && ok "очередь материалов отдаёт meta" || bad "очередь материалов без meta: $MATERIALS_PAGED"
+
 # ── Авторы инициативы и массовый импорт (ТЗ 07, п. 2.14а) ───────────────────
 step "Авторы инициативы и импорт архива"
 
