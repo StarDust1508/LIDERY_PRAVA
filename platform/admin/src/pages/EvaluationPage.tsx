@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   AdminApiError,
-  type Criterion,
   EVALUATION_STAGES,
-  type Evaluation,
-  type Expert,
   adminApi,
   evaluationStageTitle,
+  formatMoscowHuman,
+  type Criterion,
+  type Evaluation,
+  type Expert,
 } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, SelectField, TextAreaField, TextField } from '@shared/index';
 
@@ -39,6 +40,12 @@ export function EvaluationPage() {
   // не входит. Причина обязательна — решение должно быть объяснимо.
   const [isConflicted, setIsConflicted] = useState(false);
   const [conflictReason, setConflictReason] = useState('');
+  // Доступ эксперта к внесению оценок (ТЗ 07, п. 2.5): разовая ссылка и отзыв.
+  const [expertAccessId, setExpertAccessId] = useState('');
+  const [expertAccessUrl, setExpertAccessUrl] = useState<string | null>(null);
+  const [expertAccessDays, setExpertAccessDays] = useState('14');
+  const [expertAccessBusy, setExpertAccessBusy] = useState(false);
+  const [expertAccessInfo, setExpertAccessInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -110,6 +117,47 @@ export function EvaluationPage() {
     return `Член Жюри ${evaluation.jury_member_id ?? ''}`;
   };
 
+  async function issueExpertAccess() {
+    setExpertAccessBusy(true);
+    setError(null);
+    setNotice(null);
+    setExpertAccessUrl(null);
+    try {
+      const result = await adminApi.issueExpertAccess(Number(expertAccessId), {
+        expires_in_days: Number(expertAccessDays),
+      });
+      setExpertAccessUrl(result.access_url);
+      setExpertAccessInfo(
+        result.revoked_previous > 0
+          ? `Прежних ссылок отозвано: ${result.revoked_previous}. Новая действует до ${formatMoscowHuman(result.expires_at)}.`
+          : `Ссылка действует до ${formatMoscowHuman(result.expires_at)}.`
+      );
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось выдать доступ эксперту.');
+    } finally {
+      setExpertAccessBusy(false);
+    }
+  }
+
+  async function revokeExpertAccess() {
+    setExpertAccessBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await adminApi.revokeExpertAccess(Number(expertAccessId));
+      setExpertAccessUrl(null);
+      setExpertAccessInfo(
+        result.revoked > 0
+          ? `Отозвано ссылок: ${result.revoked}. Эксперт больше не сможет войти.`
+          : 'У эксперта не было действующих ссылок.'
+      );
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось отозвать доступ эксперта.');
+    } finally {
+      setExpertAccessBusy(false);
+    }
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -159,6 +207,68 @@ export function EvaluationPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
+
+      <SectionCard
+        title="Доступ эксперта к внесению оценок"
+        description="Разовая ссылка: эксперт входит по ней, видит работы своего этапа и вносит оценки. Учётная запись в админке ему не нужна."
+      >
+        <div className="grid gap-4 md:grid-cols-[1fr_180px_auto] md:items-end">
+          <SelectField
+            id="expert-access-expert"
+            label="Эксперт"
+            value={expertAccessId}
+            onChange={(event) => {
+              setExpertAccessId(event.target.value);
+              setExpertAccessUrl(null);
+              setExpertAccessInfo(null);
+            }}
+            placeholder="Выберите эксперта"
+            options={experts.map((expert) => ({ value: String(expert.id), title: expert.full_name }))}
+          />
+          <SelectField
+            id="expert-access-days"
+            label="Срок действия"
+            value={expertAccessDays}
+            onChange={(event) => setExpertAccessDays(event.target.value)}
+            options={[
+              { value: '7', title: '7 дней' },
+              { value: '14', title: '14 дней' },
+              { value: '30', title: '30 дней' },
+              { value: '90', title: '90 дней' },
+            ]}
+          />
+          <div className="flex flex-wrap items-end gap-3">
+            <Button
+              type="button"
+              loading={expertAccessBusy}
+              disabled={expertAccessId === ''}
+              onClick={() => void issueExpertAccess()}
+            >
+              Выдать ссылку
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={expertAccessBusy}
+              disabled={expertAccessId === ''}
+              onClick={() => void revokeExpertAccess()}
+            >
+              Отозвать доступ
+            </Button>
+          </div>
+        </div>
+        {expertAccessInfo ? <p className="mt-3 text-sm text-muted">{expertAccessInfo}</p> : null}
+        {expertAccessUrl ? (
+          <div className="mt-4 border border-border-strong p-4">
+            <p className="mono-label text-muted">Ссылка для эксперта</p>
+            <p className="mt-2 break-all font-mono text-sm">{expertAccessUrl}</p>
+            <p className="mt-3 text-sm text-muted">
+              Передайте ссылку эксперту: при входе она меняется на сессию и исчезает из адресной строки. Повторная выдача
+              отзывает прежнюю ссылку.
+            </p>
+          </div>
+        ) : null}
+      </SectionCard>
 
       <SectionCard title="Кто и что оценивает">
         <div className="grid gap-4 md:grid-cols-3">

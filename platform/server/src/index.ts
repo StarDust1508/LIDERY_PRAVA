@@ -24,6 +24,7 @@ import applicationsRouter from './routes/applications.js';
 import authAdminRouter from './routes/auth-admin.js';
 import cabinetAccessRouter from './routes/cabinet-access.js';
 import cabinetRouter from './routes/cabinet.js';
+import expertRouter from './routes/expert.js';
 import leadsRouter from './routes/leads.js';
 import mediaRouter from './routes/media.js';
 import publicRouter from './routes/public.js';
@@ -116,6 +117,10 @@ app.use('/api/admin/users', requireAdmin, requireAdminRole('admin'), adminUsersR
 // обезличивание. Раздел доступен только роли `admin`: он меняет персональные
 // данные, и выполняет его ответственный за обработку ПДн.
 app.use('/api/admin/subjects', requireAdmin, adminSubjectsRouter);
+
+// Контур эксперта (ТЗ 07, п. 2.5): вход по разовой ссылке, работы этапа и
+// оценки. Отдельный контур: ни админки, ни кабинета команд он не открывает.
+app.use('/api/expert', expertRouter);
 
 // Неизвестный маршрут.
 app.use((req: Request, res: Response) => {

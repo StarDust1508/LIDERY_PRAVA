@@ -11,6 +11,7 @@ import type {
   AdminLegacyApplication,
   AdminSessionInfo,
   AdminStats,
+  AdminTeamCard,
   AdminUser,
   AdminUserRole,
   AuditRecord,
@@ -277,6 +278,42 @@ export const adminApi = {
     ),
 
   /** Команды сезона: в рейтинге показываем название, а не идентификатор. */
+  /** Выдача разовой ссылки эксперту (ТЗ 07, п. 2.5). */
+  issueExpertAccess: (expertId: number, payload: { expires_in_days?: number; label?: string | null } = {}) =>
+    adminRequest<{
+      id: number;
+      token: string;
+      expires_at: string;
+      revoked_previous: number;
+      access_path: string;
+      access_url: string;
+    }>(`/api/admin/experts/${expertId}/access`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  expertAccess: (expertId: number) =>
+    adminRequest<{
+      tokens: Array<{
+        id: number;
+        label: string | null;
+        expires_at: string;
+        revoked_at: string | null;
+        last_used_at: string | null;
+        used_count: number;
+        created_at: string;
+      }>;
+      log: Array<{ event: string; team_id: number | null; ip: string | null; created_at: string }>;
+    }>(`/api/admin/experts/${expertId}/access`),
+
+  revokeExpertAccess: (expertId: number) =>
+    adminRequest<{ success: boolean; revoked: number }>(`/api/admin/experts/${expertId}/access/revoke`, {
+      method: 'POST',
+    }),
+
+  /** Карточка команды: состав, участие в этапах, результаты, история (ТЗ 07, п. 2.4). */
+  teamCard: (teamId: number) => adminRequest<AdminTeamCard>(`/api/admin/teams/${teamId}`),
+
   teams: (seasonId?: number) =>
     adminRequest<
       Array<{ id: number; name: string; season_id: number; status: string; direction_title: string | null }>

@@ -17,6 +17,7 @@ import { CalendarPage } from '../pages/CalendarPage';
 import { ContactsPage } from '../pages/ContactsPage';
 import { CriteriaPage } from '../pages/CriteriaPage';
 import { DocumentsPage } from '../pages/DocumentsPage';
+import { ExpertPage } from '../pages/ExpertPage';
 import { FaqPage } from '../pages/FaqPage';
 import { HistoryPage } from '../pages/HistoryPage';
 import { HomePage } from '../pages/HomePage';
@@ -64,6 +65,10 @@ export function App() {
           <Route path="/cabinet/deadlines" element={<CabinetDeadlinesPage />} />
           <Route path="/cabinet/help" element={<CabinetHelpPage />} />
           <Route path="/cabinet/final" element={<CabinetFinalPage />} />
+          {/* Рабочее место эксперта: вход по разовой ссылке от Оргкомитета
+              (ТЗ 07, п. 2.5). Отдельный контур без шапки сайта. */}
+          <Route path="/expert" element={<ExpertPage />} />
+          <Route path="/expert/access" element={<ExpertPage />} />
 
           {/* Публичная часть в общем каркасе */}
           <Route element={<Layout />}>

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import type { AdminTeamCard } from '@shared/index';
 import {
   AdminApiError,
+  TEAM_STATUS_TITLES,
   adminApi,
   formatMoscowHuman,
-  TEAM_STATUS_TITLES,
   teamStatusTitle,
 } from '@shared/index';
 import {
@@ -102,6 +103,18 @@ function tokenState(token: TeamToken): { title: string; active: boolean } {
   return { title: 'Действует', active: true };
 }
 
+
+/** Понятная подпись изменения статуса из журнала действий (ТЗ 07, п. 2.4). */
+function statusChangeText(record: { before: unknown; after: unknown }): string {
+  const before = (record.before ?? {}) as Record<string, unknown>;
+  const after = (record.after ?? {}) as Record<string, unknown>;
+  const from = typeof before.status === 'string' ? teamStatusTitle(before.status) : null;
+  const to = typeof after.status === 'string' ? teamStatusTitle(after.status) : null;
+  if (from && to) return `статус: ${from} → ${to}`;
+  if (to) return `статус: ${to}`;
+  return 'изменение данных команды';
+}
+
 export function TeamsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get('status') ?? '';
@@ -118,6 +131,10 @@ export function TeamsPage() {
   const [applicationByTeam, setApplicationByTeam] = useState<Map<number, number>>(new Map());
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [tokens, setTokens] = useState<Record<number, TeamToken[]>>({});
+  // Карточка команды: участие в этапах, результаты, история статусов, санкции
+  // (ТЗ 07, п. 2.4). Загружается при раскрытии строки.
+  const [cards, setCards] = useState<Record<number, AdminTeamCard>>({});
+  const [cardsLoading, setCardsLoading] = useState<number | null>(null);
   const [tokensLoading, setTokensLoading] = useState<number | null>(null);
   const [tokenLabel, setTokenLabel] = useState('');
   const [tokenDays, setTokenDays] = useState('90');
@@ -234,12 +251,26 @@ export function TeamsPage() {
     }
   }
 
+  async function loadCard(teamId: number) {
+    setCardsLoading(teamId);
+    setError(null);
+    try {
+      const card = await adminApi.teamCard(teamId);
+      setCards((current) => ({ ...current, [teamId]: card }));
+    } catch (caught) {
+      setError(explain(caught, 'Не удалось получить карточку команды.'));
+    } finally {
+      setCardsLoading(null);
+    }
+  }
+
   function toggleTeam(teamId: number) {
     const next = expandedId === teamId ? null : teamId;
     setExpandedId(next);
     // Уже выпущенная ссылка остаётся на экране, пока администратор сам не
     // подтвердит, что передал её команде: сервер второй раз её не покажет.
     if (next !== null && tokens[teamId] === undefined) void loadTokens(teamId);
+    if (next !== null && cards[teamId] === undefined) void loadCard(teamId);
   }
 
   async function issueToken(teamId: number) {
@@ -772,6 +803,93 @@ export function TeamsPage() {
                         Доступ в личный кабинет
                       </Button>
                     </div>
+                    {isOpen && cards[team.id] ? (
+                      <div className="mt-4 flex flex-col gap-4 border border-border p-4">
+                        {cards[team.id]!.team.disqualification_reason ? (
+                          <Alert tone="danger" title="Санкции по команде">
+                            <p>{cards[team.id]!.team.disqualification_reason}</p>
+                          </Alert>
+                        ) : null}
+
+                        <div>
+                          <p className="mono-label text-muted">Состав</p>
+                          <ul className="mt-2 flex flex-col gap-1">
+                            {cards[team.id]!.participants.map((participant) => (
+                              <li key={`card-p-${participant.id}`}>
+                                {participant.full_name}
+                                {participant.role === 'captain' ? ' — капитан' : ''}
+                                {participant.is_minor ? ' (несовершеннолетний)' : ''}
+                              </li>
+                            ))}
+                          </ul>
+                          {cards[team.id]!.mentors.length > 0 ? (
+                            <p className="mt-2 text-muted">
+                              Наставники: {cards[team.id]!.mentors.map((mentor) => mentor.full_name).join(', ')}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-muted">Наставники не указаны.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">Участие в этапах</p>
+                          {cards[team.id]!.stage_participation.length === 0 ? (
+                            <p className="mt-2 text-muted">Участие в этапах ещё не отмечено.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {cards[team.id]!.stage_participation.map((row) => (
+                                <li key={`card-stage-${row.stage}-${row.created_at}`}>
+                                  {row.stage}: {row.advanced === true ? 'прошла дальше' : row.advanced === false ? 'не прошла' : 'без решения'}
+                                  {row.group_code ? `, группа ${row.group_code}` : ''}
+                                  {row.final_place ? `, место ${row.final_place}` : ''}
+                                  {row.nomination ? `, номинация «${row.nomination}»` : ''}
+                                  {row.advance_reason ? ` — ${row.advance_reason}` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">Результаты и протоколы</p>
+                          {cards[team.id]!.rankings.length === 0 ? (
+                            <p className="mt-2 text-muted">Рейтинг ещё не рассчитывался.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {cards[team.id]!.rankings.map((row) => (
+                                <li key={`card-rank-${row.stage}`}>
+                                  {row.stage}: место {row.place ?? '—'}, средний балл{' '}
+                                  {row.average_score === null ? '—' : Number(row.average_score).toFixed(2)},{' '}
+                                  {row.is_published ? `протокол опубликован ${formatMoscowHuman(row.published_at)}` : 'протокол не опубликован'}
+                                  {row.needs_chair_review ? ', требуется дополнительная оценка председателя' : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">История статусов</p>
+                          {cards[team.id]!.status_history.length === 0 ? (
+                            <p className="mt-2 text-muted">Решений по команде ещё не принималось.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {cards[team.id]!.status_history.map((record, index) => (
+                                <li key={`card-history-${record.created_at}-${index}`}>
+                                  {formatMoscowHuman(record.created_at)} · {record.actor_label ?? 'система'} ·{' '}
+                                  {statusChangeText(record)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                    {isOpen && cardsLoading === team.id && !cards[team.id] ? (
+                      <p className="mt-4 text-sm text-muted" role="status">
+                        Загружаем карточку команды…
+                      </p>
+                    ) : null}
                     {isOpen ? (
                       <div id={`team-card-access-${team.id}`} className="mt-4 flex flex-col gap-4 border border-border p-4">
                         {tokensLoading === team.id ? <p role="status">Загружаем доступы…</p> : null}

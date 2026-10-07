@@ -4,5 +4,6 @@
 export * from './types';
 export * from './format';
 export * from './ui';
-export { api, ApiError } from './api';
+export { api, expertApi, ApiError } from './api';
+export type { ExpertAssignment, ExpertCriterion, ExpertAssignmentsResponse } from './api';
 export { adminApi, AdminApiError, getAdminToken, setAdminToken } from './adminApi';

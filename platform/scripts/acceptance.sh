@@ -1190,6 +1190,85 @@ print('ok' if not any(i.get('title') == 'Приёмочный отменённы
 " 2>/dev/null || echo error)
 [ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
+# ── Доступ эксперта к внесению оценок (ТЗ 07, п. 2.5) ───────────────────────
+step "Доступ эксперта: выдача ссылки, работы этапа, оценка"
+
+# Работы этапа эксперт видит только по допущенным заявкам: на этом шаге прогона
+# команда возвращена на доработку, поэтому временно возвращаем статус «допущена».
+EXPERT_STATUS_BEFORE=$(psql_db "SELECT status FROM liders.teams WHERE id=${TEAM_ID}")
+psql_db "UPDATE liders.teams SET status='allowed' WHERE id=${TEAM_ID}" >/dev/null
+EXPERT_ID=$(psql_db "SELECT id FROM liders.experts WHERE stage='selection' ORDER BY id LIMIT 1")
+expect "ссылка эксперту выдаётся" 201 -H "$AUTH" -X POST "${BASE}/api/admin/experts/${EXPERT_ID}/access" \
+    -H 'Content-Type: application/json' -d '{"expires_in_days":7,"label":"Приёмочная выдача"}'
+EXPERT_PATH=$(python3 -c "import json;d=json.load(open('$BODY'));print(d.get('access_path',''))" 2>/dev/null || echo '')
+EXPERT_TOKEN=$(python3 -c "import json;d=json.load(open('$BODY'));print(d.get('token',''))" 2>/dev/null || echo '')
+[ -n "$EXPERT_TOKEN" ] && ok "в ответе есть токен и путь ссылки" || bad "нет токена ссылки эксперта"
+
+# Неверная ссылка не даёт сессии.
+expect "чужая ссылка эксперта отклоняется" 401 -X POST "${BASE}/api/expert/access" \
+    -H 'Content-Type: application/json' -d '{"token":"подделка-подделка-подделка"}'
+
+curl -s -c /tmp/lp_acc_expert.txt -o /dev/null -X POST "${BASE}/api/expert/access" \
+    -H 'Content-Type: application/json' -d "{\"token\":\"${EXPERT_TOKEN}\"}"
+expect "сессия эксперта открывается по ссылке" 200 -b /tmp/lp_acc_expert.txt "${BASE}/api/expert/session"
+EXPERT_SESSION=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+print('ok' if d.get('authenticated') is True and (d.get('expert') or {}).get('stage') else 'no')
+" 2>/dev/null || echo error)
+[ "$EXPERT_SESSION" = "ok" ] && ok "сессия эксперта подтверждена" || bad "сессия эксперта не подтверждена: $EXPERT_SESSION"
+
+# Контур эксперта не открывает ни админку, ни кабинет команд.
+expect "контур эксперта закрыт без сессии" 401 "${BASE}/api/expert/assignments"
+ADMIN_BY_EXPERT=$(curl -s -o /dev/null -w '%{http_code}' -b /tmp/lp_acc_expert.txt -H "$AUTH" "${BASE}/api/admin/applications")
+[ "$ADMIN_BY_EXPERT" = "200" ] && ok "админка работает отдельно от контура эксперта" || bad "админка недоступна: $ADMIN_BY_EXPERT"
+
+expect "работы этапа отдаются эксперту" 200 -b /tmp/lp_acc_expert.txt "${BASE}/api/expert/assignments"
+EXPERT_TEAMS=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+teams = d.get('teams') or []
+criteria = d.get('criteria') or []
+print(f'{len(teams)}:{len(criteria)}')
+" 2>/dev/null || echo '0:0')
+[ "${EXPERT_TEAMS%%:*}" -ge 1 ] && ok "эксперт видит работы этапа: ${EXPERT_TEAMS%%:*} и критериев ${EXPERT_TEAMS##*:}" || bad "эксперту не назначено ни одной работы"
+
+# Оценка вносится от имени эксперта из сессии: чужой expert_id подставить нельзя.
+EXPERT_SCORES=$(python3 - "${BASE}" "$EXPERT_TOKEN" <<'PY'
+import json, subprocess, sys
+base, token = sys.argv[1], sys.argv[2]
+raw = subprocess.run(
+    ['curl', '-s', '-b', '/tmp/lp_acc_expert.txt', f'{base}/api/expert/assignments'],
+    capture_output=True, text=True,
+).stdout
+data = json.loads(raw)
+data = data.get('data', data) if isinstance(data, dict) and 'data' in data else data
+criteria = data.get('criteria') or []
+print(json.dumps([{"criterion_id": c["id"], "score": c["max_score"], "comment": "Приёмочная оценка эксперта"} for c in criteria], ensure_ascii=False))
+PY
+)
+# Эксперт мог уже оценивать эту работу в сценарии С4: тогда оценка обновляется
+# (200), иначе создаётся (201) — оба ответа означают, что она сохранена.
+EXPERT_EVAL_CODE=$(curl -s -o "$BODY" -w '%{http_code}' -b /tmp/lp_acc_expert.txt \
+    -X POST "${BASE}/api/expert/evaluations" -H 'Content-Type: application/json' \
+    -d "{\"team_id\":${TEAM_ID},\"scores\":${EXPERT_SCORES},\"comment\":\"Приёмочная проверка доступа эксперта\",\"recommendations\":\"Без замечаний\"}")
+unwrap_body "$BODY"
+case "$EXPERT_EVAL_CODE" in
+    200|201) ok "оценка эксперта сохраняется → $EXPERT_EVAL_CODE" ;;
+    *) bad "оценка эксперта не сохранилась: $EXPERT_EVAL_CODE · $(head -c 160 "$BODY")" ;;
+esac
+EXPERT_EVAL_EXPERT=$(psql_db "SELECT expert_id FROM liders.evaluations WHERE team_id=${TEAM_ID} AND stage='selection' AND expert_id=${EXPERT_ID} ORDER BY id DESC LIMIT 1")
+[ "${EXPERT_EVAL_EXPERT:-0}" = "${EXPERT_ID}" ] && ok "оценка записана от имени эксперта из сессии" || bad "автор оценки: ${EXPERT_EVAL_EXPERT:-?}"
+EXPERT_LOG=$(psql_db "SELECT count(*) FROM liders.expert_access_log WHERE expert_id=${EXPERT_ID}")
+[ "${EXPERT_LOG:-0}" -ge 2 ] && ok "обращения эксперта записаны в журнал контура: ${EXPERT_LOG}" || bad "журнал контура эксперта пуст"
+
+expect "ссылка эксперта отзывается" 200 -H "$AUTH" -X POST "${BASE}/api/admin/experts/${EXPERT_ID}/access/revoke"
+REVOKED_STATE=$(psql_db "SELECT count(*) FROM liders.expert_access_tokens WHERE expert_id=${EXPERT_ID} AND revoked_at IS NULL AND expires_at > now()")
+[ "${REVOKED_STATE:-1}" = "0" ] && ok "после отзыва действующих ссылок не осталось" || bad "действующих ссылок: ${REVOKED_STATE}"
+# Оценка эксперта убираем: она не должна влиять на дальнейшие проверки рейтинга.
+psql_db "DELETE FROM liders.evaluations WHERE team_id=${TEAM_ID} AND stage='selection' AND expert_id=${EXPERT_ID}" >/dev/null
+psql_db "UPDATE liders.teams SET status='${EXPERT_STATUS_BEFORE}' WHERE id=${TEAM_ID}" >/dev/null
+
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"
 psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null

@@ -4,6 +4,7 @@ import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { toCsv } from '../lib/csv.js';
 import { PUBLIC_BASE_URL } from '../config.js';
 import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
+import { generateExpertToken, hashExpertToken } from './expert.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
 import { writeAudit } from '../lib/audit.js';
 import { slugify, uniqueSlug } from '../lib/slugify.js';
@@ -1478,6 +1479,131 @@ router.patch(
       return;
     }
     res.json(result.rows[0]);
+  })
+);
+
+// ─── Доступ эксперта к внесению оценок (ТЗ 07, п. 2.5) ──────────────────────
+
+// POST /api/admin/experts/:id/access — выдать разовую ссылку эксперту.
+// Прежние действующие ссылки отзываются: у эксперта должна быть одна рабочая
+// ссылка, иначе отзыв доступа перестаёт быть однозначным.
+router.post(
+  '/experts/:id/access',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор эксперта' });
+      return;
+    }
+    const expert = await query(
+      'SELECT id, full_name, stage, is_active FROM experts WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    const row = expert.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Эксперт не найден' });
+      return;
+    }
+    if (row.is_active !== true) {
+      res.status(409).json({ error: 'Эксперт отключён: включите его перед выдачей доступа.' });
+      return;
+    }
+    if (!STAGES.includes(String(row.stage) as (typeof STAGES)[number])) {
+      res.status(409).json({ error: 'У эксперта не указан этап: без него нельзя выдать доступ к оценкам.' });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const days = Math.min(90, Math.max(1, parsePositiveInt(body.expires_in_days) ?? 14));
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const revoked = await query(
+      `UPDATE expert_access_tokens SET revoked_at = now()
+        WHERE expert_id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [id]
+    );
+
+    const token = generateExpertToken();
+    const inserted = await query(
+      `INSERT INTO expert_access_tokens (expert_id, token_hash, label, expires_at, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, expires_at, created_at`,
+      [id, hashExpertToken(token), optionalText(body.label, 200), expiresAt.toISOString(), adminUserId(req)]
+    );
+
+    const path = `/expert/access?token=${encodeURIComponent(token)}`;
+
+    await writeAudit({
+      action: 'expert_access_issued',
+      entity: 'experts',
+      entityId: id,
+      after: { expires_at: expiresAt.toISOString(), revoked_previous: revoked.rows.length },
+      req,
+    });
+
+    res.status(201).json({
+      id: Number(inserted.rows[0].id),
+      expert_id: id,
+      token,
+      expires_at: inserted.rows[0].expires_at,
+      revoked_previous: revoked.rows.length,
+      access_path: path,
+      access_url: `${PUBLIC_BASE_URL}${path}`,
+    });
+  })
+);
+
+// GET /api/admin/experts/:id/access — выданные ссылки и история обращений.
+router.get(
+  '/experts/:id/access',
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор эксперта' });
+      return;
+    }
+    const tokens = await query(
+      `SELECT id, label, expires_at, revoked_at, last_used_at, used_count, created_at
+         FROM expert_access_tokens WHERE expert_id = $1 ORDER BY created_at DESC`,
+      [id]
+    );
+    const log = await query(
+      `SELECT event, team_id, ip, created_at FROM expert_access_log
+        WHERE expert_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      [id]
+    );
+    res.json({ tokens: tokens.rows, log: log.rows });
+  })
+);
+
+// POST /api/admin/experts/:id/access/revoke — отозвать доступ эксперта.
+router.post(
+  '/experts/:id/access/revoke',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Некорректный идентификатор эксперта' });
+      return;
+    }
+    const result = await query(
+      `UPDATE expert_access_tokens SET revoked_at = now()
+        WHERE expert_id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [id]
+    );
+
+    await writeAudit({
+      action: 'expert_access_revoked',
+      entity: 'experts',
+      entityId: id,
+      after: { revoked: result.rows.length },
+      req,
+    });
+
+    res.json({ success: true, revoked: result.rows.length });
   })
 );
 

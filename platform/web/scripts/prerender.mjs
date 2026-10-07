@@ -81,6 +81,9 @@ const ROUTES = [
   { path: '/cabinet/deadlines', title: 'Дедлайны', description: 'Сроки этапов в личном кабинете команды.', noindex: true },
   { path: '/cabinet/help', title: 'Помощь', description: 'Связь с Оргкомитетом из личного кабинета.', noindex: true },
   { path: '/cabinet/final', title: 'Финал', description: 'Подтверждение участия в финальном этапе.', noindex: true },
+  // Рабочее место эксперта (ТЗ 07, п. 2.5): служебный экран, в поиске не нужен.
+  { path: '/expert', title: 'Рабочее место эксперта', description: 'Внесение оценок конкурсных работ экспертом конкурса.', noindex: true },
+  { path: '/expert/access', title: 'Доступ эксперта', description: 'Вход эксперта по ссылке, выданной Оргкомитетом.', noindex: true },
 ];
 
 /** Разметка организации для главной и «О конкурсе». */

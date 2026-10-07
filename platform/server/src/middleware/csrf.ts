@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { CORS_ORIGINS, PUBLIC_BASE_URL } from '../config.js';
+import { CORS_ORIGINS, IS_PRODUCTION, PUBLIC_BASE_URL } from '../config.js';
 
 // Защита изменяющих запросов из браузера (ТЗ 11, п. 5.3).
 //
@@ -62,7 +62,16 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   }
 
   const source = originOf(req.headers.origin) ?? originOf(req.headers.referer);
-  if (source !== null && !ALLOWED_ORIGINS.includes(source)) {
+
+  // В разработке разрешаем любой локальный источник: dev-сервер, превью сборки и
+  // порт могут меняться, и держать их список в конфигурации неудобно. В боевом
+  // режиме правило не действует — там только белый список.
+  const isLocalOrigin =
+    !IS_PRODUCTION &&
+    source !== null &&
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(source);
+
+  if (source !== null && !isLocalOrigin && !ALLOWED_ORIGINS.includes(source)) {
     res.status(403).json({
       error: 'Запрос отклонён: источник не входит в список разрешённых.',
       requestId: (req as Request & { requestId?: string }).requestId,

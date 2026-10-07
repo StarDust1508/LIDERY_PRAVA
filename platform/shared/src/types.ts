@@ -974,3 +974,60 @@ export interface SubmitApplicationPayload {
     conditions?: string | null;
   }>;
 }
+
+/** Участие команды в этапе: групповой этап, проход дальше, голоса (ТЗ 07, п. 2.4). */
+export interface StageParticipation {
+  stage: string;
+  group_code: string | null;
+  advanced: boolean | null;
+  advance_reason: string | null;
+  audience_votes: number | null;
+  jury_votes: number | null;
+  final_place: number | null;
+  nomination: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+/** Результат команды в этапе: место, средний балл, публикация протокола. */
+export interface TeamRankingRow {
+  stage: string;
+  place: number | null;
+  average_score: string | number | null;
+  is_published: boolean;
+  published_at: string | null;
+  needs_chair_review: boolean;
+}
+
+/** Запись истории статусов команды: решение Оргкомитета с автором и временем. */
+export interface TeamStatusHistoryRecord {
+  created_at: string;
+  actor_label: string | null;
+  action: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** Карточка команды в админке (ТЗ 07, п. 2.4). */
+export interface AdminTeamCard {
+  team: {
+    id: number;
+    name: string;
+    status: string;
+    organization: string | null;
+    city: string | null;
+    season_title?: string | null;
+    direction_title?: string | null;
+    disqualification_reason?: string | null;
+    status_changed_at?: string | null;
+    roster_change_used_at?: string | null;
+  };
+  participants: Participant[];
+  mentors: Mentor[];
+  application: { id: number; public_number?: string | null; tech_status?: string | null } | null;
+  materials: AdminMaterial[];
+  access_tokens: Array<{ id: number; revoked_at: string | null }>;
+  status_history: TeamStatusHistoryRecord[];
+  stage_participation: StageParticipation[];
+  rankings: TeamRankingRow[];
+}

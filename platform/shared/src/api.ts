@@ -183,6 +183,64 @@ function authHeader(accessToken?: string | null): Record<string, string> {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
+/** Типы контура эксперта (ТЗ 07, п. 2.5). */
+export interface ExpertAssignment {
+  team_id: number;
+  team_name: string;
+  team_status: string;
+  direction_title: string | null;
+  law_title: string | null;
+  act_level: string | null;
+  annotation: string | null;
+  evaluation_id: number | null;
+  total_score: string | number | null;
+  scores: Array<{ criterion_id: number; score: number; comment: string | null }> | null;
+  comment: string | null;
+  recommendations: string | null;
+  is_chair_extra: boolean | null;
+  is_conflicted: boolean | null;
+  conflict_reason: string | null;
+  updated_at: string | null;
+}
+
+export interface ExpertCriterion {
+  id: number;
+  code: string | null;
+  title: string;
+  description: string | null;
+  max_score: number;
+  sort_order: number;
+}
+
+export interface ExpertAssignmentsResponse {
+  expert: { id: number; full_name: string; stage: string };
+  criteria: ExpertCriterion[];
+  teams: ExpertAssignment[];
+}
+
+export const expertApi = {
+  session: () => request<{ authenticated: boolean; expert?: { id: number; full_name: string; stage: string } }>('/api/expert/session'),
+  accessByToken: (token: string) =>
+    request<{ success: boolean; expert: { id: number; full_name: string; stage: string } }>('/api/expert/access', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+  logout: () => request<{ success: boolean }>('/api/expert/logout', { method: 'POST' }),
+  assignments: () => requestWithMeta<ExpertAssignmentsResponse>('/api/expert/assignments'),
+  saveEvaluation: (payload: {
+    team_id: number;
+    scores: Array<{ criterion_id: number; score: number; comment?: string | null }>;
+    comment?: string | null;
+    recommendations?: string | null;
+    is_conflicted?: boolean;
+    conflict_reason?: string | null;
+  }) =>
+    request<{ success: boolean; evaluation_id: number; total_score: number }>('/api/expert/evaluations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
 export const api = {
   // ── Публичные данные ───────────────────────────────────────────────────────
   season: () => request<SeasonResponse>('/api/season/current'),
