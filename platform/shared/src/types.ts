@@ -481,11 +481,35 @@ export interface AdminMaterial {
   team_name?: string | null;
 }
 
+/** Пункт проверки требований к заявке (ТЗ 07, п. 2.2). */
+export interface ApplicationRequirementCheck {
+  code: string;
+  title: string;
+  passed: boolean;
+  note: string;
+}
+
+/** Запись истории работы с заявкой: кто, что и когда изменил (ТЗ 07, п. 2.2). */
+export interface ApplicationHistoryRecord {
+  id: number;
+  created_at: string;
+  actor_type: string;
+  actor_label: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  user_name: string | null;
+}
+
 export interface AdminApplicationCard {
   application: AdminApplicationRow;
   participants: Participant[];
   mentors: Mentor[];
   materials: AdminMaterial[];
+  /** Проверка возраста, численности, уникальности, направления и комплекта. */
+  requirements_check?: ApplicationRequirementCheck[];
+  /** История изменений: приёмка, замечания, оценки, публикация протокола. */
+  history?: ApplicationHistoryRecord[];
 }
 
 /** Согласие субъекта: версия текста, время и сетевой адрес (п. 14.3). */

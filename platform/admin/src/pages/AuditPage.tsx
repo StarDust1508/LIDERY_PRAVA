@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminApiError, type AuditRecord, adminApi, formatMoscowHuman } from '@shared/index';
+import { saveBlob } from '../lib/download';
 import { Alert, Button, PageHeader, SectionCard, TextField } from '@shared/index';
 
 // Журнал действий: кто, что и когда изменил (ТЗ 07, п. 2.16–2.17).
@@ -29,6 +30,10 @@ export function AuditPage() {
   const [records, setRecords] = useState<AuditRecord[]>([]);
   const [entity, setEntity] = useState('');
   const [search, setSearch] = useState('');
+  // Фильтры по периоду и выгрузка (ТЗ 07, п. 2.17).
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +45,8 @@ export function AuditPage() {
         await adminApi.audits({
           entity: entity || undefined,
           q: search.trim() || undefined,
+          from: from || undefined,
+          to: to || undefined,
           limit: 200,
         })
       );
@@ -48,7 +55,27 @@ export function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [entity, search]);
+  }, [entity, search, from, to]);
+
+  /** Выгрузка журнала с текущими фильтрами: файл отдаёт сервер. */
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      // Выгрузка идёт с токеном админ-сессии, поэтому файл берём запросом,
+      // а не ссылкой: ссылка не передаёт заголовок Authorization.
+      const blob = await adminApi.exportAudit({
+        entity: entity || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      saveBlob(blob, `audit-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Не удалось выгрузить журнал.');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -91,9 +118,26 @@ export function AuditPage() {
             onChange={(event) => setEntity(event.target.value)}
             placeholder="applications, rankings, settings"
           />
-          <div className="flex items-end">
+          <TextField
+            id="audit-from"
+            label="С даты"
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+          />
+          <TextField
+            id="audit-to"
+            label="По дату"
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+          />
+          <div className="flex items-end gap-3">
             <Button type="submit" loading={loading}>
               Показать
+            </Button>
+            <Button type="button" variant="secondary" loading={exporting} onClick={() => void exportCsv()}>
+              Выгрузить CSV
             </Button>
           </div>
         </form>

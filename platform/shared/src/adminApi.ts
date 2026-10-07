@@ -297,6 +297,9 @@ export const adminApi = {
     recommendations?: string | null;
     is_chair_extra?: boolean;
     is_final_vote?: boolean;
+    /** Конфликт интересов: оценка сохраняется, но не учитывается (ТЗ 07, п. 2.7). */
+    is_conflicted?: boolean;
+    conflict_reason?: string | null;
   }) =>
     adminRequest<Evaluation>('/api/admin/evaluations', {
       method: 'POST',
@@ -307,8 +310,43 @@ export const adminApi = {
     adminRequest<Ranking[]>(`/api/admin/rankings${queryString(params)}`),
 
   /** Журнал действий: кто, что и когда изменил. */
-  audits: (params: { entity?: string; action?: string; q?: string; limit?: number } = {}) =>
-    adminRequest<AuditRecord[]>(`/api/admin/audit${queryString(params)}`),
+  audits: (
+    params: {
+      entity?: string;
+      action?: string;
+      q?: string;
+      user_id?: number;
+      from?: string;
+      to?: string;
+      limit?: number;
+      page?: number;
+      perPage?: number;
+    } = {}
+  ) => adminRequest<AuditRecord[]>(`/api/admin/audit${queryString(params)}`),
+
+  /** Журнал вместе с метаданными: для постраничности (ТЗ 07, п. 2.17). */
+  auditsPage: (
+    params: {
+      entity?: string;
+      action?: string;
+      q?: string;
+      user_id?: number;
+      from?: string;
+      to?: string;
+      page?: number;
+      perPage?: number;
+    } = {}
+  ) => adminRequestWithMeta<AuditRecord[]>(`/api/admin/audit${queryString(params)}`),
+
+  /** Выгрузка журнала в CSV (ТЗ 07, п. 2.17): файл тянется с токеном сессии. */
+  exportAudit: async (params: { entity?: string; user_id?: number; from?: string; to?: string } = {}): Promise<Blob> => {
+    const token = getAdminToken();
+    const response = await fetch(`/api/admin/audit/export${queryString(params)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new AdminApiError(response.status, 'Не удалось выгрузить журнал.');
+    return response.blob();
+  },
 
   recalculateRankings: (seasonId: number, stage: string) =>
     adminRequest<{ stage: string; teams: unknown[]; message?: string }>('/api/admin/rankings/recalculate', {
@@ -316,10 +354,20 @@ export const adminApi = {
       body: JSON.stringify({ season_id: seasonId, stage }),
     }),
 
-  publishRankings: (seasonId: number, stage: string) =>
-    adminRequest<{ published: number; published_at?: string; message?: string }>('/api/admin/rankings/publish', {
+  /**
+   * Публикация и снятие протокола (ТЗ 07, п. 2.8).
+   * Снятие требует причины: она попадает в журнал действий.
+   */
+  publishRankings: (seasonId: number, stage: string, isPublished = true, reason?: string) =>
+    adminRequest<{
+      published: number;
+      published_at?: string;
+      message?: string;
+      ties?: Array<{ team: string; average_score: string | number; place: number }>;
+      without_evaluations?: string[];
+    }>('/api/admin/rankings/publish', {
       method: 'POST',
-      body: JSON.stringify({ season_id: seasonId, stage }),
+      body: JSON.stringify({ season_id: seasonId, stage, is_published: isPublished, reason }),
     }),
 
   /** Архив заявок сезона 2026 из прежней системы: только чтение (ТЗ 10, п. 3.1). */

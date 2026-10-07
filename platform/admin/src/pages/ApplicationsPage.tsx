@@ -18,6 +18,16 @@ export function ApplicationsPage() {
   const [rows, setRows] = useState<AdminApplicationRow[]>([]);
   const [search, setSearch] = useState('');
   const [techStatus, setTechStatus] = useState('');
+  // Фильтры приёмной кампании (ТЗ 07, п. 2.2): сезон, направление, источник,
+  // период подачи и наличие замечаний. Раньше был только статус проверки.
+  const [seasonId, setSeasonId] = useState('');
+  const [directionId, setDirectionId] = useState('');
+  const [source, setSource] = useState('');
+  const [submittedFrom, setSubmittedFrom] = useState('');
+  const [submittedTo, setSubmittedTo] = useState('');
+  const [hasRemarks, setHasRemarks] = useState('');
+  const [seasons, setSeasons] = useState<Array<{ id: number; title: string }>>([]);
+  const [directions, setDirections] = useState<Array<{ id: number; title: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -33,18 +43,49 @@ export function ApplicationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const query = { q: search.trim() || undefined, tech_status: techStatus || undefined, limit: 300 };
+      const query = {
+        q: search.trim() || undefined,
+        tech_status: techStatus || undefined,
+        season_id: seasonId ? Number(seasonId) : undefined,
+        direction_id: directionId ? Number(directionId) : undefined,
+        source: source || undefined,
+        submitted_from: submittedFrom || undefined,
+        submitted_to: submittedTo || undefined,
+        has_remarks: hasRemarks === '' ? undefined : hasRemarks === 'true',
+        limit: 300,
+      };
       setRows(await adminApi.applications(query));
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось получить список заявок.');
     } finally {
       setLoading(false);
     }
-  }, [search, techStatus]);
+  }, [search, techStatus, seasonId, directionId, source, submittedFrom, submittedTo, hasRemarks]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Справочники для фильтров: сезоны и направления.
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const [seasonRows, directionRows] = await Promise.all([
+          adminApi.seasons(),
+          adminApi.resourceList<{ id: number; title: string }>('directions', { limit: 100 }),
+        ]);
+        if (!active) return;
+        setSeasons(seasonRows.map((row) => ({ id: row.id, title: row.title })));
+        setDirections(directionRows.map((row) => ({ id: row.id, title: row.title })));
+      } catch {
+        // Справочники не критичны: без них фильтры просто остаются пустыми.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function toggleRow(id: number) {
     setSelected((current) => {
@@ -161,10 +202,10 @@ export function ApplicationsPage() {
         >
           <TextField
             id="applications-search"
-            label="Поиск по команде или организации"
+            label="Поиск по команде, организации или ФИО участника"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Например, Веб Команда"
+            placeholder="Например, Приёмов"
           />
           <SelectField
             id="applications-status"
@@ -173,6 +214,58 @@ export function ApplicationsPage() {
             onChange={(event) => setTechStatus(event.target.value)}
             placeholder="Все статусы"
             options={Object.entries(TECH_STATUS_TITLES).map(([value, title]) => ({ value, title }))}
+          />
+          <SelectField
+            id="applications-season"
+            label="Сезон"
+            value={seasonId}
+            onChange={(event) => setSeasonId(event.target.value)}
+            placeholder="Все сезоны"
+            options={seasons.map((season) => ({ value: String(season.id), title: season.title }))}
+          />
+          <SelectField
+            id="applications-direction"
+            label="Направление"
+            value={directionId}
+            onChange={(event) => setDirectionId(event.target.value)}
+            placeholder="Все направления"
+            options={directions.map((direction) => ({ value: String(direction.id), title: direction.title }))}
+          />
+          <SelectField
+            id="applications-source"
+            label="Источник"
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+            placeholder="Любой"
+            options={[
+              { value: 'site', title: 'Форма на сайте' },
+              { value: 'import', title: 'Перенос из архива' },
+            ]}
+          />
+          <TextField
+            id="applications-from"
+            label="Подана с"
+            type="date"
+            value={submittedFrom}
+            onChange={(event) => setSubmittedFrom(event.target.value)}
+          />
+          <TextField
+            id="applications-to"
+            label="Подана по"
+            type="date"
+            value={submittedTo}
+            onChange={(event) => setSubmittedTo(event.target.value)}
+          />
+          <SelectField
+            id="applications-remarks"
+            label="Замечания"
+            value={hasRemarks}
+            onChange={(event) => setHasRemarks(event.target.value)}
+            placeholder="Не важно"
+            options={[
+              { value: 'true', title: 'Есть замечания' },
+              { value: 'false', title: 'Без замечаний' },
+            ]}
           />
           <div className="flex items-end">
             <Button type="submit" loading={loading}>

@@ -35,6 +35,10 @@ export function EvaluationPage() {
   const [scores, setScores] = useState<Record<number, ScoreDraft>>({});
   const [comment, setComment] = useState('');
   const [recommendations, setRecommendations] = useState('');
+  // Конфликт интересов (ТЗ 07, п. 2.7): оценка остаётся в истории, но в подсчёт
+  // не входит. Причина обязательна — решение должно быть объяснимо.
+  const [isConflicted, setIsConflicted] = useState(false);
+  const [conflictReason, setConflictReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -131,6 +135,8 @@ export function EvaluationPage() {
         scores: payloadScores,
         comment: comment.trim() || null,
         recommendations: recommendations.trim() || null,
+        is_conflicted: isConflicted,
+        conflict_reason: isConflicted ? conflictReason.trim() || null : null,
       });
       setNotice('Оценка сохранена. Итог по этапу считается по пункту 7.7 Положения.');
       setComment('');
@@ -247,7 +253,34 @@ export function EvaluationPage() {
             hint="Формулировки из оценочного листа Приложения № 9."
           />
           <div className="flex flex-wrap items-center gap-4">
-            <Button loading={busy} disabled={teamId === '' || expertId === '' || criteria.length === 0} onClick={() => void save()}>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={isConflicted}
+                onChange={(event) => setIsConflicted(event.target.checked)}
+              />
+              <span>
+                Конфликт интересов: оценка сохраняется для истории, но не учитывается в рейтинге
+              </span>
+            </label>
+            {isConflicted ? (
+              <TextField
+                id="conflict-reason"
+                label="Причина конфликта интересов"
+                value={conflictReason}
+                onChange={(event) => setConflictReason(event.target.value)}
+                hint="Например: близкий родственник среди участников команды."
+                required
+              />
+            ) : null}
+            <Button
+              loading={busy}
+              disabled={
+                teamId === '' || expertId === '' || criteria.length === 0 || (isConflicted && conflictReason.trim().length < 3)
+              }
+              onClick={() => void save()}
+            >
               Сохранить оценку
             </Button>
             <span className="text-sm text-muted">

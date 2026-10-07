@@ -138,6 +138,53 @@ export function ApplicationPage() {
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
 
+      {/* Проверка требований (ТЗ 07, п. 2.2): Оргкомитет видит результат до
+          допуска заявки, а не ищет расхождения вручную по документам. */}
+      {card.requirements_check && card.requirements_check.length > 0 ? (
+        <SectionCard
+          title="Проверка требований"
+          description="Возраст, численность, уникальность участников, направление и комплект материалов."
+        >
+          <ul className="flex flex-col gap-3">
+            {card.requirements_check.map((check) => (
+              <li key={check.code} className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0 md:flex-row md:items-baseline md:justify-between">
+                <span className="flex items-baseline gap-3">
+                  <span
+                    aria-hidden="true"
+                    className={check.passed ? 'text-success' : 'text-danger'}
+                    title={check.passed ? 'Пройдено' : 'Требует внимания'}
+                  >
+                    {check.passed ? '✓' : '✗'}
+                  </span>
+                  <span>{check.title}</span>
+                </span>
+                <span className="text-sm text-muted">{check.note}</span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
+      {/* История заявки (ТЗ 07, п. 2.2): кто и что менял — без неё разбор
+          «почему вернули» упирается в переписку. */}
+      {card.history && card.history.length > 0 ? (
+        <SectionCard title="История" description="Действия Оргкомитета и команды по заявке в обратном порядке.">
+          <ul className="flex flex-col gap-3 text-sm">
+            {card.history.slice(0, 40).map((record) => (
+              <li key={record.id} className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0 md:flex-row md:items-baseline md:justify-between">
+                <span>
+                  <span className="mono-label">{record.action}</span>{' '}
+                  <span className="text-muted">{record.entity}</span>
+                </span>
+                <span className="text-muted">
+                  {record.user_name ?? record.actor_label ?? record.actor_type} · {formatMoscowHuman(record.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Техническая проверка" description="Проверка комплектности по пунктам 7.4–7.5 Положения: допуск, замечания со сроком устранения или отказ.">
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField

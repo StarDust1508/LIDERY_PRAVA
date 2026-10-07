@@ -123,10 +123,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const params: unknown[] = [];
-    let where = '';
+    // Снятые с публикации и отменённые занятия на сайте не показываются
+    // (ТЗ 07, п. 2.10): статус «отменён» остаётся виден только Оргкомитету.
+    let where = 'WHERE m.is_published = TRUE AND m.status <> \'cancelled\'';
     if (status === 'announced' || status === 'past') {
       params.push(status);
-      where = 'WHERE m.status = $1';
+      where += ` AND m.status = $${params.length}`;
     }
     // Прошедший мастер-класс без записи на сайте не показывается (ТЗ 05, §3).
     // Правило проверялось только при сохранении в админке: если запись удалили
@@ -224,7 +226,14 @@ router.get(
   asyncHandler(async (req, res) => {
     const type = typeof req.query.type === 'string' ? req.query.type : undefined;
     const params: unknown[] = [];
+    // Материалы, снятые с публикации, на сайте не показываются; сезон
+    // фильтруется по параметру (ТЗ 07, п. 2.12).
     let where = 'WHERE n.is_published = TRUE';
+    const seasonId = parsePositiveInt(queryString(req.query.season_id));
+    if (seasonId !== null) {
+      params.push(seasonId);
+      where += ` AND (n.season_id = $${params.length} OR n.season_id IS NULL)`;
+    }
     if (type === 'news' || type === 'video') {
       params.push(type);
       where += ` AND n.type = $${params.length}`;

@@ -353,6 +353,11 @@ router.patch(
       return;
     }
 
+    // Замена состава допускается однократно и только с сохранением не менее
+    // половины участников (ТЗ 06, п. 3). Проверка идёт до записи, чтобы отказ
+    // не оставлял команду в половинчатом состоянии.
+    const usedAt = bundle.team.roster_change_used_at ?? null;
+
     const body = (req.body ?? {}) as Record<string, unknown>;
 
     // Состав команды: от 1 (единоличное участие по согласованию, п. 4.3)
@@ -397,6 +402,50 @@ router.patch(
       mentors.push(parsed.value);
     }
 
+    // Состав до изменения: нужен, чтобы отличить правку данных от замены людей
+    // и посчитать, какая часть состава сохранена.
+    const existingIds = new Set(
+      (bundle.participants as Array<{ id: number }>).map((participant) => Number(participant.id))
+    );
+    const incomingIds = new Set(
+      participants.map((participant) => participant.id).filter((id): id is number => id !== null)
+    );
+    const removed = [...existingIds].filter((id) => !incomingIds.has(id));
+    const added = [...incomingIds].filter((id) => !existingIds.has(id));
+    const kept = [...existingIds].filter((id) => incomingIds.has(id));
+    // Изменением состава считается и добавление, и удаление участника: ТЗ 06,
+    // п. 3 ограничивает однократностью именно «добавить/удалить участника».
+    // Появление участника без id в запросе — это тоже добавление.
+    const addsWithoutId = participants.filter((participant) => participant.id === null).length;
+    const rosterChanged = removed.length > 0 || added.length > 0 || addsWithoutId > 0;
+
+    // Правило однократной замены действует для уже поданной заявки: в статусе
+    // «возвращена на доработку» состав можно поменять один раз, сохранив не
+    // менее половины участников (ТЗ 06, п. 3). Пока команда заполняет черновик,
+    // состав собирается свободно — иначе мастер подачи нельзя было бы пройти.
+    const rosterRuleActive = String(bundle.team.status) === 'tech_rejected';
+
+    if (rosterChanged && rosterRuleActive) {
+      if (usedAt) {
+        res.status(409).json({
+          error:
+            'Состав команды уже изменялся: замена участников допускается однократно до публикации итогов отборочного этапа (ТЗ 06, п. 3). Дальнейшие изменения — по решению Оргкомитета.',
+          contact_endpoint: '/api/cabinet/contact',
+          roster_change_used_at: usedAt,
+        });
+        return;
+      }
+      if (existingIds.size >= 2 && kept.length * 2 < existingIds.size) {
+        res.status(409).json({
+          error:
+            'При замене участников должно сохраниться не менее половины состава (ТЗ 06, п. 3). ' +
+            `Сохранено ${kept.length} из ${existingIds.size}.`,
+          contact_endpoint: '/api/cabinet/contact',
+        });
+        return;
+      }
+    }
+
     const name = requiredText(body.name, 200) ?? String(bundle.team.name);
     const directionId = body.direction_id === null || body.direction_id === undefined
       ? (bundle.team.direction_id as number | null)
@@ -411,9 +460,18 @@ router.patch(
         await client.query(
           `UPDATE teams
               SET name = $1, direction_id = $2, organization = $3, city = $4,
+                  roster_change_used_at = CASE WHEN $6 THEN COALESCE(roster_change_used_at, now())
+                                               ELSE roster_change_used_at END,
                   status_changed_at = now(), updated_at = now()
             WHERE id = $5`,
-          [name, directionId, optionalText(body.organization, 300), optionalText(body.city, 120), context.teamId]
+          [
+            name,
+            directionId,
+            optionalText(body.organization, 300),
+            optionalText(body.city, 120),
+            context.teamId,
+            rosterChanged && rosterRuleActive,
+          ]
         );
 
         const keptIds: number[] = [];
@@ -1138,13 +1196,26 @@ router.post(
 
     // Сначала собираем все замечания и показываем их списком: команда должна
     // видеть сразу весь объём недоделанного, а не по одной ошибке за раз.
-    const errors = await withTransaction(async (client) =>
+    const check = await withTransaction(async (client) =>
       collectSubmissionErrors(client, submissionContext)
     );
-    if (errors.length > 0) {
+    if (check.errors.length > 0) {
+      // Если не хватает именно скана согласия законного представителя, команда
+      // получает отдельный статус — Оргкомитет видит причину без переписки
+      // (ТЗ 06, п. 1.2а).
+      if (check.minorScanMissing) {
+        await query(
+          `UPDATE teams
+              SET status = 'awaiting_legal_representative_consent',
+                  status_changed_at = now(), updated_at = now()
+            WHERE id = $1 AND status NOT IN ('disqualified', 'withdrawn')`,
+          [context.teamId]
+        );
+      }
       res.status(422).json({
         error: 'Заявка не может быть отправлена: заполнены не все обязательные сведения.',
-        details: errors,
+        details: check.errors,
+        team_status: check.minorScanMissing ? 'awaiting_legal_representative_consent' : undefined,
       });
       return;
     }
@@ -1337,12 +1408,16 @@ router.post(
       await query('UPDATE media SET file_url = $1 WHERE id = $2', [`/api/media/file/${scanMediaId}`, scanMediaId]);
     }
 
+    // Срок рассмотрения — пять рабочих дней с регистрации (ТЗ 07, п. 2.9):
+    // просроченные обращения Оргкомитет видит в своём разделе.
+    const decisionDueAt = addWorkingDays(new Date(), 5);
     const inserted = await query(
       `INSERT INTO appeals
-         (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at, scan_media_id)
-       VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6, $7)
-       RETURNING id, submitted_at, deadline_at, scan_media_id`,
-      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt, scanMediaId]
+         (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at,
+          registered_at, decision_due_at, scan_media_id)
+       VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6, now(), $7, $8)
+       RETURNING id, submitted_at, deadline_at, registered_at, decision_due_at, scan_media_id`,
+      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt, decisionDueAt.toISOString(), scanMediaId]
     );
 
     void logAccess(context, req, 'appeal_submitted', { appeal_id: inserted.rows[0].id, stage });
@@ -1352,6 +1427,7 @@ router.post(
       stage,
       submitted_at: inserted.rows[0].submitted_at,
       deadline_at: inserted.rows[0].deadline_at,
+      decision_due_at: inserted.rows[0].decision_due_at,
       scan_media_id: inserted.rows[0].scan_media_id ?? null,
     });
   })

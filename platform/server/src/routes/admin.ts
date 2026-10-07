@@ -7,8 +7,16 @@ import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
 import { writeAudit } from '../lib/audit.js';
 import { slugify, uniqueSlug } from '../lib/slugify.js';
-import { addWorkingDays } from '../lib/moscow-time.js';
-import { isIsoDate, optionalText, requiredText } from '../lib/validation.js';
+import { addWorkingDays, formatMoscowDateHuman } from '../lib/moscow-time.js';
+import {
+  PARTICIPANT_MAX_AGE,
+  PARTICIPANT_MIN_AGE,
+  ageOn,
+  isAllowedMaterialUrl,
+  isIsoDate,
+  optionalText,
+  requiredText,
+} from '../lib/validation.js';
 import { generateAccessToken, hashAccessToken } from '../middleware/team-auth.js';
 import {
   adminAuditActor,
@@ -452,10 +460,172 @@ function buildApplicationFilter(req: Request): ApplicationFilter {
   if (search) {
     params.push(`%${search}%`);
     const placeholder = `$${params.length}`;
-    where.push(`(t.name ILIKE ${placeholder} OR t.organization ILIKE ${placeholder})`);
+    // Поиск по названию команды, организации и ФИО участников: в приёмной
+    // кампании заявку ищут по человеку, а не только по команде (ТЗ 07, п. 2.2).
+    where.push(
+      `(t.name ILIKE ${placeholder} OR t.organization ILIKE ${placeholder}
+        OR EXISTS (SELECT 1 FROM participants p
+                    WHERE p.team_id = t.id AND p.full_name ILIKE ${placeholder}))`
+    );
+  }
+
+  // Период подачи (ТЗ 07, п. 2.2): от и до, даты в формате ГГГГ-ММ-ДД.
+  const submittedFrom = isIsoDate(queryString(req.query.submitted_from))
+    ? queryString(req.query.submitted_from)
+    : null;
+  if (submittedFrom) {
+    params.push(submittedFrom);
+    where.push(`a.submitted_at >= $${params.length}::date`);
+  }
+  const submittedTo = isIsoDate(queryString(req.query.submitted_to))
+    ? queryString(req.query.submitted_to)
+    : null;
+  if (submittedTo) {
+    params.push(submittedTo);
+    where.push(`a.submitted_at < ($${params.length}::date + interval '1 day')`);
+  }
+
+  // Наличие замечаний: материалы, возвращённые команде на доработку, или
+  // замечание технической проверки (ТЗ 07, п. 2.2).
+  const remarks = queryString(req.query.has_remarks);
+  if (remarks === 'true') {
+    where.push(
+      `(EXISTS (SELECT 1 FROM application_materials am
+                 WHERE am.application_id = a.id AND am.status IN ('needs_fix', 'blocked'))
+        OR a.tech_status = 'needs_fix')`
+    );
+  } else if (remarks === 'false') {
+    where.push(
+      `(NOT EXISTS (SELECT 1 FROM application_materials am
+                    WHERE am.application_id = a.id AND am.status IN ('needs_fix', 'blocked'))
+        AND a.tech_status <> 'needs_fix')`
+    );
   }
 
   return { where: where.length > 0 ? `WHERE ${where.join(' AND ')}` : '', params };
+}
+
+/**
+ * Проверка требований к заявке для карточки (ТЗ 07, п. 2.2).
+ *
+ * Проверяется то, что Оргкомитет обязан увидеть до допуска: возраст каждого
+ * участника на дату окончания приёма, численность команды, единственность
+ * капитана и участие человека только в одной команде, направление и комплект
+ * материалов. Результат — список пунктов с отметкой «пройдено» и пояснением.
+ */
+async function checkApplicationRequirements(
+  application: Record<string, unknown>,
+  participants: Array<Record<string, unknown>>,
+  materials: Array<Record<string, unknown>>
+): Promise<Array<{ code: string; title: string; passed: boolean; note: string }>> {
+  const checks: Array<{ code: string; title: string; passed: boolean; note: string }> = [];
+
+  const season = await query(
+    'SELECT title, application_close_at FROM seasons WHERE id = $1 LIMIT 1',
+    [application.season_id]
+  );
+  const closeAt = (season.rows[0]?.application_close_at as string | null) ?? null;
+  const reference = closeAt ? new Date(closeAt) : new Date();
+
+  const ages = participants.map((participant) => ageOn(String(participant.birth_date), reference));
+  const tooYoung = participants.filter((_, index) => (ages[index] ?? 0) < PARTICIPANT_MIN_AGE);
+  const tooOld = participants.filter((_, index) => (ages[index] ?? 0) > PARTICIPANT_MAX_AGE);
+  checks.push({
+    code: 'age',
+    title: `Возраст участников ${PARTICIPANT_MIN_AGE}–${PARTICIPANT_MAX_AGE} лет на ${closeAt ? formatMoscowDateHuman(closeAt) : 'дату проверки'}`,
+    passed: participants.length > 0 && tooYoung.length === 0 && tooOld.length === 0,
+    note:
+      participants.length === 0
+        ? 'Участники не заполнены'
+        : tooYoung.length > 0 || tooOld.length > 0
+          ? `Вне диапазона: ${[...tooYoung, ...tooOld].map((p) => String(p.full_name)).join(', ')}`
+          : `Проверено участников: ${participants.length}`,
+  });
+
+  checks.push({
+    code: 'roster',
+    title: 'Численность команды от 2 до 4 человек',
+    passed: participants.length >= 2 && participants.length <= 4,
+    note: `Участников: ${participants.length}`,
+  });
+
+  const captains = participants.filter((participant) => participant.role === 'captain');
+  checks.push({
+    code: 'captain',
+    title: 'Ровно один капитан команды',
+    passed: captains.length === 1,
+    note: captains.length === 0 ? 'Капитан не указан' : `Капитан: ${String(captains[0]?.full_name ?? '')}`,
+  });
+
+  const emails = participants
+    .map((participant) => String(participant.email ?? '').toLowerCase())
+    .filter((email) => email !== '');
+  const duplicates = emails.filter((email, index) => emails.indexOf(email) !== index);
+  const otherTeams = emails.length
+    ? await query(
+        `SELECT p.email, t.name AS team_name
+           FROM participants p
+           JOIN teams t ON t.id = p.team_id
+          WHERE lower(p.email) = ANY($1::text[]) AND p.team_id <> $2
+          LIMIT 10`,
+        [emails, application.team_id]
+      )
+    : { rows: [] };
+  checks.push({
+    code: 'unique',
+    title: 'Участник заявлен только в одной команде',
+    passed: duplicates.length === 0 && otherTeams.rows.length === 0,
+    note:
+      duplicates.length > 0
+        ? `Повтор в заявке: ${duplicates.join(', ')}`
+        : otherTeams.rows.length > 0
+          ? otherTeams.rows.map((row) => `${String(row.email)} — ${String(row.team_name)}`).join('; ')
+          : 'Совпадений нет',
+  });
+
+  const direction = application.direction_id;
+  checks.push({
+    code: 'direction',
+    title: 'Направление конкурса указано',
+    passed: direction !== null && direction !== undefined,
+    note: direction === null || direction === undefined ? 'Направление не выбрано' : String(application.direction_title ?? ''),
+  });
+
+  const requirements = await query(
+    `SELECT title, type, is_required
+       FROM material_requirements
+      WHERE season_id = $1 AND stage = 'selection' AND is_active = TRUE AND is_required = TRUE
+      ORDER BY sort_order, id`,
+    [application.season_id]
+  );
+  const submittedTypes = new Set(
+    materials.filter((material) => material.status !== 'rejected').map((material) => String(material.type))
+  );
+  const missing = requirements.rows
+    .filter((row) => !submittedTypes.has(String(row.type)))
+    .map((row) => String(row.title));
+  checks.push({
+    code: 'materials',
+    title: 'Комплект материалов сдан',
+    passed: missing.length === 0,
+    note: missing.length === 0 ? `Сдано: ${requirements.rows.length} из ${requirements.rows.length}` : `Не сдано: ${missing.join(', ')}`,
+  });
+
+  const minors = participants.filter((participant) => participant.is_minor === true || (ages[participants.indexOf(participant)] ?? 99) < 18);
+  if (minors.length > 0) {
+    const missingConsent = minors.filter((participant) => participant.consent_legal_representative !== true);
+    checks.push({
+      code: 'minor_consent',
+      title: 'Согласие законного представителя несовершеннолетнего',
+      passed: missingConsent.length === 0,
+      note:
+        missingConsent.length === 0
+          ? `Несовершеннолетних: ${minors.length}, согласия есть`
+          : `Нет согласия: ${missingConsent.map((p) => String(p.full_name)).join(', ')}`,
+    });
+  }
+
+  return checks;
 }
 
 const APPLICATION_SELECT = `
@@ -582,7 +752,31 @@ router.get(
       [id]
     );
 
-    res.json({ application, participants: participants.rows, mentors: mentors.rows, materials: materials.rows });
+    // История работы с заявкой: кто и что менял (ТЗ 07, п. 2.2). Без неё
+    // разбор «почему заявку вернули» упирается в переписку.
+    const history = await query(
+      `SELECT a.id, a.created_at, a.actor_type, a.actor_label, a.action, a.entity,
+              a.entity_id, a.before, a.after, u.full_name AS user_name
+         FROM audit_log a
+         LEFT JOIN users u ON u.id = a.user_id
+        WHERE (a.entity = 'applications' AND a.entity_id = $2::text)
+           OR (a.entity = 'application_materials'
+               AND a.entity_id IN (SELECT am.id::text FROM application_materials am
+                                    WHERE am.application_id = $1))
+           OR (a.entity = 'teams' AND a.entity_id = $3::text)
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT 100`,
+      [id, id, application.team_id]
+    );
+
+    res.json({
+      application,
+      participants: participants.rows,
+      mentors: mentors.rows,
+      materials: materials.rows,
+      requirements_check: await checkApplicationRequirements(application, participants.rows, materials.rows),
+      history: history.rows,
+    });
   })
 );
 
@@ -1651,6 +1845,16 @@ router.post(
     const recommendations = optionalText(body.recommendations, 3000);
     const isChairExtra = body.is_chair_extra === true;
     const isFinalVote = body.is_final_vote === true;
+    // Конфликт интересов (ТЗ 07, п. 2.7): оценка сохраняется для истории, но в
+    // подсчёт не входит. Причина обязательна — решение должно быть объяснимо.
+    const isConflicted = body.is_conflicted === true;
+    const conflictReason = optionalText(body.conflict_reason, 1000);
+    if (isConflicted && !conflictReason) {
+      res.status(400).json({
+        error: 'Укажите причину конфликта интересов: оценка сохранится, но не будет учитываться в подсчёте.',
+      });
+      return;
+    }
 
     const existing = await query(
       expertId !== null
@@ -1664,10 +1868,21 @@ router.post(
         `UPDATE evaluations
             SET scores = $1::jsonb, total_score = $2, comment = $3,
                 is_chair_extra = $4, is_final_vote = $5, recommendations = $6,
+                is_conflicted = $7, conflict_reason = $8,
                 updated_at = now()
-          WHERE id = $7
+          WHERE id = $9
           RETURNING *`,
-        [JSON.stringify(scores), totalScore, comment, isChairExtra, isFinalVote, recommendations, existing.rows[0].id]
+        [
+          JSON.stringify(scores),
+          totalScore,
+          comment,
+          isChairExtra,
+          isFinalVote,
+          recommendations,
+          isConflicted,
+          conflictReason,
+          existing.rows[0].id,
+        ]
       );
       res.json(updated.rows[0]);
       return;
@@ -1676,8 +1891,8 @@ router.post(
     const inserted = await query(
       `INSERT INTO evaluations
          (team_id, stage, expert_id, jury_member_id, scores, total_score, comment,
-          recommendations, is_chair_extra, is_final_vote, created_by)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
+          recommendations, is_chair_extra, is_final_vote, is_conflicted, conflict_reason, created_by)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         teamId,
@@ -1690,6 +1905,8 @@ router.post(
         recommendations,
         isChairExtra,
         isFinalVote,
+        isConflicted,
+        conflictReason,
         adminUserId(req),
       ]
     );
@@ -1774,10 +1991,12 @@ router.post(
     }
     const teamIds = teams.map((team) => Number(team.id));
 
+    // Оценки с конфликтом интересов исключаются из подсчёта (ТЗ 07, п. 2.7),
+    // но остаются в базе как след решения комиссии.
     const evaluationsResult = await query(
       `SELECT team_id, total_score, is_chair_extra
          FROM evaluations
-        WHERE stage = $1 AND team_id = ANY($2::int[])`,
+        WHERE stage = $1 AND team_id = ANY($2::int[]) AND is_conflicted = FALSE`,
       [stage, teamIds]
     );
 
@@ -1902,16 +2121,138 @@ router.post(
       }
     }
 
+    // ТЗ 07, п. 2.7 и 2.8: контроль «не менее трёх оценок на инициативу» и
+    // «наличие всех обязательных оценок».
+    //
+    // Блокируем публикацию, если работа уже оценивается, но оценок меньше трёх:
+    // это незавершённое оценивание. Команды, которых оценка ещё не касалась ни
+    // одной оценкой, попадают в предупреждение: по сценарию приёмки (ТЗ 12, С4)
+    // протокол этапа публикуется по оценённым работам, а не по всему сезону.
+    if (publish) {
+      const scoreCounts = await query(
+        `SELECT t.name,
+                count(e.id) FILTER (WHERE COALESCE(e.is_conflicted, FALSE) = FALSE)::int AS evaluations
+           FROM rankings r
+           JOIN teams t ON t.id = r.team_id
+           LEFT JOIN evaluations e ON e.team_id = r.team_id AND e.stage = r.stage
+          WHERE r.season_id = $1 AND r.stage = $2
+          GROUP BY t.name
+          ORDER BY t.name`,
+        [seasonId, stage]
+      );
+      const incomplete = scoreCounts.rows.filter(
+        (row) => Number(row.evaluations) > 0 && Number(row.evaluations) < 3
+      );
+      const notEvaluated = scoreCounts.rows.filter((row) => Number(row.evaluations) === 0);
+      if (incomplete.length > 0) {
+        res.status(409).json({
+          error:
+            'Протокол нельзя опубликовать: по части работ меньше трёх оценок (ТЗ 07, п. 2.7). ' +
+            `Команды: ${incomplete
+              .map((row) => `${String(row.name)} (${Number(row.evaluations)})`)
+              .join(', ')}.`,
+          min_evaluations: 3,
+          without_evaluations: notEvaluated.map((row) => String(row.name)),
+        });
+        return;
+      }
+
+      // ТЗ 07, п. 2.14а и 2.8: конфликт интересов исключается из подсчёта, но
+      // сам факт нужно показать Оргкомитету до подписания протокола.
+      const conflicted = await query(
+        `SELECT count(*)::int AS total
+           FROM evaluations e
+           JOIN teams t ON t.id = e.team_id
+          WHERE t.season_id = $1 AND e.stage = $2 AND COALESCE(e.is_conflicted, FALSE) = TRUE`,
+        [seasonId, stage]
+      );
+      if (Number(conflicted.rows[0]?.total ?? 0) > 0) {
+        await writeAudit({
+          action: 'rankings_publish_with_conflicts',
+          entity: 'rankings',
+          entityId: `${seasonId}:${stage}`,
+          after: { conflicted: Number(conflicted.rows[0]?.total ?? 0) },
+          req,
+        });
+      }
+    }
+
+    // Снятие с публикации — отдельное решение с причиной (ТЗ 07, п. 2.8):
+    // без причины неясно, почему протокол убрали из открытого доступа.
+    if (!publish && !optionalText(body.reason, 1000)) {
+      res.status(400).json({
+        error: 'Укажите причину снятия протокола с публикации: она попадёт в журнал действий.',
+      });
+      return;
+    }
+
     const result = await query(
       `UPDATE rankings
           SET is_published = $1,
               published_at = CASE WHEN $1 THEN now() ELSE NULL END,
+              protocol_note = CASE WHEN $1 THEN protocol_note ELSE $4 END,
               updated_at = now()
         WHERE season_id = $2 AND stage = $3
         RETURNING id`,
-      [publish, seasonId, stage]
+      [publish, seasonId, stage, optionalText(body.reason, 1000)]
     );
-    res.json({ success: true, updated: result.rows.length, is_published: publish });
+
+    // Равенство баллов: места при равной сумме делят одну позицию. Протокол
+    // должен предупреждать об этом, иначе «место 4» у двух команд выглядит
+    // ошибкой подсчёта (ТЗ 07, п. 2.8).
+    const ties = await query(
+      `WITH scored AS (
+         SELECT r.team_id, t.name, r.average_score,
+                rank() OVER (ORDER BY r.average_score DESC) AS place,
+                count(*) OVER (PARTITION BY r.average_score) AS same_score
+           FROM rankings r
+           JOIN teams t ON t.id = r.team_id
+          WHERE r.season_id = $1 AND r.stage = $2
+       )
+       SELECT name, average_score, place
+         FROM scored
+        WHERE same_score > 1
+        ORDER BY place, name`,
+      [seasonId, stage]
+    );
+
+    await writeAudit({
+      action: publish ? 'rankings_publish' : 'rankings_unpublish',
+      entity: 'rankings',
+      entityId: `${seasonId}:${stage}`,
+      after: { is_published: publish, reason: optionalText(body.reason, 1000) },
+      req,
+    });
+
+    // Команды без оценок: протокол по ним не публикуется, но Оргкомитет должен
+    // видеть их в ответе, чтобы не потерять работу (ТЗ 07, п. 2.8, п. 2).
+    const notEvaluatedNow = publish
+      ? await query(
+          `SELECT t.name
+             FROM rankings r
+             JOIN teams t ON t.id = r.team_id
+            WHERE r.season_id = $1 AND r.stage = $2
+              AND NOT EXISTS (
+                SELECT 1 FROM evaluations e
+                 WHERE e.team_id = r.team_id AND e.stage = r.stage
+                   AND COALESCE(e.is_conflicted, FALSE) = FALSE
+              )
+            ORDER BY t.name`,
+          [seasonId, stage]
+        )
+      : { rows: [] };
+
+    res.json({
+      success: true,
+      updated: result.rows.length,
+      is_published: publish,
+      ties: ties.rows.map((row) => ({
+        team: row.name,
+        average_score: row.average_score,
+        place: row.place,
+      })),
+      without_evaluations: notEvaluatedNow.rows.map((row) => String(row.name)),
+    });
   })
 );
 
@@ -1997,6 +2338,9 @@ router.get(
     const result = await query(
       `SELECT ap.*, t.name AS team_name, s.title AS season_title,
               (ap.deadline_at < now() AND ap.status = 'submitted') AS overdue,
+              -- Срок рассмотрения — пять рабочих дней (ТЗ 07, п. 2.9).
+              (ap.decision_due_at IS NOT NULL AND ap.decision_due_at < now()
+                AND ap.status IN ('submitted', 'in_review')) AS decision_overdue,
               CASE WHEN ap.scan_media_id IS NOT NULL
                    THEN '/api/media/file/' || ap.scan_media_id::text
                    ELSE NULL END AS scan_url
@@ -2364,6 +2708,88 @@ router.get(
   })
 );
 
+// GET /api/admin/audit/export — выгрузка журнала действий в CSV
+// (ТЗ 07, п. 2.17). Разбор инцидента часто заканчивается требованием
+// предоставить перечень действий за период, поэтому выгрузка идёт с теми же
+// фильтрами, что и список.
+router.get(
+  '/audit/export',
+  requireAdminRole('admin'),
+  asyncHandler(async (req, res) => {
+    const params: unknown[] = [];
+    const where: string[] = [];
+    const entity = queryString(req.query.entity);
+    if (entity) {
+      params.push(entity);
+      where.push(`a.entity = $${params.length}`);
+    }
+    const userId = parsePositiveInt(queryString(req.query.user_id));
+    if (userId !== null) {
+      params.push(userId);
+      where.push(`a.user_id = $${params.length}`);
+    }
+    const from = queryString(req.query.from);
+    if (from) {
+      params.push(from);
+      where.push(`a.created_at >= $${params.length}::timestamptz`);
+    }
+    const to = queryString(req.query.to);
+    if (to) {
+      params.push(to);
+      where.push(`a.created_at <= $${params.length}::timestamptz`);
+    }
+
+    const result = await query(
+      `SELECT a.created_at, a.actor_type, a.actor_label, a.action, a.entity, a.entity_id,
+              a.ip, u.full_name AS user_name
+         FROM audit_log a
+         LEFT JOIN users u ON u.id = a.user_id
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT 10000`,
+      params
+    );
+
+    const headers = [
+      'Дата и время',
+      'Роль',
+      'Автор',
+      'Пользователь',
+      'Действие',
+      'Сущность',
+      'Объект',
+      'Сетевой адрес',
+    ];
+    const csv = toCsv(
+      headers,
+      result.rows.map((row) => [
+        row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ''),
+        row.actor_type ?? '',
+        row.actor_label ?? '',
+        row.user_name ?? '',
+        row.action ?? '',
+        row.entity ?? '',
+        row.entity_id ?? '',
+        row.ip ?? '',
+      ])
+    );
+
+    await writeAudit({
+      action: 'audit_export',
+      entity: 'audit_log',
+      after: { rows: result.rows.length },
+      req,
+    });
+
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set(
+      'Content-Disposition',
+      `attachment; filename="audit-${new Date().toISOString().slice(0, 10)}.csv"`
+    );
+    res.send(csv);
+  })
+);
+
 // GET /api/admin/legacy-applications — архив заявок сезона 2026 (ТЗ 10, п. 3.1).
 // Таблица заведена миграцией 018; записи переносятся импортёром
 // (ops/import-legacy.sh) и не участвуют в работе конкурса: только чтение и
@@ -2617,6 +3043,10 @@ router.use(
       { name: 'place', type: 'text', maxLength: 300 },
       { name: 'recording_url', type: 'text', maxLength: 2000 },
       { name: 'media_id', type: 'text', maxLength: 64 },
+      // Обложка карточки (ТЗ 07, п. 2.10) и признак публикации: анонс можно
+      // подготовить заранее и показать позже.
+      { name: 'cover_media_id', type: 'text', maxLength: 64 },
+      { name: 'is_published', type: 'bool' },
       // Материалы занятия: массив { title, url } (ТЗ 08, п. 4.3).
       { name: 'materials', type: 'json' },
       { name: 'sort_order', type: 'int' },
@@ -2666,6 +3096,9 @@ router.use(
       { name: 'slug', type: 'text', maxLength: 200 },
       { name: 'title', type: 'text', maxLength: 300 },
       { name: 'type', type: 'text', maxLength: 32 },
+      // Привязка публикации к сезону (ТЗ 07, п. 2.12): по ней новость попадает
+      // в подборку нужного сезона, а не только в общую ленту.
+      { name: 'season_id', type: 'int' },
       { name: 'cover_media_id', type: 'text', maxLength: 64 },
       { name: 'video_url', type: 'text', maxLength: 2000 },
       { name: 'excerpt', type: 'text', maxLength: 2000 },
@@ -2674,8 +3107,17 @@ router.use(
       { name: 'is_published', type: 'bool' },
     ],
     orderBy: 'published_at DESC NULLS LAST, id DESC',
-    filters: ['type'],
+    filters: ['type', 'season_id', 'is_published'],
     searchFields: ['title', 'slug'],
+    // Ссылка на видео ведёт на российский видеосервис (п. 14.4 Положения):
+    // зарубежные площадки в публикациях конкурса не используются.
+    validate: (values) => {
+      const video = typeof values.video_url === 'string' ? values.video_url.trim() : '';
+      if (video === '') return null;
+      return isAllowedMaterialUrl(video)
+        ? null
+        : 'Ссылка на видео должна вести на российский сервис: «ВКонтакте», Rutube, Дзен или Одноклассники.';
+    },
   })
 );
 

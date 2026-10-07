@@ -339,6 +339,9 @@ curl -s -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/materials" -F "typ
 
 expect "отправка без скана Приложения № 11 блокируется" 422 -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/submit" -H 'Content-Type: application/json' -d '{"confirm_regulation":true,"image_license":true}'
 if grep -q 'скан' "$BODY"; then ok "сообщение требует именно скан согласия законного представителя"; else bad "сообщение об отказе не упоминает скан"; fi
+MINOR_TEAM_ID=$(psql_db "SELECT team_id FROM liders.participants WHERE email='minor-accept@example.ru' ORDER BY id DESC LIMIT 1")
+MINOR_STATUS=$(psql_db "SELECT status FROM liders.teams WHERE id=${MINOR_TEAM_ID}")
+[ "$MINOR_STATUS" = "awaiting_legal_representative_consent" ] && ok "команда получила статус «ожидает согласие законного представителя»" || bad "статус команды после отказа: ${MINOR_STATUS:-?}"
 expect "скан Приложения № 11 принимается" 201 -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/materials" -F "type=consent_legal_rep" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
 expect "после скана заявка отправляется" 200 -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/submit" -H 'Content-Type: application/json' -d '{"confirm_regulation":true,"image_license":true}'
 
@@ -1048,6 +1051,144 @@ for pair in "pobediteli.html:/winners" "privacy.html:/legal/privacy" "soglasie.h
         bad "в конфигурации нет редиректа /${from} → ${to}"
     fi
 done
+
+# ── Состав команды: однократная замена (ТЗ 06, п. 3) ────────────────────────
+step "Состав команды: однократная замена с сохранением половины"
+
+# В черновике состав собирается свободно, поэтому проверяем правило в статусе
+# «возвращена на доработку»: именно там замена участников разрешена один раз.
+STATUS_BEFORE=$(psql_db "SELECT status FROM liders.teams WHERE id=${TEAM_ID}")
+psql_db "UPDATE liders.teams SET status='tech_rejected' WHERE id=${TEAM_ID}" >/dev/null
+MEMBER_ID=$(psql_db "SELECT id FROM liders.participants WHERE team_id=${TEAM_ID} AND email='accept2@example.ru' ORDER BY id LIMIT 1")
+THIRD_ID=$(psql_db "SELECT id FROM liders.participants WHERE team_id=${TEAM_ID} AND email='accept3@example.ru' ORDER BY id LIMIT 1")
+ROSTER_ADD=$(python3 - "$CAPTAIN_ID" "$MEMBER_ID" <<'PY'
+import json, sys
+captain, member = int(sys.argv[1]), int(sys.argv[2])
+rows = [
+  {"id": captain, "full_name": "Приёмов Пётр Петрович", "birth_date": "2001-03-03", "category": "student", "email": "accept@example.ru", "role": "captain", "consent_pdn": True, "citizenship": "Российская Федерация", "region": "Саратовская область", "settlement": "г. Саратов", "competencies": "Публикации по гражданскому праву.", "personal_contribution": "Структура законопроекта.", "faculty": "Юридический факультет", "course": 3, "study_program": "40.03.01 Юриспруденция"},
+  {"id": member, "full_name": "Приёмова Анна Львовна", "birth_date": "2002-07-07", "category": "magistrant", "email": "accept2@example.ru", "role": "member", "consent_pdn": True, "citizenship": "Российская Федерация", "region": "Саратовская область", "settlement": "г. Энгельс", "competencies": "Юридическая клиника.", "personal_contribution": "Анализ практики."},
+  {"full_name": "Приёмов Третий Участник", "birth_date": "2003-09-09", "category": "student", "email": "accept3@example.ru", "role": "member", "consent_pdn": True, "citizenship": "Российская Федерация", "region": "Саратовская область", "settlement": "г. Балаково", "competencies": "Судебная практика.", "personal_contribution": "Проект постановления."},
+]
+print(json.dumps({"name": "Приёмочная команда", "direction_id": 1, "participants": rows, "mentors": [{"full_name": "Наставников Лев Иванович", "organization": "СГЮА", "position": "доцент", "academic_degree": "кандидат юридических наук", "academic_title": "доцент", "email": "mentor@example.ru", "consent_pdn": True}]}, ensure_ascii=False))
+PY
+)
+expect "изменение состава в поданной заявке разрешено один раз" 200 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$ROSTER_ADD"
+ROSTER_USED=$(psql_db "SELECT roster_change_used_at IS NOT NULL FROM liders.teams WHERE id=${TEAM_ID}")
+[ "$ROSTER_USED" = "t" ] && ok "отметка об изменении состава сохранена" || bad "отметка об изменении состава не сохранена"
+
+ROSTER_REMOVE_ALL=$(python3 - "$CAPTAIN_ID" "$MEMBER_ID" <<'PY'
+import json, sys
+captain, member = int(sys.argv[1]), int(sys.argv[2])
+rows = [
+  {"id": captain, "full_name": "Приёмов Пётр Петрович", "birth_date": "2001-03-03", "category": "student", "email": "accept@example.ru", "role": "captain", "consent_pdn": True},
+  {"id": member, "full_name": "Приёмова Анна Львовна", "birth_date": "2002-07-07", "category": "magistrant", "email": "accept2@example.ru", "role": "member", "consent_pdn": True},
+]
+print(json.dumps({"name": "Приёмочная команда", "direction_id": 1, "participants": rows, "mentors": []}, ensure_ascii=False))
+PY
+)
+expect "повторная замена состава отклоняется" 409 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$ROSTER_REMOVE_ALL"
+if grep -q 'уже изменялся' "$BODY"; then ok "отказ объясняет однократность изменения состава"; else bad "отказ без пояснения: $(head -c 160 "$BODY")"; fi
+psql_db "UPDATE liders.teams SET status='${STATUS_BEFORE}' WHERE id=${TEAM_ID}" >/dev/null
+
+# ── Остаток ТЗ 07 и 06: карточка, фильтры, оценивание, контент ──────────────
+step "Карточка заявки, фильтры, оценивание, контент"
+
+expect "карточка заявки отдаётся" 200 -H "$AUTH" "${BASE}/api/admin/applications/${APPLICATION_ID}"
+CARD_CHECK=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+checks = d.get('requirements_check') or []
+codes = {item.get('code') for item in checks}
+print('ok' if {'age','roster','captain','unique','direction','materials'} <= codes and isinstance(d.get('history'), list) else 'no')
+" 2>/dev/null || echo error)
+[ "$CARD_CHECK" = "ok" ] && ok "карточка содержит проверку требований и историю" || bad "карточка неполна: $CARD_CHECK"
+REQ_FAILS=$(python3 -c "
+import json
+d = json.load(open('$BODY'))
+print(sum(1 for item in (d.get('requirements_check') or []) if not item.get('passed')))
+" 2>/dev/null || echo '?')
+ok "непройденных проверок требований: ${REQ_FAILS}"
+
+# Фильтры заявок (ТЗ 07, п. 2.2): период подачи, замечания, поиск по участнику.
+expect "фильтр по периоду подачи" 200 -H "$AUTH" "${BASE}/api/admin/applications?submitted_from=2026-01-01&submitted_to=2027-01-01"
+expect "фильтр по замечаниям" 200 -H "$AUTH" "${BASE}/api/admin/applications?has_remarks=true"
+expect "поиск заявки по ФИО участника" 200 -H "$AUTH" "${BASE}/api/admin/applications?q=%D0%9F%D1%80%D0%B8%D1%91%D0%BC%D0%BE%D0%B2"
+
+# Конфликт интересов: оценка сохраняется, но не учитывается (ТЗ 07, п. 2.7).
+expect "конфликт интересов без причины отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
+    -H 'Content-Type: application/json' \
+    -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${FIRST_EXPERT},\"scores\":$(score_for 0),\"is_conflicted\":true}"
+CONFLICT_SAVE=$(curl -s -o "$BODY" -w '%{http_code}' -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
+    -H 'Content-Type: application/json' \
+    -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${FIRST_EXPERT},\"scores\":$(score_for 0),\"is_conflicted\":true,\"conflict_reason\":\"Приёмочная проверка: родственник участника\"}")
+unwrap_body "$BODY"
+case "$CONFLICT_SAVE" in
+    200|201) ok "оценка с конфликтом интересов сохранена → $CONFLICT_SAVE" ;;
+    *) bad "оценка с конфликтом интересов не сохранилась: $CONFLICT_SAVE · $(head -c 160 "$BODY")" ;;
+esac
+expect "пересчёт рейтинга с конфликтом" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/recalculate" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+CONFLICT_AVERAGE=$(psql_db "SELECT average_score FROM liders.rankings WHERE team_id=${TEAM_ID} AND stage='selection'")
+[ "$CONFLICT_AVERAGE" != "32.67" ] && ok "оценка с конфликтом исключена из среднего: ${CONFLICT_AVERAGE}" || bad "оценка с конфликтом попала в подсчёт"
+
+# Снятие протокола с публикации: причина обязательна (ТЗ 07, п. 2.8).
+expect "снятие протокола без причины отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection","is_published":false}'
+expect "снятие протокола с причиной" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection","is_published":false,"reason":"Приёмочная проверка снятия"}'
+UNPUB_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='rankings_unpublish'")
+[ "${UNPUB_LOGGED:-0}" -ge 1 ] && ok "снятие протокола записано в журнал" || bad "снятие протокола не попало в журнал"
+# Возвращаем протокол в публикацию и убираем приёмочную оценку с конфликтом.
+psql_db "DELETE FROM liders.evaluations WHERE is_conflicted = TRUE" >/dev/null
+# Возвращаем обычную оценку первого эксперта: без неё у команды остаётся две
+# оценки, и контроль «не менее трёх» справедливо блокирует публикацию.
+curl -s -o /dev/null -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
+    -H 'Content-Type: application/json' \
+    -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${FIRST_EXPERT},\"scores\":$(score_for 8),\"comment\":\"Материалы полные.\"}"
+curl -s -o /dev/null -H "$AUTH" -X POST "${BASE}/api/admin/rankings/recalculate" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+expect "повторная публикация протокола" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
+    -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+TIES=$(psql_db "SELECT count(*) FROM liders.rankings WHERE season_id=1 AND stage='selection'")
+ok "записей рейтинга после публикации: ${TIES}"
+
+# Апелляция: срок рассмотрения пять рабочих дней (ТЗ 07, п. 2.9).
+APPEAL_DUE=$(psql_db "SELECT decision_due_at IS NOT NULL FROM liders.appeals ORDER BY id DESC LIMIT 1")
+[ "$APPEAL_DUE" = "t" ] && ok "у апелляции есть срок рассмотрения" || bad "срок рассмотрения апелляции не проставлен"
+APPEAL_LIST_OVERDUE=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data', d) if isinstance(d, dict) else d
+print('ok' if isinstance(rows, list) and all('decision_overdue' in row for row in rows) else 'no')
+" 2>/dev/null || echo error)
+[ "$APPEAL_LIST_OVERDUE" = "ok" ] && ok "список апелляций отмечает просрочку рассмотрения" || bad "в списке апелляций нет отметки просрочки"
+
+# Журнал: фильтр по периоду и выгрузка (ТЗ 07, п. 2.17).
+expect "журнал фильтруется по периоду" 200 -H "$AUTH" "${BASE}/api/admin/audit?from=2026-01-01&to=2027-01-01"
+expect "журнал действий выгружается в CSV" 200 -H "$AUTH" "${BASE}/api/admin/audit/export"
+if head -c 300 "$BODY" | grep -q 'Действие'; then ok "в выгрузке журнала есть заголовки"; else bad "выгрузка журнала без заголовков"; fi
+
+# Новости: привязка к сезону и домен видеосервиса (ТЗ 07, п. 2.12).
+expect "новость с зарубежной видеоссылкой отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Приёмочная новость с видео","type":"video","video_url":"https://youtube.com/watch?v=1","season_id":1}'
+expect "новость с российским видеосервисом принимается" 201 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Приёмочная новость с видео на ВКонтакте","type":"video","video_url":"https://vk.com/video-1_2","season_id":1,"is_published":true}'
+NEWS_SEASON=$(psql_db "SELECT season_id FROM liders.news WHERE title='Приёмочная новость с видео на ВКонтакте'")
+[ "${NEWS_SEASON:-0}" = "1" ] && ok "новость привязана к сезону" || bad "сезон новости: ${NEWS_SEASON:-?}"
+
+# Мастер-класс: статус «отменён» и снятие с публикации (ТЗ 07, п. 2.10).
+expect "мастер-класс переводится в статус «отменён»" 201 -H "$AUTH" -X POST "${BASE}/api/admin/masterclasses" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Приёмочный отменённый мастер-класс","speaker":"Тестов Тест","status":"cancelled","starts_at":"2026-12-01T10:00:00Z","is_published":true}'
+CANCELLED_PUBLIC=$(curl -s "${BASE}/api/masterclasses" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data', d) if isinstance(d, dict) else d
+print('ok' if not any(i.get('title') == 'Приёмочный отменённый мастер-класс' for i in rows) else 'no')
+" 2>/dev/null || echo error)
+[ "$CANCELLED_PUBLIC" = "ok" ] && ok "отменённый мастер-класс не показывается публично" || bad "отменённый мастер-класс попал в выдачу"
 
 # ── Дедлайн приёма ───────────────────────────────────────────────────────────
 step "Дедлайн приёма заявок"

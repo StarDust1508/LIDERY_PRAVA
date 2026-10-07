@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  AdminApiError,
-  EVALUATION_STAGES,
-  type Ranking,
-  adminApi,
-  evaluationStageTitle,
-  formatMoscowHuman,
-  teamStatusTitle,
-} from '@shared/index';
+import { AdminApiError, EVALUATION_STAGES, TextField, adminApi, evaluationStageTitle, formatMoscowHuman, teamStatusTitle, type Ranking } from '@shared/index';
 import { Alert, Button, PageHeader, SectionCard, SelectField } from '@shared/index';
 
 // Рейтинг этапа: расчёт по пункту 7.7 (среднее арифметическое сумм членов
@@ -83,6 +75,10 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
   const teamName = (id: number) => teams.find((team) => team.id === id)?.name ?? `Команда ${id}`;
   const teamStatus = (id: number) => teams.find((team) => team.id === id)?.status ?? '';
   const published = rows.filter((row) => row.is_published).length;
+  // Подтверждение публикации и снятия протокола (ТЗ 07, п. 1.5, 2.8).
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const [unpublishReason, setUnpublishReason] = useState('');
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-6 py-8">
@@ -113,18 +109,106 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
                   ? undefined
                   : 'Публикация протокола доступна только роли «администратор» (ТЗ 07, п. 1.3).'
               }
-              onClick={() =>
-                void run(async () => {
-                  const result = await adminApi.publishRankings(Number(seasonId), stage);
-                  return result.message ?? `Опубликовано записей: ${result.published}.`;
-                })
-              }
+              onClick={() => setConfirmPublish(true)}
             >
               Опубликовать протокол
+            </Button>
+            <Button
+              variant="secondary"
+              loading={busy}
+              disabled={!canPublish || seasonId === '' || published === 0}
+              title={
+                canPublish
+                  ? undefined
+                  : 'Снятие с публикации доступно только роли «администратор» (ТЗ 07, п. 2.8).'
+              }
+              onClick={() => setConfirmUnpublish(true)}
+            >
+              Снять с публикации
             </Button>
           </div>
         }
       />
+
+      {/* Публикация протокола — необратимое для участников действие: сначала
+          подтверждение с последствиями (ТЗ 07, п. 1.5). */}
+      {confirmPublish ? (
+        <Alert tone="warning" title="Опубликовать протокол этапа?">
+          <p>
+            Рейтинг станет видимым на сайте, а для этапов с апелляцией откроется срок её подачи. Снять протокол
+            можно только отдельным решением с указанием причины.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button
+              loading={busy}
+              onClick={() => {
+                setConfirmPublish(false);
+                void run(async () => {
+                  const result = await adminApi.publishRankings(Number(seasonId), stage);
+                  const ties = result.ties ?? [];
+                  const withoutEvaluations = result.without_evaluations ?? [];
+                  const parts = [result.message ?? `Опубликовано записей: ${result.published}.`];
+                  if (ties.length > 0) {
+                    parts.push(
+                      `Равные баллы: ${ties.map((tie) => `${tie.team} (${tie.place} место)`).join(', ')}.`
+                    );
+                  }
+                  if (withoutEvaluations.length > 0) {
+                    parts.push(`Без оценок: ${withoutEvaluations.join(', ')}.`);
+                  }
+                  return parts.join(' ');
+                });
+              }}
+            >
+              Опубликовать
+            </Button>
+            <Button variant="quiet" onClick={() => setConfirmPublish(false)}>
+              Отменить
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+
+      {/* Снятие с публикации — только с причиной (ТЗ 07, п. 2.8). */}
+      {confirmUnpublish ? (
+        <Alert tone="danger" title="Снять протокол с публикации?">
+          <p>Протокол исчезнет с сайта, а причина попадёт в журнал действий Оргкомитета.</p>
+          <div className="mt-3 flex flex-col gap-3">
+            <TextField
+              id="unpublish-reason"
+              label="Причина снятия"
+              value={unpublishReason}
+              onChange={(event) => setUnpublishReason(event.target.value)}
+              hint="Например: обнаружена ошибка подсчёта, требуется повторная оценка."
+            />
+            <div className="flex flex-wrap gap-3">
+              <Button
+                loading={busy}
+                disabled={unpublishReason.trim().length < 3}
+                onClick={() => {
+                  const reason = unpublishReason.trim();
+                  setConfirmUnpublish(false);
+                  void run(async () => {
+                    const result = await adminApi.publishRankings(Number(seasonId), stage, false, reason);
+                    return result.message ?? 'Протокол снят с публикации.';
+                  });
+                }}
+              >
+                Снять с публикации
+              </Button>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  setConfirmUnpublish(false);
+                  setUnpublishReason('');
+                }}
+              >
+                Оставить
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      ) : null}
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}

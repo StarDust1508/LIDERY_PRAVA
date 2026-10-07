@@ -101,11 +101,20 @@ export function parseSubmission(raw: unknown): { value?: SubmissionInput; error?
  * Проверяет, что заявка укомплектована полностью. Возвращает список понятных
  * сообщений; пустой список означает готовность к отправке.
  */
+export interface SubmissionCheck {
+  errors: string[];
+  /** Не хватает скана согласия законного представителя (ТЗ 06, п. 1.2а). */
+  minorScanMissing: boolean;
+}
+
 export async function collectSubmissionErrors(
   client: pg.PoolClient,
   context: SubmissionContext
-): Promise<string[]> {
+): Promise<SubmissionCheck> {
   const errors: string[] = [];
+  // Признак «не хватает скана согласия законного представителя» — отдельный
+  // статус команды, а не только текст ошибки (ТЗ 06, п. 1.2а).
+  let minorScanMissing = false;
 
   const application = await client.query('SELECT is_solo, law_title FROM applications WHERE id = $1 LIMIT 1', [
     context.applicationId,
@@ -150,6 +159,9 @@ export async function collectSubmissionErrors(
   }
 
   // Для несовершеннолетних нужен именно скан подписанного бланка (п. 4.8, 7.2).
+  // Пока скана нет, команда получает отдельный статус «ожидает согласие
+  // законного представителя» (ТЗ 06, п. 1.2а): по нему Оргкомитет сразу видит,
+  // чего не хватает, а команда понимает, почему заявка не ушла на проверку.
   if (rows.some((row) => row.is_minor === true)) {
     const scan = await client.query(
       `SELECT 1
@@ -162,6 +174,7 @@ export async function collectSubmissionErrors(
       errors.push(
         'Для участников младше 18 лет приложите скан подписанного согласия законного представителя (Приложение № 11).'
       );
+      minorScanMissing = true;
     }
   }
 
@@ -202,7 +215,7 @@ export async function collectSubmissionErrors(
     }
   }
 
-  return errors;
+  return { errors, minorScanMissing };
 }
 
 /** Версия действующей редакции документов — резерв, если строка ещё не заведена. */
