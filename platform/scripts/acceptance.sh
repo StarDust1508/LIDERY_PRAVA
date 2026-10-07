@@ -241,6 +241,14 @@ err = d.get('error') or {}
 print('ok' if isinstance(err, dict) and err.get('code') == 'validation_error' else 'no')
 " 2>/dev/null || echo error)
 [ "$VALIDATION_SHAPE" = "ok" ] && ok "ошибка проверки помечена кодом validation_error" || bad "код ошибки проверки: $VALIDATION_SHAPE"
+# Различаются два случая (ТЗ 05, п. 1.2): неразобранный запрос — 400, а данные,
+# не прошедшие проверку, — 422 с кодом validation_error.
+VALIDATION_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/api/leads" \
+    -H 'Content-Type: application/json' -d '{}')
+[ "$VALIDATION_STATUS" = "422" ] && ok "ошибка проверки данных отвечает 422" || bad "код ответа при ошибке проверки: $VALIDATION_STATUS"
+SYNTAX_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/api/leads" \
+    -H 'Content-Type: application/json' -d '{"name": ')
+[ "$SYNTAX_STATUS" = "400" ] && ok "неразобранный запрос отвечает 400" || bad "код ответа при неразобранном запросе: $SYNTAX_STATUS"
 
 # ── С1. Подача заявки и вход в кабинет ───────────────────────────────────────
 step "С1. Подача заявки на сайте и вход в кабинет"
@@ -289,7 +297,7 @@ for index in range(2, 6):
 print(json.dumps({"name": "Приёмочная команда", "direction_id": 1, "participants": rows, "mentors": []}, ensure_ascii=False))
 PY
 )
-expect "пятый участник отклоняется (п. 4.3)" 400 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$FIVE"
+expect "пятый участник отклоняется (п. 4.3)" 422 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$FIVE"
 
 TWO=$(python3 - "$CAPTAIN_ID" <<'PY'
 import json, sys
@@ -318,7 +326,7 @@ expect "пояснительная записка принимается" 201 -b
 
 dd if=/dev/zero of=/tmp/lp_acc_big.pdf bs=1048576 count=30 >/dev/null 2>&1
 expect "файл 30 МБ отклоняется по лимиту" 413 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" -F "type=presentation" -F "file=@/tmp/lp_acc_big.pdf;type=application/pdf"
-expect "ссылка на зарубежное облако отклоняется (п. 14.4)" 400 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" -H 'Content-Type: application/json' -d '{"type":"video_link","external_url":"https://drive.google.com/file/d/abc/view"}'
+expect "ссылка на зарубежное облако отклоняется (п. 14.4)" 422 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" -H 'Content-Type: application/json' -d '{"type":"video_link","external_url":"https://drive.google.com/file/d/abc/view"}'
 expect "ссылка на российский сервис принимается" 201 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" -H 'Content-Type: application/json' -d '{"type":"presentation","external_url":"https://disk.yandex.ru/d/acceptance"}'
 
 # ── С10. Несовершеннолетний участник ─────────────────────────────────────────
@@ -414,7 +422,7 @@ print(json.dumps([{"criterion_id": c["id"], "score": score, "comment": f"Обо�
 PY
 }
 FIRST_EXPERT=$(echo "$EXPERT_IDS" | cut -d' ' -f1)
-expect "оценка выше максимума отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" -H 'Content-Type: application/json' -d "$(python3 - "$CRITERIA_JSON" "$FIRST_EXPERT" "$TEAM_ID" <<'PY'
+expect "оценка выше максимума отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" -H 'Content-Type: application/json' -d "$(python3 - "$CRITERIA_JSON" "$FIRST_EXPERT" "$TEAM_ID" <<'PY'
 import json, sys
 criteria = json.loads(sys.argv[1])
 criteria = criteria.get('data', criteria) if isinstance(criteria, dict) else criteria
@@ -446,7 +454,7 @@ PUBLISHED=$(psql_db "SELECT is_published FROM liders.rankings WHERE team_id=${TE
 # ── С5. Апелляция ────────────────────────────────────────────────────────────
 step "С5. Апелляция"
 expect "апелляция в срок принимается" 201 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/appeals" -H 'Content-Type: application/json' -d '{"stage":"selection","grounds":"counting_error","text":"Считаем, что при подсчёте баллов по критерию 5 допущена техническая ошибка."}'
-expect "апелляция по финальному этапу отклоняется (п. 12.3)" 400 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/appeals" -H 'Content-Type: application/json' -d '{"stage":"debate","grounds":"other","text":"Проба"}'
+expect "апелляция по финальному этапу отклоняется (п. 12.3)" 422 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/appeals" -H 'Content-Type: application/json' -d '{"stage":"debate","grounds":"other","text":"Проба"}'
 psql_db "UPDATE liders.rankings SET published_at = now() - interval '10 days' WHERE stage='selection'" >/dev/null
 expect "апелляция после срока отклоняется" 403 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/appeals" -H 'Content-Type: application/json' -d '{"stage":"selection","grounds":"counting_error","text":"Поздняя апелляция для проверки срока."}'
 
@@ -493,7 +501,7 @@ ADMIN_USER_ID=$(psql_db "SELECT id FROM liders.users WHERE email='accept-admin@e
 expect "повтор почты отклоняется" 409 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
     -H 'Content-Type: application/json' \
     -d "{\"email\":\"accept-admin@example.ru\",\"password\":\"${OPERATOR_PASSWORD}\",\"role\":\"admin\"}"
-expect "короткий пароль отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
+expect "короткий пароль отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/users" \
     -H 'Content-Type: application/json' \
     -d '{"email":"weak@example.ru","password":"korotkij1","role":"operator"}'
 HASH=$(psql_db "SELECT password_hash FROM liders.users WHERE id=${ADMIN_USER_ID}")
@@ -536,7 +544,7 @@ expect "нельзя понизить собственную роль" 409 -H "$
     -X PATCH "${BASE}/api/admin/users/${ADMIN_USER_ID}" -H 'Content-Type: application/json' -d '{"role":"operator"}'
 expect "нельзя оставить систему без администратора" 409 -H "$AUTH" \
     -X PATCH "${BASE}/api/admin/users/${ADMIN_USER_ID}" -H 'Content-Type: application/json' -d '{"role":"operator"}'
-expect "слабый пароль при сбросе отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/password" \
+expect "слабый пароль при сбросе отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/password" \
     -H 'Content-Type: application/json' -d '{"password":"korotkij1"}'
 expect "сброс пароля администратором" 200 -H "$AUTH" -X POST "${BASE}/api/admin/users/${OPERATOR_ID}/password" \
     -H 'Content-Type: application/json' -d "{\"password\":\"${ADMIN_PASSWORD_NEW}\"}"
@@ -577,9 +585,9 @@ step "Решения Оргкомитета по команде: этапы, д�
 expect "карточка команды отдаётся с историей и результатами" 200 -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}"
 CARD_SECTIONS=$(curl -s -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print('yes' if all(k in d for k in ('status_history','stage_participation','rankings','participants','mentors')) else 'no')" 2>/dev/null || echo no)
 [ "$CARD_SECTIONS" = "yes" ] && ok "карточка команды содержит состав, историю статусов, участие в этапах и результаты" || bad "карточка команды неполна"
-expect "недопустимый статус команды отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "недопустимый статус команды отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"unknown"}'
-expect "дисквалификация без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "дисквалификация без причины отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"disqualified"}'
 expect "перевод команды на первый этап" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"stage1"}'
@@ -599,7 +607,7 @@ DISQ_CLEARED=$(psql_db "SELECT count(*) FROM liders.teams WHERE id=${TEAM_ID} AN
 
 step "Права субъекта персональных данных и срок хранения"
 SUBJECT_EMAIL=$(psql_db "SELECT email FROM liders.participants WHERE id=${CAPTAIN_ID}")
-expect "слишком короткий запрос отклоняется" 400 -H "$AUTH" "${BASE}/api/admin/subjects?query=ab"
+expect "слишком короткий запрос отклоняется" 422 -H "$AUTH" "${BASE}/api/admin/subjects?query=ab"
 expect "поиск субъекта по почте" 200 -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}"
 SUBJECTS=$(curl -s -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(d.get('total',0) if isinstance(d,dict) else len(d))" 2>/dev/null || echo 0)
 [ "${SUBJECTS:-0}" -ge 1 ] && ok "субъект найден: ${SUBJECTS}" || bad "субъект не найден по почте ${SUBJECT_EMAIL}"
@@ -607,11 +615,11 @@ expect "сведения о субъекте отдаются" 200 -H "$AUTH" "$
 expect "выгрузка сведений о субъекте (право на доступ)" 200 -H "$AUTH" "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/export"
 EXPORT_LOGGED=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='pdn_export'")
 [ "${EXPORT_LOGGED:-0}" -ge 1 ] && ok "выгрузка записана в журнал: ${EXPORT_LOGGED}" || bad "выгрузка не попала в журнал"
-expect "удаление без подтверждения отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "удаление без подтверждения отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" -d '{"reason":"обращение субъекта"}'
-expect "удаление без основания отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "удаление без основания отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" -d '{"confirm":true}'
-expect "неизвестный вид записи отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "неизвестный вид записи отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/subjects/unknown/1/erase" -d '{"confirm":true,"reason":"проверка"}'
 expect "удаление персональных данных (обезличивание)" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/erase" \
@@ -633,7 +641,7 @@ REQUEST_DUE=$(psql_db "SELECT (due_at > received_at) FROM liders.pdn_requests WH
 [ "$REQUEST_DUE" = "t" ] && ok "срок ответа рассчитан" || bad "срок ответа не рассчитан"
 WORKDAYS=$(psql_db "SELECT count(*) FROM liders.pdn_requests r, generate_series(r.received_at::date + 1, r.due_at::date, '1 day') AS d WHERE r.id=${REQUEST_ID} AND extract(isodow FROM d) < 6")
 [ "${WORKDAYS:-0}" -ge 8 ] && ok "срок — 10 рабочих дней (рабочих дней между датами: ${WORKDAYS})" || bad "срок ответа короче 10 рабочих дней: ${WORKDAYS}"
-expect "вид обращения проверяется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "вид обращения проверяется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/subjects/requests" -d '{"kind":"unknown","subject_name":"x","subject_email":"x@example.ru"}'
 expect "обращение берётся в работу" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X PATCH "${BASE}/api/admin/subjects/requests/${REQUEST_ID}" -d '{"status":"in_progress"}'
@@ -769,7 +777,7 @@ expect "массовая проверка применяется" 200 -H "$AUTH"
     -X POST "${BASE}/api/admin/applications/bulk" \
     -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"organizer_notes\":\"Массовая проверка приёмки.\"}}"
 # Массовое отклонение требует причины: без неё решение не принимается (п. 3.3).
-expect "массовое отклонение без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "массовое отклонение без причины отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/applications/bulk" -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"rejected\"}}"
 expect "массовое отклонение с причиной" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/applications/bulk" \
@@ -782,7 +790,7 @@ BULK_JOURNAL=$(psql_db "SELECT count(*) FROM liders.audit_log WHERE action='appl
 curl -s -o /dev/null -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/applications/bulk" \
     -d "{\"ids\":[${APP_ID:-0}],\"patch\":{\"tech_status\":\"accepted\"}}"
-expect "возврат материала без замечания отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "возврат материала без замечания отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/materials/bulk" -d "{\"ids\":[${MATERIAL_ID:-0}],\"action\":\"request_fix\"}"
 expect "массовый возврат материала с замечанием" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/materials/bulk" \
@@ -801,7 +809,7 @@ SEASON_CALENDAR=$(curl -s "${BASE}/api/season/current" | grep -c 'expertise_from
 
 # ── Пробелы разделов админки: материалы, апелляции, мастер-классы ────────────
 step "Материалы: блокировка содержания, очередь и сроки"
-expect "блокировка содержания без причины отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
+expect "блокировка содержания без причины отклоняется" 422 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/materials/${MATERIAL_ID}/review" -d '{"status":"blocked"}'
 expect "блокировка содержания с причиной" 200 -H "$AUTH" -H 'Content-Type: application/json' \
     -X POST "${BASE}/api/admin/materials/${MATERIAL_ID}/review" \
@@ -985,7 +993,7 @@ ok "учёт лимита выдачи ссылок в журнале: ${TOKEN_L
 
 # Критерии этапа нельзя менять после публикации протокола (ТЗ 07, п. 2.6, 4.4).
 CRITERION_ID=$(psql_db "SELECT id FROM liders.criteria WHERE stage='selection' ORDER BY id LIMIT 1")
-expect "изменение критерия после публикации протокола отклонено" 400 -H "$AUTH" -X PATCH "${BASE}/api/admin/criteria/${CRITERION_ID}" \
+expect "изменение критерия после публикации протокола отклонено" 422 -H "$AUTH" -X PATCH "${BASE}/api/admin/criteria/${CRITERION_ID}" \
     -H 'Content-Type: application/json' -d '{"max_score": 1}'
 if grep -q 'Протокол' "$BODY"; then ok "отказ объясняет причину (опубликованный протокол)"; else bad "отказ без пояснения"; fi
 
@@ -1115,7 +1123,7 @@ expect "фильтр по замечаниям" 200 -H "$AUTH" "${BASE}/api/admi
 expect "поиск заявки по ФИО участника" 200 -H "$AUTH" "${BASE}/api/admin/applications?q=%D0%9F%D1%80%D0%B8%D1%91%D0%BC%D0%BE%D0%B2"
 
 # Конфликт интересов: оценка сохраняется, но не учитывается (ТЗ 07, п. 2.7).
-expect "конфликт интересов без причины отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
+expect "конфликт интересов без причины отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
     -H 'Content-Type: application/json' \
     -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${FIRST_EXPERT},\"scores\":$(score_for 0),\"is_conflicted\":true}"
 CONFLICT_SAVE=$(curl -s -o "$BODY" -w '%{http_code}' -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" \
@@ -1132,7 +1140,7 @@ CONFLICT_AVERAGE=$(psql_db "SELECT average_score FROM liders.rankings WHERE team
 [ "$CONFLICT_AVERAGE" != "32.67" ] && ok "оценка с конфликтом исключена из среднего: ${CONFLICT_AVERAGE}" || bad "оценка с конфликтом попала в подсчёт"
 
 # Снятие протокола с публикации: причина обязательна (ТЗ 07, п. 2.8).
-expect "снятие протокола без причины отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
+expect "снятие протокола без причины отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
     -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection","is_published":false}'
 expect "снятие протокола с причиной" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" \
     -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection","is_published":false,"reason":"Приёмочная проверка снятия"}'
@@ -1169,7 +1177,7 @@ expect "журнал действий выгружается в CSV" 200 -H "$AU
 if head -c 300 "$BODY" | grep -q 'Действие'; then ok "в выгрузке журнала есть заголовки"; else bad "выгрузка журнала без заголовков"; fi
 
 # Новости: привязка к сезону и домен видеосервиса (ТЗ 07, п. 2.12).
-expect "новость с зарубежной видеоссылкой отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
+expect "новость с зарубежной видеоссылкой отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
     -H 'Content-Type: application/json' \
     -d '{"title":"Приёмочная новость с видео","type":"video","video_url":"https://youtube.com/watch?v=1","season_id":1}'
 expect "новость с российским видеосервисом принимается" 201 -H "$AUTH" -X POST "${BASE}/api/admin/news" \
@@ -1274,11 +1282,11 @@ for kind in pdn distribution legal_representative media; do
         bad "бланк согласия (${kind}): код ${CODE}"
     fi
 done
-expect "неизвестный вид согласия отклоняется" 400 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/consent-form.docx?kind=unknown"
+expect "неизвестный вид согласия отклоняется" 422 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/consent-form.docx?kind=unknown"
 
 # Ответ на обращение (ТЗ 07, п. 2.15): текст сохраняется в карточке.
 LEAD_ID=$(psql_db "SELECT id FROM liders.leads ORDER BY id DESC LIMIT 1")
-expect "ответ без текста отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/leads/${LEAD_ID}/respond" \
+expect "ответ без текста отклоняется" 422 -H "$AUTH" -X POST "${BASE}/api/admin/leads/${LEAD_ID}/respond" \
     -H 'Content-Type: application/json' -d '{"response_text":"  "}'
 expect "ответ на обращение сохраняется" 200 -H "$AUTH" -X POST "${BASE}/api/admin/leads/${LEAD_ID}/respond" \
     -H 'Content-Type: application/json' -d '{"response_text":"Приёмочный ответ: заявка проверена, материалы приняты."}'

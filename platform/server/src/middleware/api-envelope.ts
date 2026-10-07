@@ -18,7 +18,9 @@ import { parsePositiveInt, queryString } from '../lib/http.js';
 
 /** Коды ошибок по HTTP-статусу: клиенту нужен код, а не только текст. */
 const ERROR_CODES: Record<number, string> = {
-  400: 'validation_error',
+  // 400 — запрос не разобран (некорректный JSON); 422 — данные не прошли
+  // проверку. Код ошибки в теле различает эти случаи для клиента (ТЗ 05, п. 1.2).
+  400: 'bad_request',
   401: 'unauthorized',
   403: 'forbidden',
   404: 'not_found',
@@ -26,7 +28,7 @@ const ERROR_CODES: Record<number, string> = {
   409: 'conflict',
   413: 'payload_too_large',
   415: 'unsupported_media_type',
-  422: 'unprocessable_entity',
+  422: 'validation_error',
   429: 'rate_limited',
   500: 'internal_error',
   502: 'bad_gateway',
@@ -88,6 +90,23 @@ function isEnvelope(payload: unknown): boolean {
 }
 
 /**
+ * Код ответа для ошибок проверки данных.
+ *
+ * ТЗ 05, п. 1.2 различает два случая:
+ *   • 400 — запрос не удалось разобрать (некорректный JSON, битая кодировка);
+ *   • 422 — запрос разобран, но данные не прошли проверку (не указано поле,
+ *     недопустимое значение, нарушено правило Положения).
+ *
+ * Маршруты исторически отвечали 400 во всех случаях проверки. Вместо правки
+ * полутора сотен мест код приводится здесь: синтаксическая ошибка помечает ответ
+ * флагом `syntaxError`, всё остальное с кодом 400 — это проверка данных.
+ */
+function statusForResponse(res: Response): number {
+  if (res.statusCode === 400 && res.locals.syntaxError !== true) return 422;
+  return res.statusCode;
+}
+
+/**
  * Метаданные списка: обработчик вызывает перед отправкой, если отдаёт страницу.
  * `total` — общее число записей без учёта страницы.
  */
@@ -106,9 +125,12 @@ export function apiEnvelope(req: Request, res: Response, next: NextFunction): vo
     if (res.locals.rawResponse === true) return json(payload);
 
     const requestId = (req as Request & { requestId?: string }).requestId;
+    const status = statusForResponse(res);
 
-    if (res.statusCode >= 400) {
-      return json(shapeError(res.statusCode, payload, requestId));
+    if (status >= 400) {
+      // Статус мог быть уточнён (400 → 422): выставляем его до отправки.
+      if (status !== res.statusCode) res.status(status);
+      return json(shapeError(status, payload, requestId));
     }
 
     if (isEnvelope(payload)) return json(payload);

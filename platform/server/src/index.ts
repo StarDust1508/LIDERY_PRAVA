@@ -137,6 +137,9 @@ app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
   const requestId = requestIdOf(req);
 
   if (error instanceof SyntaxError && status === 400) {
+    // Единственный случай, когда ответ остаётся 400: тело запроса не разобрано
+    // (ТЗ 05, п. 1.2). Всё остальное с кодом 400 обёртка приводит к 422.
+    res.locals.syntaxError = true;
     res.status(400).json({ error: 'Некорректный JSON в теле запроса', requestId });
     return;
   }
