@@ -13,6 +13,7 @@ import pool, { testConnection } from './db.js';
 import { requireAdmin, requireAdminRole } from './middleware/admin-auth.js';
 import { auditAdminMutations } from './middleware/admin-audit.js';
 import { csrfProtection } from './middleware/csrf.js';
+import { apiEnvelope } from './middleware/api-envelope.js';
 import { requestContext, requestIdOf } from './middleware/request-context.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import { buildSitemap } from './lib/sitemap.js';
@@ -49,6 +50,9 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 // Изменяющие запросы из браузера — только со «своего» источника (ТЗ 11, п. 5.3).
 app.use('/api', csrfProtection);
+// Единый формат ответов: { data, meta } и { error: { code, message, details } }
+// (ТЗ 05, п. 1.1–1.2).
+app.use('/api', apiEnvelope);
 
 // Админка и личный кабинет не кэшируются и не индексируются.
 app.use(['/api/admin', '/api/cabinet'], (_req: Request, res: Response, next: NextFunction) => {

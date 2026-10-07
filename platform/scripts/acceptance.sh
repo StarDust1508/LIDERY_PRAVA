@@ -23,6 +23,7 @@ DB="${DB:-liders_acceptance}"
 PORT="${PORT:-3005}"
 BASE="http://127.0.0.1:${PORT}"
 BODY=/tmp/lp_acceptance_body.json
+META_BODY=/tmp/lp_acceptance_meta.json
 PASS=0
 FAIL=0
 declare -a FAILURES=()
@@ -32,6 +33,39 @@ if [ "$DB" = "liders" ] || [ "$DB" = "liders_dev" ]; then
     echo "Отказ: приёмочный прогон пересоздаёт базу. Укажите отдельную тестовую базу (DB=...)." >&2
     exit 2
 fi
+
+
+# unwrap_body <файл> — разворачивает обёртку ответа { data, meta } (ТЗ 05, п. 1.1).
+# В $BODY попадает полезная нагрузка, в $META_BODY — метаданные списка. Ответ
+# с ошибкой остаётся как есть: проверки ищут текст в error.message.
+unwrap_body() {
+    local file="$1"
+    local out="${file}.unwrapped"
+    rm -f "$out"
+    # Разворачивание делает python и пишет результат в отдельный файл: если
+    # направить его вывод через «>», пустой stdout затрёт уже записанные данные.
+    python3 - "$file" "$out" "$META_BODY" <<'UNWRAP'
+import json, sys
+src, out, meta_path = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    raw = json.load(open(src))
+except Exception:
+    sys.exit(1)
+if isinstance(raw, dict) and 'error' in raw:
+    sys.exit(1)
+if isinstance(raw, dict) and 'data' in raw and set(raw.keys()) <= {'data', 'meta'}:
+    json.dump(raw.get('meta'), open(meta_path, 'w'), ensure_ascii=False)
+    with open(out, 'w') as fh:
+        json.dump(raw['data'], fh, ensure_ascii=False)
+    sys.exit(0)
+sys.exit(1)
+UNWRAP
+    if [ -f "$out" ]; then
+        mv "$out" "$file"
+    else
+        echo 'null' > "$META_BODY"
+    fi
+}
 
 step() { printf '\n=== %s ===\n' "$1"; }
 ok()   { PASS=$((PASS + 1)); printf '  ✓ %s\n' "$1"; }
@@ -46,6 +80,7 @@ expect() {
     shift 2
     local got
     got=$(curl -s -o "$BODY" -w '%{http_code}' "$@")
+    unwrap_body "$BODY"
     if [ "$got" = "$want" ]; then
         ok "$desc → $got"
     else
@@ -79,6 +114,7 @@ login_attempt() {
         code=$(curl -s -D /tmp/lp_acc_headers.txt -o "$BODY" -w '%{http_code}' \
             -X POST "${BASE}/api/admin/login" -H 'Content-Type: application/json' \
             -d "{\"login\":\"${login}\",\"password\":\"${password}\"}")
+        unwrap_body "$BODY"
         if [ "$code" != "429" ]; then break; fi
         retry=$(grep -i '^retry-after:' /tmp/lp_acc_headers.txt | tr -d '\r' | awk '{print $2}')
         retry=${retry:-60}
@@ -167,6 +203,44 @@ fi
 
 ADMIN_PASSWORD=$(grep -E '^ADMIN_PASSWORD=' "$ROOT/platform/.env" | cut -d= -f2-)
 DIRECTION_ID=$(psql_db "SELECT id FROM liders.directions ORDER BY sort_order LIMIT 1")
+
+# ── Формат ответов API (ТЗ 05, п. 1.1–1.2, 1.4) ─────────────────────────────
+step "Формат ответов: обёртка, коды ошибок, постраничность"
+
+curl -s "${BASE}/api/news" -o /tmp/lp_acc_env.json
+ENVELOPE=$(python3 -c "
+import json
+d = json.load(open('/tmp/lp_acc_env.json'))
+ok = isinstance(d, dict) and 'data' in d and isinstance(d.get('meta'), dict)
+meta = d.get('meta') or {}
+print('ok' if ok and all(k in meta for k in ('total','page','perPage')) else 'no')
+" 2>/dev/null || echo error)
+[ "$ENVELOPE" = "ok" ] && ok "список отдаётся как { data, meta } с total/page/perPage" || bad "формат списочного ответа: $ENVELOPE"
+
+PAGED=$(curl -s "${BASE}/api/news?page=2&perPage=1" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+items = d.get('data') or []
+meta = d.get('meta') or {}
+print('ok' if len(items) <= 1 and meta.get('page') == 2 and meta.get('perPage') == 1 else 'no')
+" 2>/dev/null || echo error)
+[ "$PAGED" = "ok" ] && ok "страница и размер страницы учитываются" || bad "постраничность не работает: $PAGED"
+
+ERROR_SHAPE=$(curl -s "${BASE}/api/no-such-route" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+err = d.get('error') or {}
+print('ok' if isinstance(err, dict) and err.get('code') == 'not_found' and err.get('message') else 'no')
+" 2>/dev/null || echo error)
+[ "$ERROR_SHAPE" = "ok" ] && ok "ошибка отдаётся как { error: { code, message } }" || bad "формат ошибки: $ERROR_SHAPE"
+
+VALIDATION_SHAPE=$(curl -s -X POST "${BASE}/api/leads" -H 'Content-Type: application/json' -d '{}' | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+err = d.get('error') or {}
+print('ok' if isinstance(err, dict) and err.get('code') == 'validation_error' else 'no')
+" 2>/dev/null || echo error)
+[ "$VALIDATION_SHAPE" = "ok" ] && ok "ошибка проверки помечена кодом validation_error" || bad "код ошибки проверки: $VALIDATION_SHAPE"
 
 # ── С1. Подача заявки и вход в кабинет ───────────────────────────────────────
 step "С1. Подача заявки на сайте и вход в кабинет"
@@ -303,6 +377,14 @@ AUTH="Authorization: Bearer ${ADMIN_TOKEN}"
 APPLICATION_ID=$(psql_db "SELECT id FROM liders.applications WHERE public_number='${PUBLIC_NUMBER}'")
 expect "админские маршруты без токена закрыты" 401 "${BASE}/api/admin/applications"
 expect "список заявок" 200 -H "$AUTH" "${BASE}/api/admin/applications"
+# Постраничность админских списков (ТЗ 07, п. 1.4; ТЗ 05, п. 1.4).
+ADMIN_PAGED=$(curl -s -H "$AUTH" "${BASE}/api/admin/applications?page=1&perPage=2" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+meta = d.get('meta') or {}
+print('ok' if isinstance(d.get('data'), list) and meta.get('perPage') == 2 and 'total' in meta else 'no')
+" 2>/dev/null || echo error)
+[ "$ADMIN_PAGED" = "ok" ] && ok "список заявок отдаёт meta с total и размером страницы" || bad "meta списка заявок: $ADMIN_PAGED"
 expect "карточка заявки" 200 -H "$AUTH" "${BASE}/api/admin/applications/${APPLICATION_ID}"
 expect "согласия видны администратору" 200 -H "$AUTH" "${BASE}/api/admin/applications/${APPLICATION_ID}/consents"
 expect "приёмка заявки" 200 -H "$AUTH" -X PATCH "${BASE}/api/admin/applications/${APPLICATION_ID}" -H 'Content-Type: application/json' -d '{"tech_status":"accepted","organizer_notes":"Комплект полный."}'
@@ -322,6 +404,8 @@ score_for() {
     python3 - "$1" <<PY
 import json, sys
 criteria = json.loads('''${CRITERIA_JSON}''')
+# Ответ приходит в обёртке { data, meta } (ТЗ 05, п. 1.1).
+criteria = criteria.get('data', criteria) if isinstance(criteria, dict) else criteria
 score = int(sys.argv[1])
 print(json.dumps([{"criterion_id": c["id"], "score": score, "comment": f"Обоснование: {score} баллов."} for c in criteria], ensure_ascii=False))
 PY
@@ -329,7 +413,9 @@ PY
 FIRST_EXPERT=$(echo "$EXPERT_IDS" | cut -d' ' -f1)
 expect "оценка выше максимума отклоняется" 400 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" -H 'Content-Type: application/json' -d "$(python3 - "$CRITERIA_JSON" "$FIRST_EXPERT" "$TEAM_ID" <<'PY'
 import json, sys
-criteria = json.loads(sys.argv[1]); expert = int(sys.argv[2]); team = int(sys.argv[3])
+criteria = json.loads(sys.argv[1])
+criteria = criteria.get('data', criteria) if isinstance(criteria, dict) else criteria
+expert = int(sys.argv[2]); team = int(sys.argv[3])
 scores = [{"criterion_id": criteria[0]["id"], "score": 99}]
 print(json.dumps({"team_id": team, "stage": "selection", "expert_id": expert, "scores": scores}))
 PY
@@ -365,7 +451,7 @@ expect "апелляция после срока отклоняется" 403 -b 
 step "Журнал действий администратора"
 expect "журнал закрыт без токена" 401 "${BASE}/api/admin/audit"
 AUDIT_JSON=$(curl -s -H "$AUTH" "${BASE}/api/admin/audit?limit=100")
-AUDIT_COUNT=$(echo "$AUDIT_JSON" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
+AUDIT_COUNT=$(echo "$AUDIT_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d) if isinstance(d,dict) and 'data' in d else d;print(len(d))" 2>/dev/null || echo 0)
 # К этому моменту администратор принял заявку, сохранил оценки и опубликовал протокол.
 [ "${AUDIT_COUNT:-0}" -ge 5 ] && ok "записей в журнале: $AUDIT_COUNT" || bad "журнал почти пуст: ${AUDIT_COUNT:-0}"
 if echo "$AUDIT_JSON" | grep -q 'rankings/publish'; then
@@ -486,7 +572,7 @@ AUTH_EVENTS=$(psql_db "SELECT count(*) FROM liders.auth_log WHERE event IN ('adm
 # ── Решения по команде (ТЗ 07, п. 2.4) ──────────────────────────────────────
 step "Решения Оргкомитета по команде: этапы, дисквалификация, восстановление"
 expect "карточка команды отдаётся с историей и результатами" 200 -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}"
-CARD_SECTIONS=$(curl -s -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}" | python3 -c "import sys,json;d=json.load(sys.stdin);print('yes' if all(k in d for k in ('status_history','stage_participation','rankings','participants','mentors')) else 'no')" 2>/dev/null || echo no)
+CARD_SECTIONS=$(curl -s -H "$AUTH" "${BASE}/api/admin/teams/${TEAM_ID}" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print('yes' if all(k in d for k in ('status_history','stage_participation','rankings','participants','mentors')) else 'no')" 2>/dev/null || echo no)
 [ "$CARD_SECTIONS" = "yes" ] && ok "карточка команды содержит состав, историю статусов, участие в этапах и результаты" || bad "карточка команды неполна"
 expect "недопустимый статус команды отклоняется" 400 -H "$AUTH" -H 'Content-Type: application/json' \
     -X PATCH "${BASE}/api/admin/teams/${TEAM_ID}" -d '{"status":"unknown"}'
@@ -512,7 +598,7 @@ step "Права субъекта персональных данных и ср�
 SUBJECT_EMAIL=$(psql_db "SELECT email FROM liders.participants WHERE id=${CAPTAIN_ID}")
 expect "слишком короткий запрос отклоняется" 400 -H "$AUTH" "${BASE}/api/admin/subjects?query=ab"
 expect "поиск субъекта по почте" 200 -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}"
-SUBJECTS=$(curl -s -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+SUBJECTS=$(curl -s -H "$AUTH" "${BASE}/api/admin/subjects?query=${SUBJECT_EMAIL}" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(d.get('total',0) if isinstance(d,dict) else len(d))" 2>/dev/null || echo 0)
 [ "${SUBJECTS:-0}" -ge 1 ] && ok "субъект найден: ${SUBJECTS}" || bad "субъект не найден по почте ${SUBJECT_EMAIL}"
 expect "сведения о субъекте отдаются" 200 -H "$AUTH" "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}"
 expect "выгрузка сведений о субъекте (право на доступ)" 200 -H "$AUTH" "${BASE}/api/admin/subjects/participant/${CAPTAIN_ID}/export"
@@ -609,11 +695,11 @@ OFFER_CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE document_co
 # ── Публичная часть: архив, согласия, карта сайта ────────────────────────────
 step "Публичная часть: архив инициатив, согласия и карта сайта"
 expect "критерии оценки отдаются публично" 200 "${BASE}/api/criteria?stage=selection"
-CRITERIA_COUNT=$(curl -s "${BASE}/api/criteria?stage=selection" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d) if isinstance(d,list) else len(d.get('items',[])))" 2>/dev/null || echo '0')
+CRITERIA_COUNT=$(curl -s "${BASE}/api/criteria?stage=selection" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d) if isinstance(d,dict) and 'data' in d else d;print(len(d) if isinstance(d,list) else len(d.get('items',[])))" 2>/dev/null || echo '0')
 [ "${CRITERIA_COUNT:-0}" -ge 5 ] 2>/dev/null && ok "в публичном API не менее пяти критериев (${CRITERIA_COUNT})" || bad "критериев в публичном API: ${CRITERIA_COUNT:-0}"
 INIT_JSON=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives" \
     -d "{\"season_id\":1,\"team_id\":${TEAM_ID},\"slug\":\"acceptance-initiative\",\"title\":\"Приёмочная инициатива\",\"annotation\":\"Проверка архива.\",\"act_level\":\"federal\",\"team_name\":\"Приёмочная команда\",\"authors_public\":false,\"files_public\":false}")
-INIT_ID=$(printf '%s' "$INIT_JSON" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo '')
+INIT_ID=$(printf '%s' "$INIT_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(d.get('id',''))" 2>/dev/null || echo '')
 if [ -n "$INIT_ID" ]; then ok "инициатива создана через админ-API"; else bad "не удалось создать инициативу: $INIT_JSON"; fi
 curl -s -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/authors" \
     -d '{"full_name":"Скрытый Автор","role":"Участник","is_published":true}' >/dev/null
@@ -621,12 +707,12 @@ expect "неопубликованная инициатива недоступн
 INIT_PUBLIC=$(curl -s "${BASE}/api/initiatives" | grep -c 'acceptance-initiative' || true)
 [ "${INIT_PUBLIC:-0}" = "0" ] && ok "неопубликованной инициативы нет в публичном списке" || bad "неопубликованная инициатива попала в публичный список"
 expect "публикация инициативы" 200 -H "$AUTH" -H 'Content-Type: application/json' -X POST "${BASE}/api/admin/initiatives/${INIT_ID}/publish" -d '{}'
-AUTHORS_HIDDEN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('authors',[])))" 2>/dev/null || echo '?')
+AUTHORS_HIDDEN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(len(d.get('authors',[])))" 2>/dev/null || echo '?')
 [ "$AUTHORS_HIDDEN" = "0" ] && ok "без согласия авторов на распространение персональные данные скрыты" || bad "авторы раскрыты без согласия: $AUTHORS_HIDDEN"
 curl -s -H "$AUTH" -H 'Content-Type: application/json' -X PATCH "${BASE}/api/admin/initiatives/${INIT_ID}" -d '{"authors_public":true}' >/dev/null
-AUTHORS_SHOWN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('authors',[])))" 2>/dev/null || echo '?')
+AUTHORS_SHOWN=$(curl -s "${BASE}/api/initiatives/acceptance-initiative" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(len(d.get('authors',[])))" 2>/dev/null || echo '?')
 [ "$AUTHORS_SHOWN" = "1" ] && ok "после полученного согласия автор публикуется" || bad "автор не опубликован после согласия: $AUTHORS_SHOWN"
-if curl -s "${BASE}/api/initiatives" | python3 -c "import sys,json;d=json.load(sys.stdin);items=d if isinstance(d,list) else d.get('items',[]);print('ok' if all('authors_public' not in i and 'files_public' not in i for i in items) else 'leak')" 2>/dev/null | grep -q ok; then
+if curl -s "${BASE}/api/initiatives" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d) if isinstance(d,dict) and 'data' in d else d;items=d if isinstance(d,list) else d.get('items',[]);print('ok' if all('authors_public' not in i and 'files_public' not in i for i in items) else 'leak')" 2>/dev/null | grep -q ok; then
     ok "публичный список не раскрывает служебные флаги согласий"
 else
     bad "публичный список раскрывает служебные флаги согласий"
@@ -652,7 +738,7 @@ expect "несуществующая страница не отдаётся" 404
 PAGES_SEEDED=$(psql_db "SELECT count(*) FROM liders.pages WHERE slug IN ('about','about-partners','about-history','about-organizers','about-regulations','about-faq') AND is_published AND length(COALESCE(body,'')) > 300")
 [ "${PAGES_SEEDED:-0}" = "6" ] && ok "тексты раздела «О конкурсе» заведены и опубликованы: ${PAGES_SEEDED}" || bad "опубликованных текстов раздела «О конкурсе»: ${PAGES_SEEDED:-0}"
 expect "текст страницы «О конкурсе» отдаётся публично" 200 "${BASE}/api/pages/about"
-PAGE_BODY=$(curl -s "${BASE}/api/pages/about" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('body') or ''))" 2>/dev/null || echo 0)
+PAGE_BODY=$(curl -s "${BASE}/api/pages/about" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(len(d.get('body') or ''))" 2>/dev/null || echo 0)
 [ "${PAGE_BODY:-0}" -ge 300 ] && ok "текст «О конкурсе» непустой: ${PAGE_BODY} знаков" || bad "текст «О конкурсе» пуст"
 # Человекочитаемый адрес формируется из названия (ТЗ 08, п. 2.4.5).
 expect "мастер-класс создаётся без адреса" 201 -H "$AUTH" -X POST "${BASE}/api/admin/masterclasses" \
@@ -722,6 +808,7 @@ BLOCKED_STATUS=$(psql_db "SELECT status FROM liders.application_materials WHERE 
 CABINET_BLOCKED=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/materials" | python3 -c "
 import json,sys
 rows = json.load(sys.stdin)
+rows = rows.get('data', rows) if isinstance(rows, dict) and 'data' in rows else rows
 blocked = [row for row in rows if row.get('status') == 'blocked']
 print('ok' if blocked and all(row.get('file_url') is None for row in blocked) else 'leak')
 " 2>/dev/null || echo error)
@@ -748,6 +835,7 @@ APPEAL_SCAN=$(psql_db "SELECT scan_media_id IS NOT NULL FROM liders.appeals WHER
 APPEAL_LIST=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals" | python3 -c "
 import json,sys
 rows = json.load(sys.stdin)
+rows = rows.get('data', rows) if isinstance(rows, dict) and 'data' in rows else rows
 # Идентификатор апелляции приходит строкой: колонка объявлена BIGSERIAL.
 row = next((item for item in rows if str(item.get('id')) == '${APPEAL_ID}'), None)
 print('ok' if row and row.get('scan_url') else 'no')
@@ -770,6 +858,7 @@ MATERIALS_SLUG=$(psql_db "SELECT slug FROM liders.masterclasses WHERE title='М�
 MATERIALS_PUBLIC=$(curl -s "${BASE}/api/masterclasses/${MATERIALS_SLUG}" | python3 -c "
 import json,sys
 data = json.load(sys.stdin)
+data = data.get('data', data) if isinstance(data, dict) and 'data' in data else data
 materials = data.get('materials') or []
 print('ok' if materials and materials[0].get('title') == 'Слайды занятия' else 'no')
 " 2>/dev/null || echo error)
@@ -854,7 +943,7 @@ curl -s -D /tmp/lp_acc_rid.txt -o /dev/null "${BASE}/api/health"
 if grep -qi '^x-request-id:' /tmp/lp_acc_rid.txt; then ok "ответ содержит X-Request-Id"; else bad "нет заголовка X-Request-Id"; fi
 curl -s -o "$BODY" "${BASE}/api/no-such-route"
 if grep -q 'requestId' "$BODY"; then ok "ошибка содержит requestId"; else bad "в ошибке нет requestId: $(head -c 160 "$BODY")"; fi
-VERSION_FIELD=$(curl -s "${BASE}/api/health" | python3 -c "import sys,json;print(json.load(sys.stdin).get('version',''))" 2>/dev/null || echo '')
+VERSION_FIELD=$(curl -s "${BASE}/api/health" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print(d.get('version',''))" 2>/dev/null || echo '')
 [ -n "$VERSION_FIELD" ] && ok "health отдаёт версию сборки: $VERSION_FIELD" || bad "в health нет поля version"
 
 # ── Кабинет: сводка, ссылка доступа и окно досдачи (ТЗ 05, п. 4; ТЗ 06, п. 1.4) ─
@@ -904,6 +993,7 @@ psql_db "INSERT INTO liders.masterclasses (season_id, title, speaker, status, st
 HIDDEN=$(curl -s "${BASE}/api/masterclasses?status=past" | python3 -c "
 import sys,json
 items=json.load(sys.stdin)
+items = items.get('data', items) if isinstance(items, dict) and 'data' in items else items
 rows=items if isinstance(items,list) else items.get('data',[])
 print('ok' if not any('Приёмочный мастер-класс без записи' == i.get('title') for i in rows) else 'no')
 " 2>/dev/null || echo error)
@@ -912,6 +1002,7 @@ psql_db "UPDATE liders.masterclasses SET recording_url='https://vk.com/video-1_2
 SHOWN=$(curl -s "${BASE}/api/masterclasses?status=past" | python3 -c "
 import sys,json
 items=json.load(sys.stdin)
+items = items.get('data', items) if isinstance(items, dict) and 'data' in items else items
 rows=items if isinstance(items,list) else items.get('data',[])
 print('ok' if any('Приёмочный мастер-класс без записи' == i.get('title') for i in rows) else 'no')
 " 2>/dev/null || echo error)
@@ -930,6 +1021,7 @@ if [ -n "${PUBLISHED_ID:-}" ]; then
     GONE=$(curl -s "${BASE}/api/initiatives" | python3 -c "
 import sys,json
 items=json.load(sys.stdin)
+items = items.get('data', items) if isinstance(items, dict) and 'data' in items else items
 rows=items if isinstance(items,list) else items.get('data',[])
 print('ok' if not any(int(i.get('id',0))==${PUBLISHED_ID} for i in rows) else 'no')
 " 2>/dev/null || echo error)

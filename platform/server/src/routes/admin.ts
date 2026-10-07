@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
 import { toCsv } from '../lib/csv.js';
 import { PUBLIC_BASE_URL } from '../config.js';
+import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
 import { writeAudit } from '../lib/audit.js';
 import { slugify, uniqueSlug } from '../lib/slugify.js';
@@ -126,6 +127,27 @@ function coerceField(field: CrudField, raw: unknown): { ok: boolean; value: unkn
   }
 }
 
+/**
+ * Сортировка списка по колонке (ТЗ 07, п. 1.4).
+ *
+ * Колонка берётся только из разрешённого набора — полей самой записи и её
+ * порядка по умолчанию: подстановка пользовательской строки в ORDER BY дала бы
+ * внедрение SQL. Направление — `asc`/`desc`, по умолчанию по конфигурации.
+ */
+function sortOf(req: Request, config: CrudConfig): string {
+  const requested = queryString(req.query.sort_by);
+  const direction = queryString(req.query.sort_dir) === 'asc' ? 'ASC' : queryString(req.query.sort_dir) === 'desc' ? 'DESC' : null;
+  const allowed = new Set<string>([
+    'id',
+    'created_at',
+    'updated_at',
+    'sort_order',
+    ...config.fields.map((field) => field.name),
+  ]);
+  if (!requested || !allowed.has(requested)) return config.orderBy;
+  return direction ? `${requested} ${direction}` : requested;
+}
+
 function buildCrud(config: CrudConfig): Router {
   const crud = Router();
   const { table } = config;
@@ -151,14 +173,26 @@ function buildCrud(config: CrudConfig): Router {
         where.push(`(${config.searchFields.map((field) => `${field} ILIKE ${placeholder}`).join(' OR ')})`);
       }
 
-      const limit = Math.min(1000, parsePositiveInt(queryString(req.query.limit)) ?? 200);
+      // Постраничность по 50 записей со сведениями о странице (ТЗ 07, п. 1.4;
+      // ТЗ 05, п. 1.4). Общее число нужно интерфейсу, чтобы показать страницы.
+      const page = paginationOf(req);
+      const sort = sortOf(req, config);
       const result = await query(
         `SELECT * FROM ${table}
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
-         ORDER BY ${config.orderBy}
-         LIMIT ${limit}`,
+         ORDER BY ${sort}
+         LIMIT ${page.limit} OFFSET ${page.offset}`,
         params
       );
+      const counted = await query(
+        `SELECT count(*)::int AS total FROM ${table} ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`,
+        params
+      );
+      setListMeta(res, {
+        total: Number(counted.rows[0]?.total ?? 0),
+        page: page.page,
+        perPage: page.perPage,
+      });
       res.json(result.rows);
     })
   );
@@ -444,17 +478,27 @@ const APPLICATION_SELECT = `
     LEFT JOIN directions d ON d.id = t.direction_id
 `;
 
-// GET /api/admin/applications — список с фильтрами.
+// GET /api/admin/applications — список с фильтрами и постраничностью.
 router.get(
   '/applications',
   asyncHandler(async (req, res) => {
     const filter = buildApplicationFilter(req);
-    const limit = Math.min(1000, parsePositiveInt(queryString(req.query.limit)) ?? 200);
-    const offset = Math.max(0, parsePositiveInt(queryString(req.query.offset)) ?? 0);
+    const page = paginationOf(req);
     const result = await query(
-      `${APPLICATION_SELECT} ${filter.where} ORDER BY a.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+      `${APPLICATION_SELECT} ${filter.where} ORDER BY a.created_at DESC LIMIT ${page.limit} OFFSET ${page.offset}`,
       filter.params
     );
+    // Общее число записей нужно интерфейсу для постраничности (ТЗ 07, п. 1.4).
+    const total = await query(
+      `SELECT count(*)::int AS total
+         FROM applications a
+         JOIN teams t ON t.id = a.team_id
+         JOIN seasons s ON s.id = a.season_id
+         LEFT JOIN directions d ON d.id = t.direction_id
+         ${filter.where}`,
+      filter.params
+    );
+    setListMeta(res, { total: Number(total.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -831,6 +875,7 @@ router.get(
       params.push(applicationId);
       where.push(`m.application_id = $${params.length}`);
     }
+    const page = paginationOf(req);
     const result = await query(
       `SELECT m.*, t.name AS team_name, a.public_number, media.file_name, media.file_type, media.file_size,
               CASE WHEN m.media_id IS NOT NULL
@@ -843,9 +888,16 @@ router.get(
          LEFT JOIN media ON media.id = m.media_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY m.application_id, m.type, m.created_at DESC
-        LIMIT 500`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(`SELECT count(*)::int AS total
+         FROM application_materials m
+         JOIN teams t ON t.id = m.team_id
+         LEFT JOIN applications a ON a.id = m.application_id
+         LEFT JOIN media ON media.id = m.media_id
+         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -1057,6 +1109,7 @@ router.get(
       where.push(`(t.name ILIKE $${params.length} OR t.organization ILIKE $${params.length})`);
     }
 
+    const page = paginationOf(req);
     const result = await query(
       `SELECT t.id, t.season_id, t.name, t.status, t.organization, t.city,
               t.direction_id, t.captain_participant_id, t.status_changed_at, t.created_at,
@@ -1074,9 +1127,15 @@ router.get(
          LEFT JOIN directions d ON d.id = t.direction_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY t.created_at DESC
-        LIMIT 500`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM teams t
+        JOIN seasons s ON s.id = t.season_id
+        LEFT JOIN directions d ON d.id = t.direction_id
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -1380,15 +1439,20 @@ router.get(
       where.push(`p.consent_received = $${params.length}`);
     }
 
+    const page = paginationOf(req);
     const result = await query(
       `SELECT p.*, t.name AS team_name, t.status AS team_status
          FROM participants p
          JOIN teams t ON t.id = p.team_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY p.created_at DESC
-        LIMIT 1000`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM participants p JOIN teams t ON t.id = p.team_id
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -1929,6 +1993,7 @@ router.get(
       params.push(seasonId);
       where.push(`ap.season_id = $${params.length}`);
     }
+    const page = paginationOf(req);
     const result = await query(
       `SELECT ap.*, t.name AS team_name, s.title AS season_title,
               (ap.deadline_at < now() AND ap.status = 'submitted') AS overdue,
@@ -1940,9 +2005,15 @@ router.get(
          JOIN seasons s ON s.id = ap.season_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY ap.submitted_at DESC
-        LIMIT 500`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM appeals ap
+        JOIN teams t ON t.id = ap.team_id
+        JOIN seasons s ON s.id = ap.season_id
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -2080,15 +2151,20 @@ router.get(
       params.push(`%${search}%`);
       where.push(`(l.name ILIKE $${params.length} OR l.email ILIKE $${params.length})`);
     }
+    const page = paginationOf(req);
     const result = await query(
       `SELECT l.*, t.name AS team_name
          FROM leads l
          LEFT JOIN teams t ON t.id = l.team_id
          ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY l.created_at DESC
-        LIMIT 1000`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM leads l LEFT JOIN teams t ON t.id = l.team_id
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -2310,13 +2386,17 @@ router.get(
       params.push(status);
       where.push(`status = $${params.length}`);
     }
+    const page = paginationOf(req);
+    const filtered = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
     const result = await query(
       `SELECT * FROM legacy_applications
-        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ${filtered}
         ORDER BY submitted_at DESC NULLS LAST, legacy_id DESC
-        LIMIT 1000`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(`SELECT count(*)::int AS total FROM legacy_applications ${filtered}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -2940,19 +3020,39 @@ router.get(
       params.push(`%${search}%`);
       where.push(`(a.actor_label ILIKE $${params.length} OR a.entity_id ILIKE $${params.length})`);
     }
-    const limit = Math.min(500, parsePositiveInt(queryString(req.query.limit)) ?? 200);
+    // Фильтр по автору записи и по периоду (ТЗ 07, п. 2.17: разбор инцидента
+    // требует выборки «кто и когда»).
+    const userId = parsePositiveInt(queryString(req.query.user_id));
+    if (userId !== null) {
+      params.push(userId);
+      where.push(`a.user_id = $${params.length}`);
+    }
+    const from = queryString(req.query.from);
+    if (from) {
+      params.push(from);
+      where.push(`a.created_at >= $${params.length}::timestamptz`);
+    }
+    const to = queryString(req.query.to);
+    if (to) {
+      params.push(to);
+      where.push(`a.created_at <= $${params.length}::timestamptz`);
+    }
 
+    const page = paginationOf(req);
+    const filtered = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
     const result = await query(
       `SELECT a.id, a.actor_type, a.user_id, a.actor_label, a.action, a.entity, a.entity_id,
               a.before, a.after, a.ip, a.created_at,
               u.full_name AS user_name
          FROM audit_log a
          LEFT JOIN users u ON u.id = a.user_id
-         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+         ${filtered}
         ORDER BY a.created_at DESC, a.id DESC
-        LIMIT ${limit}`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(`SELECT count(*)::int AS total FROM audit_log a ${filtered}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
 
     res.json(result.rows);
   })

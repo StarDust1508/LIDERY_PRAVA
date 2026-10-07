@@ -174,6 +174,11 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   const [editing, setEditing] = useState<{ id: number | null; values: Record<string, string> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  // Постраничность и сортировка (ТЗ 07, п. 1.4): по 50 записей на страницу.
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ by: string; dir: 'asc' | 'desc' } | null>(null);
+  const [total, setTotal] = useState(0);
+  const perPage = 50;
 
   const listFields = useMemo(
     () => config.fields.filter((field) => field.inList).slice(0, 6),
@@ -184,23 +189,47 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number | boolean> = {};
       for (const [key, value] of Object.entries(filters)) {
         if (value !== '') params[key] = value;
       }
       if (search.trim() !== '') params.q = search.trim();
-      const data = await adminApi.resourceList<Row>(config.key, params);
+      params.page = page;
+      params.perPage = perPage;
+      if (sort) {
+        params.sort_by = sort.by;
+        params.sort_dir = sort.dir;
+      }
+      const { data, meta } = await adminApi.resourceListPage<Row>(config.key, params);
       setRows(data);
+      setTotal(meta?.total ?? data.length);
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось загрузить список.');
     } finally {
       setLoading(false);
     }
-  }, [config.key, filters, search]);
+  }, [config.key, filters, search, page, sort]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Смена фильтра, поиска или сортировки возвращает на первую страницу: иначе
+  // можно оказаться на несуществующей странице отфильтрованного списка.
+  useEffect(() => {
+    setPage(1);
+  }, [filters, search, sort]);
+
+  const pages = Math.max(1, Math.ceil(total / perPage));
+
+  /** Переключает сортировку колонки: asc → desc → по умолчанию раздела. */
+  function toggleSort(column: string) {
+    setSort((current) => {
+      if (!current || current.by !== column) return { by: column, dir: 'asc' };
+      if (current.dir === 'asc') return { by: column, dir: 'desc' };
+      return null;
+    });
+  }
 
   function startCreate() {
     const values: Record<string, string> = {};
@@ -356,7 +385,11 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
 
       <SectionCard
         title="Список"
-        description={`Записей: ${rows.length}.`}
+        description={
+          total > perPage
+            ? `Показаны записи ${(page - 1) * perPage + 1}–${Math.min(page * perPage, total)} из ${total}.`
+            : `Записей: ${total}.`
+        }
         actions={
           <div className="flex flex-wrap gap-3">
             <Button type="button" onClick={startCreate}>
@@ -405,7 +438,17 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
                   <th scope="col" className="py-2 pr-4">№</th>
                   {listFields.map((field) => (
                     <th key={field.name} scope="col" className="py-2 pr-4">
-                      {field.title}
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 text-left uppercase hover:text-accent"
+                        onClick={() => toggleSort(field.name)}
+                        title="Сортировать по колонке"
+                      >
+                        {field.title}
+                        <span aria-hidden="true">
+                          {sort?.by === field.name ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
+                        </span>
+                      </button>
                     </th>
                   ))}
                   <th scope="col" className="py-2">Действия</th>
@@ -444,6 +487,25 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
               </tbody>
             </table>
           </div>
+        ) : null}
+
+        {total > perPage ? (
+          <nav className="mt-4 flex flex-wrap items-center gap-3" aria-label="Постраничный переход">
+            <Button type="button" variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              Назад
+            </Button>
+            <span className="text-sm text-muted">
+              Страница {page} из {pages}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page >= pages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Вперёд
+            </Button>
+          </nav>
         ) : null}
 
         {rows.length > 0 ? (

@@ -54,7 +54,65 @@ export class AdminApiError extends Error {
   }
 }
 
-async function adminRequest<T>(path: string, init: RequestInit = {}, timeoutMs = 30_000): Promise<T> {
+/**
+ * Разворачивает обёртку ответа `{ data, meta }` (ТЗ 05, п. 1.1).
+ * Снимается в одном месте, поэтому экраны админки работают с данными напрямую.
+ */
+export function unwrapEnvelope<T>(payload: unknown): T {
+  if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length > 0 && keys.every((key) => key === 'data' || key === 'meta')) {
+      return record.data as T;
+    }
+  }
+  return payload as T;
+}
+
+/** Ответ списка с метаданными: сколько всего записей, страница и размер страницы. */
+export interface AdminListMeta {
+  total: number;
+  page: number;
+  perPage: number;
+}
+
+/**
+ * Списочный запрос с метаданными: нужен постраничности в админке
+ * (ТЗ 07, п. 1.4 — по 50 записей на страницу).
+ */
+export async function adminRequestWithMeta<T>(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = 30_000
+): Promise<{ data: T; meta: AdminListMeta | null }> {
+  const { ok, status, payload } = await adminSend(path, init, timeoutMs);
+  if (!ok) throwAdminError(status, payload);
+  const record = (typeof payload === 'object' && payload !== null ? payload : {}) as Record<string, unknown>;
+  const meta = (typeof record.meta === 'object' && record.meta !== null ? record.meta : null) as AdminListMeta | null;
+  return { data: unwrapEnvelope<T>(payload), meta };
+}
+
+/** Превращает тело ошибки в AdminApiError (ТЗ 05, п. 1.2). */
+function throwAdminError(status: number, payload: unknown): never {
+  const body = (typeof payload === 'object' && payload !== null ? payload : {}) as { error?: unknown };
+  const nested = (typeof body.error === 'object' && body.error !== null ? body.error : {}) as {
+    message?: unknown;
+  };
+  const message =
+    typeof body.error === 'string'
+      ? body.error
+      : typeof nested.message === 'string'
+        ? nested.message
+        : 'Запрос не выполнен.';
+  throw new AdminApiError(status, message);
+}
+
+/** Единственное место, где админка выполняет запрос. */
+async function adminSend(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ ok: boolean; status: number; payload: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const token = getAdminToken();
@@ -79,14 +137,7 @@ async function adminRequest<T>(path: string, init: RequestInit = {}, timeoutMs =
         payload = {};
       }
     }
-
-    if (!response.ok) {
-      const body = payload as { error?: unknown };
-      const message = typeof body.error === 'string' ? body.error : 'Запрос не выполнен.';
-      throw new AdminApiError(response.status, message);
-    }
-
-    return payload as T;
+    return { ok: response.ok, status: response.status, payload };
   } catch (error) {
     if (error instanceof AdminApiError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
@@ -96,6 +147,12 @@ async function adminRequest<T>(path: string, init: RequestInit = {}, timeoutMs =
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function adminRequest<T>(path: string, init: RequestInit = {}, timeoutMs = 30_000): Promise<T> {
+  const { ok, status, payload } = await adminSend(path, init, timeoutMs);
+  if (!ok) throwAdminError(status, payload);
+  return unwrapEnvelope<T>(payload);
 }
 
 function queryString(params: object): string {
@@ -341,6 +398,15 @@ export const adminApi = {
   // поэтому интерфейс описывает раздел конфигурацией, а не отдельным экраном.
   resourceList: <T>(resource: string, params: Record<string, string | number | boolean | undefined> = {}) =>
     adminRequest<T[]>(`/api/admin/${resource}${queryString(params)}`),
+
+  /**
+   * Список вместе с метаданными: сколько всего записей и какая страница
+   * (ТЗ 07, п. 1.4 — по 50 записей на страницу).
+   */
+  resourceListPage: <T>(
+    resource: string,
+    params: Record<string, string | number | boolean | undefined> = {}
+  ) => adminRequestWithMeta<T[]>(`/api/admin/${resource}${queryString(params)}`),
 
   resourceCreate: <T>(resource: string, payload: Record<string, unknown>) =>
     adminRequest<T>(`/api/admin/${resource}`, { method: 'POST', body: JSON.stringify(payload) }),

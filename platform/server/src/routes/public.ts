@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PUBLIC_BASE_URL } from '../config.js';
 import { query } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
+import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { applicationWindowState } from '../lib/moscow-time.js';
 
 // Публичные справочные данные сайта. Ничего персонального здесь не отдаётся:
@@ -228,6 +229,9 @@ router.get(
       params.push(type);
       where += ` AND n.type = $${params.length}`;
     }
+    // Постраничность списка новостей (ТЗ 05, п. 1.4): 50 записей по умолчанию,
+    // максимум 200, вместе с общим числом публикаций.
+    const page = paginationOf(req);
     const result = await query(
       `SELECT n.id, n.slug, n.title, n.type, n.excerpt, n.video_url,
               n.published_at, n.cover_media_id,
@@ -237,9 +241,11 @@ router.get(
          FROM news n
          ${where}
         ORDER BY n.published_at DESC NULLS LAST, n.id DESC
-        LIMIT 100`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(`SELECT count(*)::int AS total FROM news n ${where}`, params);
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
     res.json(result.rows);
   })
 );
@@ -398,13 +404,19 @@ router.get(
       );
     }
 
-    const limit = Math.min(200, parsePositiveInt(queryString(req.query.limit)) ?? 50);
+    // Постраничность архива (ТЗ 05, п. 1.4): сохраняем и прежний `limit`.
+    const page = paginationOf(req);
     const result = await query(
       `${INITIATIVE_SELECT} WHERE ${where.join(' AND ')}
         ORDER BY i.archive_year DESC NULLS LAST, i.result_place NULLS LAST, i.sort_order, i.published_at DESC NULLS LAST
-        LIMIT ${limit}`,
+        LIMIT ${page.limit} OFFSET ${page.offset}`,
       params
     );
+    const counted = await query(
+      `SELECT count(*)::int AS total FROM initiatives i WHERE ${where.join(' AND ')}`,
+      params
+    );
+    setListMeta(res, { total: Number(counted.rows[0]?.total ?? 0), page: page.page, perPage: page.perPage });
 
     res.json(
       result.rows.map((row) => ({

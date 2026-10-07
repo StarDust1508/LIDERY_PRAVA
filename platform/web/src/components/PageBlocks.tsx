@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { External } from '@/components/Icon';
 
@@ -248,16 +248,54 @@ export function ResponsiveTable<T>({
   );
 }
 
-/** Оглавление длинной страницы: закреплено слева на широких экранах. */
+/**
+ * Оглавление длинной страницы: закреплено слева на широких экранах.
+ *
+ * Текущий раздел подсвечивается при прокрутке: без этого по оглавлению нельзя
+ * понять, где находишься, и навигация внутри страницы бесполезна
+ * (ТЗ 08, п. 3.2).
+ */
 export function TableOfContents({ items }: { items: Array<{ id: string; title: string }> }) {
+  const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const sections = items
+      .map((item) => document.getElementById(item.id))
+      .filter((element): element is HTMLElement => element !== null);
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible?.target.id) setActiveId(visible.target.id);
+      },
+      // Верхняя треть экрана: раздел считается текущим, когда дошёл до шапки.
+      { rootMargin: '-96px 0px -60% 0px', threshold: [0, 1] }
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [items]);
+
   if (items.length === 0) return null;
+
   return (
-    <nav aria-label="Содержание страницы" className="lg:sticky lg:top-24 lg:self-start">
+    <nav aria-label="Содержание страницы" className="lg:sticky lg:top-24 lg:self-start toc">
       <p className="mono-label text-muted">Содержание</p>
       <ol className="mt-3 flex flex-col gap-2 text-sm">
         {items.map((item, index) => (
           <li key={item.id}>
-            <a href={`#${item.id}`} className="underline underline-offset-2 hover:text-accent">
+            <a
+              href={`#${item.id}`}
+              aria-current={item.id === activeId ? 'true' : undefined}
+              className={
+                item.id === activeId
+                  ? 'toc-link is-active font-semibold text-accent'
+                  : 'toc-link underline underline-offset-2 hover:text-accent'
+              }
+            >
               {index + 1}. {item.title}
             </a>
           </li>

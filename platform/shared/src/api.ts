@@ -64,7 +64,43 @@ export class ApiError extends Error {
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
-async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+/**
+ * Разворачивает обёртку ответа `{ data, meta }` (ТЗ 05, п. 1.1).
+ *
+ * Обёртка снимается в одном месте — здесь: остальной код работает с полезной
+ * нагрузкой напрямую и не знает о формате транспорта. Если сервер ответил без
+ * обёртки (старая сборка), значение возвращается как есть.
+ */
+function unwrap<T>(payload: unknown): T {
+  if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length > 0 && keys.every((key) => key === 'data' || key === 'meta')) {
+      return record.data as T;
+    }
+  }
+  return payload as T;
+}
+
+/** Метаданные последнего списочного ответа: всего записей, страница, размер. */
+export interface ListMeta {
+  total: number;
+  page: number;
+  perPage: number;
+}
+
+/**
+ * Единственное место, где выполняется запрос.
+ *
+ * Возвращает статус и разобранное тело; разворачивание обёртки и превращение
+ * ошибки в ApiError — на уровне request/requestWithMeta, чтобы не дублировать
+ * разбор ответа в двух функциях.
+ */
+async function sendRequest(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ ok: boolean; status: number; payload: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -88,17 +124,8 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFA
         payload = {};
       }
     }
-
-    if (!response.ok) {
-      const body = payload as { error?: unknown; details?: unknown };
-      const message = typeof body.error === 'string' ? body.error : 'Не удалось выполнить запрос.';
-      const details = Array.isArray(body.details) ? body.details.map(String) : [];
-      throw new ApiError(response.status, message, details);
-    }
-
-    return payload as T;
+    return { ok: response.ok, status: response.status, payload };
   } catch (error) {
-    if (error instanceof ApiError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError(0, 'Сервер отвечает слишком долго. Проверьте соединение и попробуйте снова.');
     }
@@ -106,6 +133,50 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFA
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Превращает тело ошибки в ApiError (ТЗ 05, п. 1.2; читается и старый вид). */
+function throwApiError(status: number, payload: unknown): never {
+  const body = (typeof payload === 'object' && payload !== null ? payload : {}) as {
+    error?: unknown;
+    details?: unknown;
+  };
+  const error = (typeof body.error === 'object' && body.error !== null ? body.error : {}) as {
+    message?: unknown;
+    details?: unknown;
+  };
+  const message =
+    typeof body.error === 'string'
+      ? body.error
+      : typeof error.message === 'string'
+        ? error.message
+        : 'Не удалось выполнить запрос.';
+  const rawDetails = Array.isArray(error.details) ? error.details : body.details;
+  const details = Array.isArray(rawDetails) ? rawDetails.map(String) : [];
+  throw new ApiError(status, message, details);
+}
+
+/**
+ * Ответ списка вместе с метаданными: сколько всего записей и какая страница.
+ * Экспортируется для экранов, которым нужна постраничность (ТЗ 05, п. 1.4);
+ * внутри модуля используется методом `api.newsPage`.
+ */
+export async function requestWithMeta<T>(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<{ data: T; meta: ListMeta | null }> {
+  const { ok, status, payload } = await sendRequest(path, init, timeoutMs);
+  if (!ok) throwApiError(status, payload);
+  const record = (typeof payload === 'object' && payload !== null ? payload : {}) as Record<string, unknown>;
+  const meta = (typeof record.meta === 'object' && record.meta !== null ? record.meta : null) as ListMeta | null;
+  return { data: unwrap<T>(payload), meta };
+}
+
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const { ok, status, payload } = await sendRequest(path, init, timeoutMs);
+  if (!ok) throwApiError(status, payload);
+  return unwrap<T>(payload);
 }
 
 function authHeader(accessToken?: string | null): Record<string, string> {

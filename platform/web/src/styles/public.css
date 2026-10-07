@@ -1591,3 +1591,72 @@
   align-items: center;
   gap: 0.4rem;
 }
+
+/* ── 13. Оглавление страницы и поочерёдное появление карточек ───────────────── */
+
+/* Текущий раздел в оглавлении: засечка слева и акцентный цвет. */
+.site .toc {
+  position: relative;
+}
+
+.site .toc .toc-link {
+  position: relative;
+  display: inline-block;
+  padding-left: 0.9rem;
+  color: var(--ink-70);
+}
+
+.site .toc .toc-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  bottom: 0.35em;
+  width: 2px;
+  background: var(--line);
+  transition: background 0.25s ease, transform 0.25s ease;
+  transform: scaleY(0.4);
+  transform-origin: top;
+}
+
+.site .toc .toc-link.is-active {
+  color: var(--red-deep);
+}
+
+.site .toc .toc-link.is-active::before {
+  background: var(--red);
+  transform: scaleY(1);
+}
+
+/* Поочерёдное появление карточек внутри блока: сам блок появляется целиком, а
+   его плитки — одна за другой. Так лента и сетки читаются как движение, а не
+   как одновременная вспышка (ТЗ 08, п. 3.4). */
+.site.is-motion .reveal.is-in > * {
+  animation: lp-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.site.is-motion .reveal.is-in > *:nth-child(1) { animation-delay: 0ms; }
+.site.is-motion .reveal.is-in > *:nth-child(2) { animation-delay: 60ms; }
+.site.is-motion .reveal.is-in > *:nth-child(3) { animation-delay: 120ms; }
+.site.is-motion .reveal.is-in > *:nth-child(4) { animation-delay: 180ms; }
+.site.is-motion .reveal.is-in > *:nth-child(5) { animation-delay: 240ms; }
+.site.is-motion .reveal.is-in > *:nth-child(6) { animation-delay: 300ms; }
+.site.is-motion .reveal.is-in > *:nth-child(7) { animation-delay: 360ms; }
+.site.is-motion .reveal.is-in > *:nth-child(n + 8) { animation-delay: 420ms; }
+
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site.is-motion .reveal.is-in > * {
+    animation: none;
+  }
+}
