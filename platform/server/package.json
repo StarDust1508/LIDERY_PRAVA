@@ -15,7 +15,7 @@
     "migrate": "tsx src/migrate.ts",
     "migrate:seed": "tsx src/migrate.ts --seed",
     "retention": "tsx src/scripts/retention.ts",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "find src -name '*.test.ts' -print0 | xargs -0 node --import tsx --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

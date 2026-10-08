@@ -8,7 +8,7 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "find src -name '*.test.ts' -print0 | xargs -0 node --import tsx --test"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
