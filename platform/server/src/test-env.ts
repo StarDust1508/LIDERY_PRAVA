@@ -6,14 +6,21 @@
 // Он импортируется первым: ESM выполняет импорты по порядку объявления, поэтому
 // проверка конфигурации увидит уже заполненные значения.
 //
+// Набор переменных совпадает со списком обязательных в config.ts: если добавить
+// туда переменную и забыть здесь, тесты упадут не у разработчика (у которого есть
+// platform/.env), а в CI — поэтому состав проверяется запуском с пустым
+// окружением: env -i … npm test.
+//
 // Значения — заведомо тестовые: они не используются нигде, кроме проверок.
 
 const DEFAULTS: Record<string, string> = {
   NODE_ENV: 'test',
   DATABASE_HOST: '127.0.0.1',
+  DATABASE_PORT: '5432',
   DATABASE_NAME: 'liders_test',
   DATABASE_USER: 'liders_test',
   DATABASE_PASSWORD: 'test-password',
+  // Порт обязателен наравне с остальными: без него конфигурация не загружается.
   JWT_SECRET: 'test-jwt-secret-not-shorter-than-32-symbols',
   ADMIN_SESSION_SECRET: 'test-admin-session-secret-32-symbols',
   ADMIN_PASSWORD: 'test-admin-password',
