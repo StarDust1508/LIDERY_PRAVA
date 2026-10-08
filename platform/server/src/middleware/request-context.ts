@@ -15,6 +15,12 @@ export const REQUEST_ID_HEADER = 'X-Request-Id';
 
 /** Идентификатор текущего запроса: заголовок (если безопасный) или новый UUID. */
 export function requestIdOf(req: Request): string {
+  // Идентификатор, уже назначенный этому запросу, возвращается как есть: иначе
+  // второй вызов дал бы другой UUID и разошёлся бы с заголовком ответа —
+  // участник сообщил бы номер, которого нет в журнале.
+  const assigned = (req as Request & { requestId?: string }).requestId;
+  if (typeof assigned === 'string' && assigned.length > 0) return assigned;
+
   const incoming = req.headers[REQUEST_ID_HEADER.toLowerCase()];
   const value = Array.isArray(incoming) ? incoming[0] : incoming;
   if (value) {

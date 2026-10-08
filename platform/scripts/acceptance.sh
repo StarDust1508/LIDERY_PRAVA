@@ -1500,6 +1500,179 @@ psql_db "UPDATE liders.application_materials SET fix_deadline = now() - interval
 expect "после истечения срока досдачи запись закрыта" 403 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/materials" \
     -F "type=other" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
 
+# ── Границы проверок, изоляция команд и пределы постраничности ───────────────
+step "Границы валидации, изоляция команд и пределы постраничности"
+
+# Проверки этого раздела работают с приёмом заявок, а предыдущий раздел закрыл
+# окно приёма. Открываем его снова и в конце возвращаем закрытое состояние.
+psql_db "UPDATE liders.seasons SET application_open_at = now() - interval '10 days', application_close_at = now() + interval '10 days' WHERE slug='2027'" >/dev/null
+
+# Создание заявок ограничено по частоте (10 в минуту на адрес, ТЗ 11 п. 5.2):
+# если предыдущие разделы израсходовали окно, ждём, а не считаем отказ дефектом.
+create_expect() {
+    local desc="$1" want="$2" payload="$3"
+    local code attempt retry
+    for attempt in 1 2 3; do
+        code=$(curl -s -D /tmp/lp_acc_headers.txt -o "$BODY" -w '%{http_code}' \
+            -X POST "${BASE}/api/applications" -H 'Content-Type: application/json' -d "$payload")
+        unwrap_body "$BODY"
+        if [ "$code" != "429" ]; then break; fi
+        retry=$(grep -i '^retry-after:' /tmp/lp_acc_headers.txt | tr -d '\r' | awk '{print $2}')
+        retry=${retry:-60}
+        printf '    · лимит создания заявок исчерпан, ждём %s с\n' "$retry"
+        sleep $((retry + 1))
+    done
+    if [ "$code" = "$want" ]; then
+        ok "$desc → $code"
+    else
+        bad "$desc → ожидался $want, получен $code · $(head -c 160 "$BODY")"
+    fi
+}
+
+# Возраст участника считается на дату окончания приёма (п. 4.1 Положения).
+# Границы включительные: ровно 16 и ровно 35 лет допускаются, на день меньше или
+# на год больше — отказ. Даты считаются от реальной даты окончания приёма, чтобы
+# проверка не «застыла» вместе с календарём.
+python3 - "${DIRECTION_ID}" <<'PY'
+import json, sys
+from datetime import date, timedelta
+direction = int(sys.argv[1])
+close = date.today() + timedelta(days=10)
+def born(years, days=0):
+    try:
+        return (close.replace(year=close.year - years) + timedelta(days=days)).isoformat()
+    except ValueError:  # 29 февраля
+        return (close.replace(year=close.year - years, day=28) + timedelta(days=days)).isoformat()
+def payload(birth, email):
+    return {
+        "team": {"name": "Приёмочная граница возраста", "organization": "СГЮА", "city": "Саратов",
+                 "direction_id": direction},
+        "initiative": {"law_title": "О границах возраста участников", "act_level": "federal",
+                       "annotation": "Проверка границ возраста приёмочным прогоном.", "ai_usage": False},
+        "captain": {"full_name": "Граница Возраста", "birth_date": birth, "category": "student", "email": email},
+    }
+targets = {
+    "ok": payload(born(16), "age-ok@example.ru"),
+    "young": payload(born(16, 1), "age-young@example.ru"),
+    "old": payload(born(36), "age-old@example.ru"),
+}
+for name, data in targets.items():
+    json.dump(data, open(f"/tmp/lp_acc_age_{name}.json", "w"), ensure_ascii=False)
+PY
+
+create_expect "участник ровно минимального возраста принимается" 201 "$(cat /tmp/lp_acc_age_ok.json)"
+create_expect "участник младше минимального возраста отклоняется" 422 "$(cat /tmp/lp_acc_age_young.json)"
+grep -q 'возраст' "$BODY" && ok "отказ по возрасту объясняет причину" || bad "отказ по возрасту без пояснения: $(head -c 160 "$BODY")"
+grep -q 'допустимо' "$BODY" && ok "в отказе указан допустимый диапазон возраста" || bad "в отказе нет допустимого диапазона"
+create_expect "участник старше максимального возраста отклоняется" 422 "$(cat /tmp/lp_acc_age_old.json)"
+
+# Обязательные поля мастера проверяются до создания команды: в базе не должно
+# оставаться «полузаявок» после отказа.
+NO_EMAIL=$(python3 -c "
+import json
+d = json.load(open('/tmp/lp_acc_age_ok.json'))
+d['captain']['email'] = ''
+d['team']['name'] = 'Приёмочная без почты'
+print(json.dumps(d, ensure_ascii=False))
+")
+create_expect "заявка без почты капитана отклоняется" 422 "$NO_EMAIL"
+
+SOLO_NO_DATE=$(python3 -c "
+import json
+d = json.load(open('/tmp/lp_acc_age_ok.json'))
+d['initiative']['is_solo'] = True
+d['team']['name'] = 'Приёмочная единоличная'
+print(json.dumps(d, ensure_ascii=False))
+")
+create_expect "единоличное участие без согласования отклоняется" 422 "$SOLO_NO_DATE"
+grep -q 'Оргкомитет' "$BODY" && ok "отказ ссылается на согласование с Оргкомитетом" || bad "в отказе нет ссылки на Оргкомитет"
+
+# ── Изоляция команд: сессия одной команды не открывает данные другой ─────────
+FOREIGN_LEAK=$(curl -s -b /tmp/lp_acc_minor.txt "${BASE}/api/cabinet/materials" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+rows = d.get('data') if isinstance(d, dict) else d
+ids = {str(row.get('id')) for row in (rows or [])}
+print('leak' if '${MATERIAL_ID}' in ids else 'ok')
+" 2>/dev/null || echo error)
+[ "$FOREIGN_LEAK" = "ok" ] && ok "кабинет команды не показывает материалы другой команды" || bad "утечка материалов между командами: $FOREIGN_LEAK"
+
+FOREIGN_PARTICIPANTS=$(curl -s -b /tmp/lp_acc_minor.txt "${BASE}/api/cabinet/team" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+d = d.get('data', d) if isinstance(d, dict) else d
+emails = {str(row.get('email')) for row in (d.get('participants') or [])}
+print('leak' if 'accept@example.ru' in emails else 'ok')
+" 2>/dev/null || echo error)
+[ "$FOREIGN_PARTICIPANTS" = "ok" ] && ok "карточка команды не раскрывает участников другой команды" || bad "утечка состава между командами: $FOREIGN_PARTICIPANTS"
+
+expect "приватный файл другой команды недоступен по сессии" 404 -b /tmp/lp_acc_minor.txt "${BASE}/api/media/file/${PRIVATE_MEDIA}"
+expect "материал другой команды нельзя удалить" 404 -b /tmp/lp_acc_minor.txt -X DELETE "${BASE}/api/cabinet/materials/${MATERIAL_ID}"
+
+# Подтверждение финала: чужой участник в составе выступающих не принимается.
+# Команда второй сессии временно переводится в статус финалиста — иначе отказ
+# пришёл бы по статусу, а не по принадлежности участника.
+MINOR_TEAM_ID=$(psql_db "SELECT team_id FROM liders.participants WHERE email='minor-accept@example.ru' ORDER BY id LIMIT 1")
+if [ -n "$MINOR_TEAM_ID" ]; then
+    MINOR_STATUS_BEFORE=$(psql_db "SELECT status FROM liders.teams WHERE id=${MINOR_TEAM_ID}")
+    psql_db "UPDATE liders.teams SET status='finalist' WHERE id=${MINOR_TEAM_ID}" >/dev/null
+    expect "чужой участник в составе выступающих отклоняется" 403 -b /tmp/lp_acc_minor.txt \
+        -X POST "${BASE}/api/cabinet/final-confirmation" -H 'Content-Type: application/json' \
+        -d "{\"speakers\":[${CAPTAIN_ID}]}"
+    psql_db "UPDATE liders.teams SET status='${MINOR_STATUS_BEFORE}' WHERE id=${MINOR_TEAM_ID}" >/dev/null
+else
+    bad "не найдена вторая команда для проверки изоляции подтверждения финала"
+fi
+
+# Подписанная ссылка выдана на конкретный файл: с её помощью нельзя открыть
+# другой файл той же команды (ТЗ 11, п. 5.8).
+GRANT_TOKEN=$(python3 -c "
+import urllib.parse
+print(urllib.parse.parse_qs(urllib.parse.urlparse('${GRANT_PATH}').query).get('grant', [''])[0])
+" 2>/dev/null || echo '')
+SECOND_MEDIA=$(psql_db "SELECT media_id::text FROM liders.application_materials WHERE team_id=${TEAM_ID} AND media_id IS NOT NULL AND media_id::text <> '${PRIVATE_MEDIA}' LIMIT 1")
+if [ -n "$GRANT_TOKEN" ] && [ -n "$SECOND_MEDIA" ]; then
+    expect "подписанная ссылка открывает свой файл" 200 "${BASE}/api/media/file/${PRIVATE_MEDIA}?grant=${GRANT_TOKEN}"
+    expect "подписанная ссылка не открывает другой файл" 404 "${BASE}/api/media/file/${SECOND_MEDIA}?grant=${GRANT_TOKEN}"
+else
+    bad "не удалось получить данные для проверки привязки ссылки к файлу"
+fi
+
+# ── Пределы постраничности (ТЗ 05, п. 1.4) ───────────────────────────────────
+PAGE_META=$(curl -s "${BASE}/api/news?perPage=1000" | python3 -c "
+import json, sys
+meta = json.load(sys.stdin).get('meta') or {}
+print(meta.get('perPage'))
+" 2>/dev/null || echo '')
+[ "$PAGE_META" = "200" ] && ok "размер страницы ограничен 200 (запрошено 1000)" || bad "предел размера страницы: ${PAGE_META:-?}"
+
+PAGE_DEFAULT=$(curl -s "${BASE}/api/news?perPage=abc" | python3 -c "
+import json, sys
+meta = json.load(sys.stdin).get('meta') or {}
+print(meta.get('perPage'))
+" 2>/dev/null || echo '')
+[ "$PAGE_DEFAULT" = "50" ] && ok "нечисловой размер страницы заменяется значением по умолчанию" || bad "размер страницы по умолчанию: ${PAGE_DEFAULT:-?}"
+
+PAGE_ZERO=$(curl -s "${BASE}/api/news?page=0&perPage=1" | python3 -c "
+import json, sys
+meta = json.load(sys.stdin).get('meta') or {}
+print(meta.get('page'))
+" 2>/dev/null || echo '')
+[ "$PAGE_ZERO" = "1" ] && ok "нулевая страница приводится к первой" || bad "нормализация номера страницы: ${PAGE_ZERO:-?}"
+
+LEGACY_PAGE=$(curl -s -H "$AUTH" "${BASE}/api/admin/applications?limit=1&offset=0" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+rows = (d.get('data') if isinstance(d, dict) else d) or []
+meta = (d.get('meta') or {}) if isinstance(d, dict) else {}
+print(f'{len(rows)}:{meta.get(\"perPage\")}')
+" 2>/dev/null || echo '?')
+[ "${LEGACY_PAGE%%:*}" = "1" ] && ok "прежние параметры limit/offset продолжают работать" || bad "старые параметры постраничности: $LEGACY_PAGE"
+
+# Состояние сроков возвращается к закрытому окну: так его оставил предыдущий
+# раздел, и на этом строится смысл проверок дедлайна.
+psql_db "UPDATE liders.seasons SET application_close_at = now() - interval '1 day' WHERE slug='2027'" >/dev/null
+
 # ── Блокировка перебора пароля (ТЗ 11, п. 5.4) ───────────────────────────────
 step "Блокировка перебора пароля"
 # Раздел идёт последним: после него адрес попадает под «долгую» блокировку, и

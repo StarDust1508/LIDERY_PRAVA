@@ -37,9 +37,13 @@ export function slugify(value: string, fallback = 'zapis'): string {
  * уникальным, а не «почти уникальным».
  */
 export async function uniqueSlug(
-  base: string,
+  rawBase: string,
   isTaken: (candidate: string) => Promise<boolean>
 ): Promise<string> {
+  // Приводим основу к адресу здесь, а не у вызывающего: если передать сырое
+  // название, адрес страницы получился бы кириллическим. Для готового адреса
+  // преобразование ничего не меняет.
+  const base = slugify(rawBase);
   if (!(await isTaken(base))) return base;
   for (let suffix = 2; suffix <= 50; suffix += 1) {
     const candidate = `${base}-${suffix}`;

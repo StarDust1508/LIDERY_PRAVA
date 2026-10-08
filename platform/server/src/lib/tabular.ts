@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'node:zlib';
+import { readZipArchive } from './zip.js';
 
 // Разбор табличных файлов для массового импорта (ТЗ 07, п. 2.14а).
 //
@@ -72,60 +72,6 @@ export function parseCsv(text: string): ParsedTable {
   return { headers, rows: nonEmpty.map((row) => headers.map((_, index) => (row[index] ?? '').trim())), format: 'csv' };
 }
 
-interface ZipEntryInfo {
-  name: string;
-  method: number;
-  data: Buffer;
-}
-
-/**
- * Читает записи ZIP (методы «без сжатия» и deflate).
- *
- * Размеры берутся из центрального каталога, а не из локального заголовка: Excel и
- * LibreOffice пишут файлы с флагом data descriptor, где в локальном заголовке
- * размеры нулевые, а настоящие лежат в каталоге. Чтение только локальных
- * заголовков на таких файлах обрывается ошибкой распаковки.
- */
-function readZipEntries(buffer: Buffer): ZipEntryInfo[] {
-  // Конец центрального каталога: сигнатура ищется от конца файла (перед ней
-  // может стоять комментарий архива длиной до 65 535 байт).
-  let eocd = -1;
-  for (let offset = buffer.length - 22; offset >= 0 && offset >= buffer.length - 22 - 65535; offset -= 1) {
-    if (buffer.readUInt32LE(offset) === 0x06054b50) {
-      eocd = offset;
-      break;
-    }
-  }
-  if (eocd === -1) throw new Error('Файл не похож на архив XLSX: не найден каталог');
-
-  const entryCount = buffer.readUInt16LE(eocd + 10);
-  let pointer = buffer.readUInt32LE(eocd + 16);
-  const entries: ZipEntryInfo[] = [];
-
-  for (let index = 0; index < entryCount; index += 1) {
-    if (pointer + 46 > buffer.length || buffer.readUInt32LE(pointer) !== 0x02014b50) break;
-    const method = buffer.readUInt16LE(pointer + 10);
-    const compressedSize = buffer.readUInt32LE(pointer + 20);
-    const nameLength = buffer.readUInt16LE(pointer + 28);
-    const extraLength = buffer.readUInt16LE(pointer + 30);
-    const commentLength = buffer.readUInt16LE(pointer + 32);
-    const localOffset = buffer.readUInt32LE(pointer + 42);
-    const name = buffer.subarray(pointer + 46, pointer + 46 + nameLength).toString('utf8');
-
-    // Смещение данных — через локальный заголовок: в нём свои длины имени и
-    // дополнительного поля, и они могут отличаться от каталога.
-    const localNameLength = buffer.readUInt16LE(localOffset + 26);
-    const localExtraLength = buffer.readUInt16LE(localOffset + 28);
-    const dataStart = localOffset + 30 + localNameLength + localExtraLength;
-    const data = buffer.subarray(dataStart, dataStart + compressedSize);
-    entries.push({ name, method, data: method === 8 ? inflateRawSync(data) : Buffer.from(data) });
-
-    pointer += 46 + nameLength + extraLength + commentLength;
-  }
-
-  return entries;
-}
-
 function decodeXml(value: string): string {
   return value
     .replace(/&lt;/g, '<')
@@ -146,7 +92,7 @@ function columnIndex(reference: string): number {
 
 /** Разбирает XLSX: значения берутся из общего списка строк или из ячеек. */
 export function parseXlsx(buffer: Buffer): ParsedTable {
-  const entries = readZipEntries(buffer);
+  const entries = readZipArchive(buffer);
   const sheet =
     entries.find((entry) => /^xl\/worksheets\/sheet1\.xml$/.test(entry.name)) ??
     entries.find((entry) => /^xl\/worksheets\/.+\.xml$/.test(entry.name));
@@ -194,7 +140,11 @@ export function parseXlsx(buffer: Buffer): ParsedTable {
 
 /** Определяет формат по содержимому и разбирает файл. */
 export function parseTableFile(buffer: Buffer, fileName: string): ParsedTable {
-  const isZip = buffer.length > 4 && buffer.readUInt32LE(0) === 0x04034b50;
-  if (isZip || fileName.toLowerCase().endsWith('.xlsx')) return parseXlsx(buffer);
+  // Формат определяется по сигнатуре архива: файл с расширением .xlsx, внутри
+  // которого текст, разберётся как CSV с понятным сообщением о колонках, а не
+  // упадёт с ошибкой распаковки. Имя файла используется только в сообщениях.
+  const isZip = buffer.length >= 4 && buffer.readUInt32LE(0) === 0x04034b50;
+  if (isZip) return parseXlsx(buffer);
+  void fileName;
   return parseCsv(buffer.toString('utf8'));
 }
