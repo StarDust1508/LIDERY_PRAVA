@@ -1,3 +1,4 @@
+import '../test-env.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { NextFunction, Request, Response } from 'express';
