@@ -125,9 +125,9 @@ export function SiteMenu({ open, onClose, applyLabel, returnFocusTo }: SiteMenuP
             </div>
 
             <div className="curtain-contacts">
-              <a href="mailto:ssla_av@mail.ru">
+              <a href="mailto:lidery.prava@mail.ru">
                 <Mail size={16} />
-                ssla_av@mail.ru
+                lidery.prava@mail.ru
               </a>
               <a href="tel:+79060747313">
                 <Phone size={16} />

@@ -435,16 +435,21 @@ expect "оценка с обоснованием сохраняется" 201 -H 
 SECOND_EXPERT=$(echo "$EXPERT_IDS" | cut -d' ' -f2)
 expect "вторая оценка сохраняется" 201 -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" -H 'Content-Type: application/json' -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${SECOND_EXPERT},\"scores\":$(score_for 1)}"
 expect "расчёт рейтинга" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/recalculate" -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+SPREAD=$(psql_db "SELECT scores_spread FROM liders.rankings WHERE team_id=${TEAM_ID} AND stage='selection'")
+[ "$SPREAD" = "49.00" ] && ok "расхождение сумм зафиксировано в рейтинге: 49 баллов" || bad "расхождение сумм: ${SPREAD:-?}"
+# Правило «расхождение > 20 баллов → доп. оценка председателя» исключено
+# решением заказчика (сообщение 08.10.2026, п. 8), поэтому публикация не
+# блокируется даже при большом расхождении.
 FLAG=$(psql_db "SELECT needs_chair_review FROM liders.rankings WHERE team_id=${TEAM_ID} AND stage='selection'")
-[ "$FLAG" = "t" ] && ok "расхождение сумм более 20 баллов → требуется доп. оценка председателя" || bad "флаг needs_chair_review: ${FLAG:-?}"
-expect "протокол не публикуется, пока оценка председателя не внесена (п. 7.7)" 409 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
+[ "$FLAG" = "f" ] && ok "дополнительная оценка председателя не требуется (правило исключено)" || bad "флаг needs_chair_review: ${FLAG:-?}"
+expect "протокол публикуется без доп. оценки председателя" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
 THIRD_EXPERT=$(echo "$EXPERT_IDS" | cut -d' ' -f3)
 curl -s -H "$AUTH" -X POST "${BASE}/api/admin/evaluations" -H 'Content-Type: application/json' -d "{\"team_id\":${TEAM_ID},\"stage\":\"selection\",\"expert_id\":${THIRD_EXPERT},\"scores\":$(score_for 5),\"is_chair_extra\":true}" >/dev/null
 curl -s -H "$AUTH" -X POST "${BASE}/api/admin/rankings/recalculate" -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}' >/dev/null
 FLAG_AFTER=$(psql_db "SELECT needs_chair_review FROM liders.rankings WHERE team_id=${TEAM_ID} AND stage='selection'")
-[ "$FLAG_AFTER" = "f" ] && ok "после оценки председателя флаг снят (С4.4)" || bad "флаг после оценки председателя: ${FLAG_AFTER:-?}"
-# Среднее считается по всем членам комиссии, включая председателя:
-# (56 + 7 + 35) / 3 = 32,67 (п. 7.7 Положения).
+[ "$FLAG_AFTER" = "f" ] && ok "флаг доп. оценки не выставляется и после третьей оценки" || bad "флаг после третьей оценки: ${FLAG_AFTER:-?}"
+# Средний балл считается по всем членам комиссии:
+# (56 + 7 + 35) / 3 = 32,67.
 AVERAGE=$(psql_db "SELECT average_score FROM liders.rankings WHERE team_id=${TEAM_ID} AND stage='selection'")
 [ "$AVERAGE" = "32.67" ] && ok "средний балл 32,67 — оценка председателя учтена (п. 7.7)" || bad "средний балл: $AVERAGE (ожидалось 32.67)"
 expect "публикация протокола" 200 -H "$AUTH" -X POST "${BASE}/api/admin/rankings/publish" -H 'Content-Type: application/json' -d '{"season_id":1,"stage":"selection"}'
@@ -1160,16 +1165,18 @@ expect "повторная публикация протокола" 200 -H "$AUT
 TIES=$(psql_db "SELECT count(*) FROM liders.rankings WHERE season_id=1 AND stage='selection'")
 ok "записей рейтинга после публикации: ${TIES}"
 
-# Апелляция: срок рассмотрения пять рабочих дней (ТЗ 07, п. 2.9).
-APPEAL_DUE=$(psql_db "SELECT decision_due_at IS NOT NULL FROM liders.appeals ORDER BY id DESC LIMIT 1")
-[ "$APPEAL_DUE" = "t" ] && ok "у апелляции есть срок рассмотрения" || bad "срок рассмотрения апелляции не проставлен"
-APPEAL_LIST_OVERDUE=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals" | python3 -c "
+# Срок рассмотрения из Положения исключён: дата не рассчитывается и не хранится.
+APPEAL_DUE=$(psql_db "SELECT decision_due_at IS NULL FROM liders.appeals ORDER BY id DESC LIMIT 1")
+[ "$APPEAL_DUE" = "t" ] && ok "срок рассмотрения апелляции не проставляется" || bad "апелляции всё ещё проставляется срок рассмотрения"
+APPEAL_LIST_DUE=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 rows = d.get('data', d) if isinstance(d, dict) else d
-print('ok' if isinstance(rows, list) and all('decision_overdue' in row for row in rows) else 'no')
+# Срок рассмотрения исключён из Положения: поля с расчётной датой в списке быть
+# не должно, а состояние «не рассмотрена / рассмотрена» — должно.
+print('ok' if isinstance(rows, list) and all('decision_overdue' not in row for row in rows) else 'no')
 " 2>/dev/null || echo error)
-[ "$APPEAL_LIST_OVERDUE" = "ok" ] && ok "список апелляций отмечает просрочку рассмотрения" || bad "в списке апелляций нет отметки просрочки"
+[ "$APPEAL_LIST_DUE" = "ok" ] && ok "список апелляций не содержит срока рассмотрения" || bad "в списке апелляций остался срок рассмотрения"
 
 # Журнал: фильтр по периоду и выгрузка (ТЗ 07, п. 2.17).
 expect "журнал фильтруется по периоду" 200 -H "$AUTH" "${BASE}/api/admin/audit?from=2026-01-01&to=2027-01-01"
@@ -1356,7 +1363,9 @@ import json
 d = json.load(open('$BODY'))
 rows = d.get('rows') or []
 experts = d.get('experts') or []
-ok = bool(rows) and bool(experts) and d.get('min_evaluations') == 3
+# Порогового минимума оценок больше нет: матрица показывает прогресс, а не
+# условие публикации (требование «не менее трёх» исключено из Положения).
+ok = bool(rows) and bool(experts) and 'min_evaluations' not in d
 cells = all(len(row.get('cells') or []) == len(experts) for row in rows)
 ready = all('is_ready' in row and 'evaluations_count' in row for row in rows)
 print('ok' if ok and cells and ready else 'no')

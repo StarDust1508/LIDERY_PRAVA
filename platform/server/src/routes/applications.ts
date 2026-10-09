@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt } from '../lib/http.js';
+import { featureEnabled } from '../lib/features.js';
 import { formatMoscowHuman, isDeadlinePassed, toDate } from '../lib/moscow-time.js';
 import {
   ageOn,
@@ -171,6 +172,16 @@ router.post(
   '/applications',
   rateLimit(10, 60_000),
   asyncHandler(async (req, res) => {
+    // Включатель приёма заявок (ТЗ 07, п. 2.16): Оргкомитет может приостановить
+    // приём раньше календарного срока.
+    if (!(await featureEnabled('application_open'))) {
+      res.status(409).json({
+        error: 'Приём заявок приостановлен Оргкомитетом. Следите за новостями на сайте.',
+        feature: 'application_open',
+      });
+      return;
+    }
+
     const season = await loadActiveSeason();
     if (!season) {
       res.status(409).json({ error: 'Активный сезон конкурса не найден. Обратитесь в Оргкомитет.' });

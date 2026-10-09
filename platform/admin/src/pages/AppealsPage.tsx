@@ -13,15 +13,11 @@ import { Alert, Button, PageHeader, SectionCard, SelectField, StatusBadge, TextA
 
 // Апелляции команд и решения апелляционной комиссии (ТЗ 07, п. 2.9).
 //
-// Срок рассмотрения — пять рабочих дней с момента регистрации апелляции
-// (раздел 12 Положения). Срок считается в панели: сервер отдаёт дату подачи и
-// срок по регламенту, поэтому состояние «в сроке / просрочена / рассмотрена»
-// всегда видно списком, а не только в карточке.
+// Срок рассмотрения из Положения исключён: панель показывает только состояние
+// «не рассмотрена / рассмотрена», без расчётных дат.
 //
 // Решение фиксируется с обоснованием и ссылкой на протокол, поэтому отделено
 // от повседневных действий и требует подтверждения (п. 3.2).
-
-const REVIEW_WORKING_DAYS = 5;
 
 const APPEAL_STAGE_TITLES: Record<string, string> = {
   selection: 'Отборочный этап',
@@ -32,8 +28,7 @@ const APPEAL_STAGE_TITLES: Record<string, string> = {
 const DECIDED_STATUSES = ['granted', 'partially_granted', 'rejected', 'withdrawn'];
 
 const TERM_TITLES: Record<string, string> = {
-  open: 'В сроке',
-  overdue: 'Просрочена',
+  open: 'Не рассмотрена',
   reviewed: 'Рассмотрена',
 };
 
@@ -65,27 +60,11 @@ interface AppealExtras {
   scan_url?: string | null;
 }
 
-type TermKey = 'open' | 'overdue' | 'reviewed';
+type TermKey = 'open' | 'reviewed';
 
 /** Рабочие дни считаются по тому же правилу, что и на сервере (без субботы и воскресенья). */
-function addWorkingDays(from: Date, days: number): Date {
-  const result = new Date(from.getTime());
-  let remaining = days;
-  while (remaining > 0) {
-    result.setUTCDate(result.getUTCDate() + 1);
-    const weekday = result.getUTCDay();
-    if (weekday !== 0 && weekday !== 6) remaining -= 1;
-  }
-  return result;
-}
-
-function reviewDeadline(appeal: AdminAppeal): Date {
-  return addWorkingDays(new Date(appeal.created_at), REVIEW_WORKING_DAYS);
-}
-
 function termOf(appeal: AdminAppeal): TermKey {
-  if (DECIDED_STATUSES.includes(appeal.status ?? 'submitted')) return 'reviewed';
-  return reviewDeadline(appeal).getTime() < Date.now() ? 'overdue' : 'open';
+  return DECIDED_STATUSES.includes(appeal.status ?? 'submitted') ? 'reviewed' : 'open';
 }
 
 /**
@@ -164,7 +143,7 @@ export function AppealsPage() {
   const visible = term === '' ? rows : rows.filter((appeal) => termOf(appeal) === term);
   const selected = rows.find((appeal) => appeal.id === selectedId) ?? null;
 
-  const termCounts = (['open', 'overdue', 'reviewed'] as TermKey[]).map((key) => ({
+  const termCounts = (['open', 'reviewed'] as TermKey[]).map((key) => ({
     key,
     count: rows.filter((appeal) => termOf(appeal) === key).length,
   }));
@@ -183,10 +162,9 @@ export function AppealsPage() {
     setError(null);
     setNotice(null);
     try {
-      // Сервер принимает status, decision, decision_note и protocol_url.
-      // Пустое значение decision очищает поле: решение ещё не принято.
-      const payload: { status: string; decision: string } = { status: 'in_review', decision: '' };
-      await adminApi.decideAppeal(appeal.id, payload);
+      // Переводим только статус: пустой decision раньше стирал уже принятое
+      // решение, если апелляцию возвращали в работу после решения.
+      await adminApi.decideAppeal(appeal.id, { status: 'in_review' });
       setNotice(`Апелляция № ${appeal.id} принята в работу.`);
       await load();
     } catch (caught) {
@@ -226,7 +204,7 @@ export function AppealsPage() {
       <PageHeader
         eyebrow="Апелляционная комиссия"
         title="Апелляции"
-        lead="Апелляции по итогам отборочного и первого этапов. Срок рассмотрения — пять рабочих дней; решение фиксируется с обоснованием и ссылкой на протокол."
+        lead="Апелляции по итогам отборочного и первого этапов. Решение фиксируется с обоснованием и ссылкой на протокол."
         aside={
           <Button variant="secondary" onClick={() => void load()} loading={loading}>
             Обновить
@@ -271,15 +249,13 @@ export function AppealsPage() {
           />
           <SelectField
             id="appeals-term"
-            label="Срок рассмотрения"
+            label="Состояние"
             value={term}
             options={[
-              { value: 'open', title: 'В сроке' },
-              { value: 'overdue', title: 'Просрочена' },
+              { value: 'open', title: 'Не рассмотрена' },
               { value: 'reviewed', title: 'Рассмотрена' },
             ]}
-            placeholder="Любой срок"
-            hint="Считается в панели: пять рабочих дней с момента подачи."
+            placeholder="Любое состояние"
             onChange={(event) => setParam('term', event.target.value)}
           />
         </div>
@@ -331,9 +307,6 @@ export function AppealsPage() {
                 />
                 <span className="mt-1 block text-muted">
                   {TERM_TITLES[termOf(selected)]}
-                  {termOf(selected) !== 'reviewed'
-                    ? ` · срок рассмотрения до ${formatMoscowHuman(reviewDeadline(selected).toISOString())}`
-                    : ''}
                 </span>
               </dd>
             </div>
@@ -392,8 +365,7 @@ export function AppealsPage() {
           <div className="mt-6 border-t border-border pt-5">
             <p className="mono-label text-muted">Принять в работу</p>
             <p className="mt-2 text-sm text-muted">
-              Пока апелляция не принята в работу, комиссия не приступала к рассмотрению. Срок рассмотрения — пять
-              рабочих дней с момента подачи.
+              Пока апелляция не принята в работу, комиссия не приступала к рассмотрению.
             </p>
             <div className="mt-3">
               <Button
@@ -522,9 +494,6 @@ export function AppealsPage() {
                       Предмет
                     </th>
                     <th scope="col" className="py-2 pr-4">
-                      Срок рассмотрения
-                    </th>
-                    <th scope="col" className="py-2 pr-4">
                       Состояние
                     </th>
                     <th scope="col" className="py-2 pr-4">
@@ -545,12 +514,7 @@ export function AppealsPage() {
                         <td className="py-3 pr-4">{APPEAL_STAGE_TITLES[appeal.stage] ?? appeal.stage}</td>
                         <td className="py-3 pr-4 max-w-measure break-words">{groundsTitle(appeal.grounds)}</td>
                         <td className="py-3 pr-4">
-                          {termKey === 'reviewed' ? '—' : formatMoscowHuman(reviewDeadline(appeal).toISOString())}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <span className={termKey === 'overdue' ? 'text-danger' : undefined}>
-                            {TERM_TITLES[termKey]}
-                          </span>
+                          <span>{TERM_TITLES[termKey]}</span>
                         </td>
                         <td className="py-3 pr-4">
                           {APPEAL_STATUS_TITLES[appeal.status ?? 'submitted'] ?? appeal.status ?? 'Подана'}
@@ -584,14 +548,8 @@ export function AppealsPage() {
                     <p className="mt-2">{groundsTitle(appeal.grounds)}</p>
                     <dl className="mt-3 flex flex-col gap-2">
                       <div>
-                        <dt className="text-muted">Срок рассмотрения</dt>
-                        <dd>
-                          {termKey === 'reviewed' ? 'решение принято' : formatMoscowHuman(reviewDeadline(appeal).toISOString())}
-                        </dd>
-                      </div>
-                      <div>
                         <dt className="text-muted">Состояние</dt>
-                        <dd className={termKey === 'overdue' ? 'text-danger' : undefined}>{TERM_TITLES[termKey]}</dd>
+                        <dd>{TERM_TITLES[termKey]}</dd>
                       </div>
                       <div>
                         <dt className="text-muted">Статус</dt>

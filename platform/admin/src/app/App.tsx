@@ -68,13 +68,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
     title: 'Работа с заявками',
     items: [
       { to: '/', title: 'Сводка' },
-      { to: '/applications', title: 'Заявки', counter: 'applications_pending' },
-      { to: '/materials', title: 'Материалы', counter: 'materials_needs_fix' },
+      { to: '/applications?tech_status_filter=pending', title: 'Заявки', counter: 'applications_pending' },
+      { to: '/materials?status=needs_fix', title: 'Материалы', counter: 'materials_needs_fix' },
       { to: '/teams', title: 'Команды' },
       { to: '/evaluation', title: 'Оценки' },
       { to: '/rankings', title: 'Рейтинг' },
-      { to: '/appeals', title: 'Апелляции', counter: 'appeals_open' },
-      { to: '/leads', title: 'Обращения', counter: 'leads_new' },
+      { to: '/appeals?term=open', title: 'Апелляции', counter: 'appeals_open' },
+      { to: '/leads?status=new', title: 'Обращения', counter: 'leads_new' },
       { to: '/legacy-applications', title: 'Заявки 2026 (архив)', adminOnly: true },
     ],
   },
@@ -103,7 +103,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { to: '/settings', title: 'Настройки', adminOnly: true },
       { to: '/subjects', title: 'Права субъектов ПДн', adminOnly: true },
       { to: '/users', title: 'Пользователи', adminOnly: true },
-      { to: '/audit', title: 'Журнал действий' },
+      { to: '/audit', title: 'Журнал действий', adminOnly: true },
     ],
   },
 ];
@@ -197,7 +197,9 @@ function AdminShell() {
     };
   }, [auth, session, signOut]);
 
-  const role: AdminUserRole = session?.role ?? 'admin';
+  // Роль по умолчанию — оператор: админские разделы не показываются, пока
+  // сервер не подтвердил роль (ТЗ 12, п. 1.4.1).
+  const role: AdminUserRole = session?.role ?? 'operator';
   const isAdmin = role === 'admin';
 
   const groups = useMemo(

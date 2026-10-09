@@ -173,8 +173,8 @@ export function CabinetAccessPage() {
               vk.ru/id274466891
             </a>
             , почта{' '}
-            <a className="text-accent underline underline-offset-2" href="mailto:ssla_av@mail.ru">
-              ssla_av@mail.ru
+            <a className="text-accent underline underline-offset-2" href="mailto:lidery.prava@mail.ru">
+              lidery.prava@mail.ru
             </a>
             .
           </li>

@@ -37,6 +37,12 @@ const FAQ: FaqItem[] = [
     answer: 'Нет. Участие бесплатное, организационный взнос не взимается.',
   },
   {
+    id: 'solo',
+    question: 'Можно ли участвовать одному, без команды?',
+    answer:
+      'Да. Единоличное участие допускается по согласованию с Оргкомитетом, в том числе оформленному электронно: в заявке отмечается единоличное участие и указывается дата согласования. Такой участник выступает как капитан команды, состоящей из одного человека, и подаёт те же конкурсные материалы.',
+  },
+  {
     id: 'apply',
     question: 'Как подать заявку и куда?',
     answer:
@@ -122,7 +128,7 @@ function period(from: string | null, to: string | null): string {
 function resultsAnswer(season: Season | null): string {
   const days = season?.appeal_window_days ?? 2;
   const window = pluralize(days, ['рабочий день', 'рабочих дня', 'рабочих дней']);
-  return `Протоколы этапов публикуются на сайте, баллы участника видны в личном кабинете команды. Апелляцию подаёт капитан команды по форме Приложения № 14 в течение ${window} с момента публикации протокола этапа. Апелляционная комиссия рассматривает её в течение пяти рабочих дней; решения второго (финального) этапа по итогам голосования обжалованию не подлежат.`;
+  return `Протоколы этапов публикуются на сайте, баллы участника видны в личном кабинете команды. Апелляцию подаёт капитан команды по форме Приложения № 14 в течение ${window} с момента публикации протокола этапа. Решения второго (финального) этапа по итогам голосования обжалованию не подлежат.`;
 }
 
 /** Узел BreadcrumbList без @context: в @graph контекст задаётся один раз. */
@@ -224,8 +230,8 @@ export function FaqPage() {
 
       <p className="text-sm text-muted">
         Не нашли ответ? Напишите на{' '}
-        <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-          ssla_av@mail.ru
+        <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+          lidery.prava@mail.ru
         </a>
         . Правила участия — в{' '}
         <Link to="/about/regulations" className="text-accent underline underline-offset-2">

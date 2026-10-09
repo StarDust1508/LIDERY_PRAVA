@@ -71,12 +71,15 @@ export function Field({ id, label, hint, error, required = false, children }: Fi
         ) : null}
         {required ? <span className="sr-only-text"> — обязательное поле</span> : null}
       </label>
+      {children({ 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
+      {/* Подсказка идёт после поля: в ряду из нескольких полей контролы
+          выравниваются по одной линии, даже если подсказка есть только у одного
+          (иначе «Сезон» и «Спикер» съезжали по высоте). */}
       {hint ? (
-        <p id={hintId} className="text-sm text-muted">
+        <p id={hintId} className="max-w-measure text-sm text-muted">
           {hint}
         </p>
       ) : null}
-      {children({ 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
       {error ? (
         <p id={errorId} role="alert" className="text-sm text-danger">
           {error}

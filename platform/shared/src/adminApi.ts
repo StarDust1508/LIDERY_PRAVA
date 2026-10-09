@@ -524,6 +524,8 @@ export const adminApi = {
       message?: string;
       ties?: Array<{ team: string; average_score: string | number; place: number }>;
       without_evaluations?: string[];
+      /** Замечания по оцениванию: публикация не блокируется, но их нужно видеть. */
+      warnings?: string[];
     }>('/api/admin/rankings/publish', {
       method: 'POST',
       body: JSON.stringify({ season_id: seasonId, stage, is_published: isPublished, reason }),

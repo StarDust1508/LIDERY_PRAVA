@@ -4,6 +4,8 @@ import {
   ACT_LEVELS,
   ApiError,
   DISTRIBUTION_CATEGORIES,
+  LINK_ALLOWED_MATERIAL_TYPES,
+  LINK_ONLY_MATERIAL_TYPES,
   MASTER_STEPS,
   PARTICIPANT_CATEGORIES,
   type ActLevel,
@@ -171,6 +173,8 @@ export function ApplyPage() {
   const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  // Значения полей «ссылка на публикацию» по типам материалов.
+  const [linkValues, setLinkValues] = useState<Record<string, string>>({});
   const [confirmRegulation, setConfirmRegulation] = useState(false);
   const [imageLicense, setImageLicense] = useState(false);
   // Согласие на информационные сообщения (ст. 18 38-ФЗ): необязательное и
@@ -591,6 +595,41 @@ export function ApplyPage() {
     }
   }
 
+  /**
+   * Прикрепление материала ссылкой: видеоролик первого этапа публикуется во
+   * «ВКонтакте», файлом он не передаётся (тип video_link — только ссылка).
+   * Презентацию и иной материал можно приложить и файлом, и ссылкой.
+   */
+  async function attachLink(type: string, url: string) {
+    if (!token) return;
+    const value = url.trim();
+    if (value === '') {
+      setFieldErrors((current) => ({ ...current, [`link-${type}`]: 'Вставьте ссылку на публикацию.' }));
+      return;
+    }
+    setError(null);
+    setUploadingType(type);
+    try {
+      const form = new FormData();
+      form.append('type', type);
+      form.append('external_url', value);
+      await api.cabinetUploadMaterial(form, token);
+      const materialsData = await api.cabinetMaterials(token);
+      setMaterials(materialsData);
+      setLinkValues((current) => ({ ...current, [type]: '' }));
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next[`link-${type}`];
+        return next;
+      });
+      markSaved();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось прикрепить ссылку.');
+    } finally {
+      setUploadingType(null);
+    }
+  }
+
   async function submitApplication() {
     if (!token) return;
     setError(null);
@@ -668,7 +707,7 @@ export function ApplyPage() {
         ) : (
           <Alert tone="warning" title="Приём заявок закрыт">
             Срок приёма заявок истёк {formatMoscowHuman(season?.application_close_at)}. Напишите в Оргкомитет, если
-            нужна помощь: Тажибов Арслан Азизович, 8 (966) 789-76-05, ssla_av@mail.ru.
+            нужна помощь: Тажибов Арслан Азизович, 8 (966) 789-76-05, lidery.prava@mail.ru.
           </Alert>
         )
       ) : null}
@@ -836,11 +875,24 @@ export function ApplyPage() {
               }
             >
               <div className="flex flex-col gap-8">
-                {participants.map((participant, index) => (
+                {participants.map((participant, index) => {
+                  // Нумерация участников без капитана: капитан идёт первым и
+                  // отдельно, дальше «Участник 1», «Участник 2» и так далее —
+                  // иначе после капитана список начинался с «Участник 2».
+                  const memberNumber = participants
+                    .slice(0, index + 1)
+                    .filter((row) => row.role !== 'captain').length;
+                  return (
                   <fieldset key={`participant-${participant.id ?? index}`} className="flex flex-col gap-4 border border-border p-4">
                     <legend className="mono-label px-2 text-muted">
-                      {participant.role === 'captain' ? 'Капитан команды' : `Участник ${index + 1}`}
+                      {participant.role === 'captain' ? 'Капитан команды' : `Участник ${memberNumber}`}
                     </legend>
+                    {participant.role === 'captain' ? (
+                      <p className="text-sm text-muted">
+                        Данные капитана заполнены на первом шаге. Проверьте их и при необходимости исправьте: капитан
+                        получает доступ в личный кабинет и подаёт апелляции.
+                      </p>
+                    ) : null}
                     <div className="grid gap-4 md:grid-cols-2">
                       <TextField id={`p-name-${index}`} error={fieldErrors[`p-name-${index}`]} label="Фамилия, имя, отчество" required value={participant.full_name} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
                       <TextField id={`p-birth-${index}`} error={fieldErrors[`p-birth-${index}`]} label="Дата рождения" type="date" required value={participant.birth_date} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, birth_date: e.target.value } : row)))} />
@@ -899,7 +951,8 @@ export function ApplyPage() {
                       </Button>
                     ) : null}
                   </fieldset>
-                ))}
+                  );
+                })}
               </div>
             </SectionCard>
           ) : null}
@@ -978,6 +1031,8 @@ export function ApplyPage() {
                     const uploaded = materials.filter((material) => material.type === requirement.type);
                     const conditional = requirement.type === 'consent_legal_rep';
                     const isRequired = requirement.is_required || (conditional && hasMinor);
+                    const linkOnly = (LINK_ONLY_MATERIAL_TYPES as readonly string[]).includes(requirement.type);
+                    const linkAllowed = (LINK_ALLOWED_MATERIAL_TYPES as readonly string[]).includes(requirement.type);
                     return (
                       <li key={requirement.type} className="flex flex-col gap-3 border-b border-border pb-5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -997,20 +1052,63 @@ export function ApplyPage() {
                             {material.reviewer_comment ? ` · замечание: ${material.reviewer_comment}` : ''}
                           </p>
                         ))}
-                        <div>
-                          <label className="text-sm font-medium text-fg" htmlFor={`upload-${requirement.type}`}>
-                            Загрузить файл
-                          </label>
-                          <input
-                            id={`upload-${requirement.type}`}
-                            type="file"
-                            className="mt-2 block w-full text-sm"
-                            disabled={uploadingType !== null || applicationClosed}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              if (file) void uploadMaterial(requirement.type, file);
-                            }}
-                          />
+                        <div className="flex flex-col gap-3">
+                          {linkOnly || linkAllowed ? (
+                            <div>
+                              <label className="text-sm font-medium text-fg" htmlFor={`link-${requirement.type}`}>
+                                Ссылка на публикацию
+                              </label>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <input
+                                  id={`link-${requirement.type}`}
+                                  type="url"
+                                  inputMode="url"
+                                  placeholder="https://vk.com/…"
+                                  className="min-h-[44px] w-full max-w-xl border border-border-strong bg-raised px-3 py-2 text-body text-fg"
+                                  disabled={uploadingType !== null || applicationClosed}
+                                  value={linkValues[requirement.type] ?? ''}
+                                  onChange={(event) =>
+                                    setLinkValues((current) => ({ ...current, [requirement.type]: event.target.value }))
+                                  }
+                                />
+                                <Button
+                                  variant="secondary"
+                                  loading={uploadingType === requirement.type}
+                                  disabled={applicationClosed}
+                                  onClick={() => void attachLink(requirement.type, linkValues[requirement.type] ?? '')}
+                                >
+                                  Прикрепить ссылку
+                                </Button>
+                              </div>
+                              {fieldErrors[`link-${requirement.type}`] ? (
+                                <p role="alert" className="mt-2 text-sm text-danger">
+                                  {fieldErrors[`link-${requirement.type}`]}
+                                </p>
+                              ) : null}
+                              {linkOnly ? (
+                                <p className="mt-2 text-sm text-muted">
+                                  Этот материал передаётся ссылкой: файл загружать не нужно.
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {linkOnly ? null : (
+                            <div>
+                              <label className="text-sm font-medium text-fg" htmlFor={`upload-${requirement.type}`}>
+                                Загрузить файл
+                              </label>
+                              <input
+                                id={`upload-${requirement.type}`}
+                                type="file"
+                                className="mt-2 block w-full text-sm"
+                                disabled={uploadingType !== null || applicationClosed}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  if (file) void uploadMaterial(requirement.type, file);
+                                }}
+                              />
+                            </div>
+                          )}
                           {uploadingType === requirement.type ? (
                             <p role="status" className="mt-2 text-sm text-muted">
                               Загружаем файл…

@@ -65,12 +65,19 @@ export function InitiativesImportPage() {
 
   async function apply() {
     if (!preview) return;
+    // Строки с ошибками не применяем: сервер привёл бы некорректные значения к
+    // NULL, и работа попала бы в архив без года, места и направления — молча.
+    // Дубликаты (обновление существующей записи) ошибкой не считаются.
     const rows = preview.rows
-      .filter((row) => row.values.title)
+      .filter((row) => row.values.title && row.errors.length === 0)
       .map((row) => ({ row: row.row, values: row.values }));
+    const skipped = preview.rows.length - rows.length;
     if (rows.length === 0) {
-      setError('В файле нет строк с названием инициативы.');
+      setError('В файле нет строк без ошибок: исправьте замечания и загрузите файл заново.');
       return;
+    }
+    if (skipped > 0) {
+      setNotice(`Строк с ошибками пропущено: ${skipped}. Они не записаны в архив.`);
     }
     setBusy(true);
     setError(null);

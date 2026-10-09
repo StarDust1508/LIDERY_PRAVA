@@ -164,8 +164,8 @@ export function DocumentsPage() {
 
       <p className="text-sm text-muted">
         Контакт по вопросам документов:{' '}
-        <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-          ssla_av@mail.ru
+        <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+          lidery.prava@mail.ru
         </a>
         . Прежняя почта support@lideryprava.ru не используется.
       </p>

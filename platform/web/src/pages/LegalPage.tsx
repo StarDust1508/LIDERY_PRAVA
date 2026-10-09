@@ -232,8 +232,8 @@ export function LegalPage() {
             </p>
             <p>
               Вопросы по документу:{' '}
-              <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-                ssla_av@mail.ru
+              <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+                lidery.prava@mail.ru
               </a>
             </p>
           </Prose>

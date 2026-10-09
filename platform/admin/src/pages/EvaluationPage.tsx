@@ -57,11 +57,19 @@ export function EvaluationPage() {
       evaluations_count: number;
       is_ready: boolean;
     }>;
-    min_evaluations: number;
-  } | null>(null);
+    } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Баллы относятся к конкретной работе: при смене команды, этапа или
+  // эксперта черновик сбрасывается, иначе оценка уходила другой команде
+  // (сервер делает upsert по паре «работа + эксперт»).
+  useEffect(() => {
+    setScores({});
+    setIsConflicted(false);
+    setConflictReason('');
+  }, [teamId, stage, expertId]);
 
   useEffect(() => {
     let active = true;
@@ -227,7 +235,7 @@ export function EvaluationPage() {
       <PageHeader
         eyebrow="Оценочный лист · Приложение № 9"
         title="Оценка конкурсных материалов"
-        lead="Каждую инициативу оценивают не менее трёх членов комиссии независимо друг от друга (п. 5.2.3, 7.6). Итог этапа — среднее арифметическое сумм с округлением до сотых (п. 7.7)."
+        lead="Каждую инициативу оценивают члены Конкурсной комиссии. Итог этапа — среднее арифметическое сумм баллов с округлением до сотых."
       />
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
@@ -236,7 +244,7 @@ export function EvaluationPage() {
       {matrix && matrix.rows.length > 0 ? (
         <SectionCard
           title="Матрица «команда × эксперт»"
-          description={`По каждой работе нужно не менее ${matrix.min_evaluations} оценок. Оценки с конфликтом интересов в подсчёт не входят.`}
+          description="Оценки по каждой работе; оценки с конфликтом интересов в подсчёт не входят."
         >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-sm">
@@ -277,9 +285,8 @@ export function EvaluationPage() {
                       </td>
                     ))}
                     <td className="py-2">
-                      <span className={row.is_ready ? 'text-success' : 'text-danger'}>
-                        {row.evaluations_count} из {matrix.min_evaluations}
-                        {row.is_ready ? '' : ' — публикация невозможна'}
+                      <span className={row.is_ready ? 'text-success' : 'text-muted'}>
+                        {row.evaluations_count === 0 ? 'оценок нет' : `оценок: ${row.evaluations_count}`}
                       </span>
                     </td>
                   </tr>
@@ -492,7 +499,7 @@ export function EvaluationPage() {
                 <li key={evaluation.id} className="border-b border-border pb-3">
                   <p>
                     {expertName(evaluation)} · итог {Number(evaluation.total_score)}
-                    {evaluation.is_chair_extra ? ' · дополнительная оценка председателя' : ''}
+                    {evaluation.is_chair_extra ? ' · оценка председателя' : ''}
                   </p>
                   {evaluation.recommendations ? <p className="text-muted">Рекомендации: {evaluation.recommendations}</p> : null}
                 </li>

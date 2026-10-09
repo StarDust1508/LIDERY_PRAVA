@@ -9,6 +9,7 @@ import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { parseTableFile } from '../lib/tabular.js';
 import { generateExpertToken, hashExpertToken } from './expert.js';
 import { scopedRateLimit } from '../middleware/rate-limit.js';
+import { resetFeatureCache } from '../lib/features.js';
 import { writeAudit } from '../lib/audit.js';
 import { slugify, uniqueSlug } from '../lib/slugify.js';
 import { addWorkingDays, formatMoscowDateHuman } from '../lib/moscow-time.js';
@@ -496,13 +497,13 @@ function buildApplicationFilter(req: Request): ApplicationFilter {
     where.push(
       `(EXISTS (SELECT 1 FROM application_materials am
                  WHERE am.application_id = a.id AND am.status IN ('needs_fix', 'blocked'))
-        OR a.tech_status = 'needs_fix')`
+        OR a.tech_status = 'fix_required')`
     );
   } else if (remarks === 'false') {
     where.push(
       `(NOT EXISTS (SELECT 1 FROM application_materials am
                     WHERE am.application_id = a.id AND am.status IN ('needs_fix', 'blocked'))
-        AND a.tech_status <> 'needs_fix')`
+        AND a.tech_status <> 'fix_required')`
     );
   }
 
@@ -1970,7 +1971,6 @@ router.get(
 
     res.json({
       stage,
-      min_evaluations: 3,
       experts: experts.rows.map((row) => ({ id: Number(row.id), full_name: String(row.full_name), role: row.role })),
       rows: teams.rows.map((team) => {
         const cells = experts.rows.map((expert) => {
@@ -1989,7 +1989,10 @@ router.get(
           direction_title: team.direction_title ?? null,
           cells,
           evaluations_count: counted,
-          is_ready: counted >= 3,
+          // Оценок может быть сколько угодно: требование «не менее трёх»
+          // исключено из Положения, поэтому «готовность» — это наличие хотя бы
+          // одной оценки, а не порог.
+          is_ready: counted > 0,
         };
       }),
     });
@@ -2322,14 +2325,12 @@ router.post(
       const bucket = byTeam.get(id) ?? { regular: [], chair: [] };
       const spread =
         bucket.regular.length > 1 ? round2(Math.max(...bucket.regular) - Math.min(...bucket.regular)) : 0;
-      // Пункт 7.7: расхождение более 20 баллов — материалы направляются на
-      // дополнительную оценку председателя, и его балл учитывается в среднем.
-      // Флаг needs_chair_review означает «оценка председателя ещё нужна»:
-      // как только она внесена, требование выполнено и флаг снимается
-      // (ТЗ 04, п. 3.4.3; приёмочный сценарий С4.4).
-      const hasChairExtra = bucket.chair.length > 0;
-      const needsChairReview = spread > 20 && !hasChairExtra;
-      const scores = spread > 20 && hasChairExtra ? [...bucket.regular, ...bucket.chair] : bucket.regular;
+      // Правило «расхождение более 20 баллов — дополнительная оценка
+      // председателя» из Положения исключено: все оценки равноправны, средний
+      // балл считается по всем членам комиссии. Расхождение сохраняется в
+      // рейтинге как справочная величина для Оргкомитета.
+      const needsChairReview = false;
+      const scores = [...bucket.regular, ...bucket.chair];
       const average =
         scores.length > 0 ? round2(scores.reduce((sum, value) => sum + value, 0) / scores.length) : 0;
       const juryTotal = round2(scores.reduce((sum, value) => sum + value, 0));
@@ -2407,34 +2408,11 @@ router.post(
       return;
     }
 
-    // Пункт 7.7 и ТЗ 04 (п. 3.4.3): итог не публикуется, пока по команде
-    // требуется дополнительная оценка председателя.
-    if (publish) {
-      const pending = await query(
-        `SELECT t.name
-           FROM rankings r
-           JOIN teams t ON t.id = r.team_id
-          WHERE r.season_id = $1 AND r.stage = $2 AND r.needs_chair_review
-          ORDER BY t.name`,
-        [seasonId, stage]
-      );
-      if (pending.rows.length > 0) {
-        res.status(409).json({
-          error:
-            'Протокол нельзя опубликовать: по части команд требуется дополнительная оценка председателя (п. 7.7 Положения). ' +
-            `Команды: ${pending.rows.map((row) => String(row.name)).join(', ')}.`,
-        });
-        return;
-      }
-    }
-
-    // ТЗ 07, п. 2.7 и 2.8: контроль «не менее трёх оценок на инициативу» и
-    // «наличие всех обязательных оценок».
-    //
-    // Блокируем публикацию, если работа уже оценивается, но оценок меньше трёх:
-    // это незавершённое оценивание. Команды, которых оценка ещё не касалась ни
-    // одной оценкой, попадают в предупреждение: по сценарию приёмки (ТЗ 12, С4)
-    // протокол этапа публикуется по оценённым работам, а не по всему сезону.
+    // Требования «не менее трёх оценок» и «дополнительная оценка председателя»
+    // из Положения исключены, поэтому публикация не блокируется. Оргкомитет
+    // получает предупреждения: сколько работ оценено и по каким командам
+    // решение ещё не принято.
+    let publicationWarnings: string[] = [];
     if (publish) {
       const scoreCounts = await query(
         `SELECT t.name,
@@ -2447,21 +2425,19 @@ router.post(
           ORDER BY t.name`,
         [seasonId, stage]
       );
-      const incomplete = scoreCounts.rows.filter(
-        (row) => Number(row.evaluations) > 0 && Number(row.evaluations) < 3
-      );
       const notEvaluated = scoreCounts.rows.filter((row) => Number(row.evaluations) === 0);
-      if (incomplete.length > 0) {
-        res.status(409).json({
-          error:
-            'Протокол нельзя опубликовать: по части работ меньше трёх оценок (ТЗ 07, п. 2.7). ' +
-            `Команды: ${incomplete
-              .map((row) => `${String(row.name)} (${Number(row.evaluations)})`)
-              .join(', ')}.`,
-          min_evaluations: 3,
-          without_evaluations: notEvaluated.map((row) => String(row.name)),
-        });
-        return;
+      const singleEvaluated = scoreCounts.rows.filter((row) => Number(row.evaluations) === 1);
+      if (singleEvaluated.length > 0) {
+        publicationWarnings.push(
+          `По части работ внесена одна оценка: ${singleEvaluated
+            .map((row) => String(row.name))
+            .join(', ')}.`
+        );
+      }
+      if (notEvaluated.length > 0) {
+        publicationWarnings.push(
+          `Без оценок: ${notEvaluated.map((row) => String(row.name)).join(', ')}.`
+        );
       }
 
       // ТЗ 07, п. 2.14а и 2.8: конфликт интересов исключается из подсчёта, но
@@ -2559,6 +2535,9 @@ router.post(
         place: row.place,
       })),
       without_evaluations: notEvaluatedNow.rows.map((row) => String(row.name)),
+      // Публикация больше не блокируется, поэтому замечания по оцениванию
+      // возвращаются предупреждениями: Оргкомитет видит их до подписания.
+      warnings: publicationWarnings,
     });
   })
 );
@@ -2645,9 +2624,6 @@ router.get(
     const result = await query(
       `SELECT ap.*, t.name AS team_name, s.title AS season_title,
               (ap.deadline_at < now() AND ap.status = 'submitted') AS overdue,
-              -- Срок рассмотрения — пять рабочих дней (ТЗ 07, п. 2.9).
-              (ap.decision_due_at IS NOT NULL AND ap.decision_due_at < now()
-                AND ap.status IN ('submitted', 'in_review')) AS decision_overdue,
               CASE WHEN ap.scan_media_id IS NOT NULL
                    THEN '/api/media/file/' || ap.scan_media_id::text
                    ELSE NULL END AS scan_url
@@ -2913,6 +2889,10 @@ router.put(
       );
       return result.rows[0];
     });
+
+    // Включатели разделов читаются с кэшем: сбрасываем его, чтобы правка
+    // действовала сразу, а не через 15 секунд.
+    resetFeatureCache();
 
     res.json(saved);
   })
@@ -3353,7 +3333,8 @@ router.get(
     const to = queryString(req.query.to);
     if (to) {
       params.push(to);
-      where.push(`a.created_at <= $${params.length}::timestamptz`);
+      // Дата приходит как YYYY-MM-DD: включаем последний день целиком.
+      where.push(`a.created_at < ($${params.length}::date + interval '1 day')`);
     }
 
     const result = await query(
@@ -4131,6 +4112,8 @@ router.post(
 // изменяющего запроса; здесь — только чтение с фильтрами.
 router.get(
   '/audit',
+  // ТЗ 07, п. 2.17: журнал действий доступен только роли «администратор».
+  requireAdminRole('admin'),
   asyncHandler(async (req, res) => {
     const params: unknown[] = [];
     const where: string[] = [];
@@ -4165,7 +4148,8 @@ router.get(
     const to = queryString(req.query.to);
     if (to) {
       params.push(to);
-      where.push(`a.created_at <= $${params.length}::timestamptz`);
+      // Дата приходит как YYYY-MM-DD: включаем последний день целиком.
+      where.push(`a.created_at < ($${params.length}::date + interval '1 day')`);
     }
 
     const page = paginationOf(req);

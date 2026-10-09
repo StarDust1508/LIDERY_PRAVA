@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PUBLIC_BASE_URL } from '../config.js';
 import { query } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
+import { featureEnabled } from '../lib/features.js';
 import { paginationOf, setListMeta } from '../middleware/api-envelope.js';
 import { applicationWindowState } from '../lib/moscow-time.js';
 
@@ -34,7 +35,9 @@ router.get(
     }
 
     const settingsResult = await query(
-      `SELECT key, value FROM site_settings WHERE key LIKE 'site.%' ORDER BY key`
+      `SELECT key, value FROM site_settings
+        WHERE key LIKE 'site.%' OR key LIKE 'operator.%' OR key LIKE 'features.%'
+        ORDER BY key`
     );
     const settings: Record<string, unknown> = {};
     for (const row of settingsResult.rows) {
@@ -120,6 +123,15 @@ router.get(
 // GET /api/masterclasses — мастер-классы для команд-финалистов.
 router.get(
   '/masterclasses',
+  // Включатель раздела (ТЗ 07, п. 2.16): выключенный раздел отдаёт пустой
+  // список, а не ошибку — страница показывает пояснение.
+  asyncHandler(async (req, res, next) => {
+    if (await featureEnabled('masterclasses')) {
+      next();
+      return;
+    }
+    res.json([]);
+  }),
   asyncHandler(async (req, res) => {
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const params: unknown[] = [];
@@ -381,6 +393,14 @@ const INITIATIVE_SELECT = `
 // GET /api/initiatives — список архива с фильтрами и полнотекстовым поиском.
 router.get(
   '/initiatives',
+  // Включатель архива (ТЗ 07, п. 2.16).
+  asyncHandler(async (req, res, next) => {
+    if (await featureEnabled('public_archive')) {
+      next();
+      return;
+    }
+    res.json([]);
+  }),
   asyncHandler(async (req, res) => {
     const params: unknown[] = [];
     const where: string[] = ['i.is_published'];

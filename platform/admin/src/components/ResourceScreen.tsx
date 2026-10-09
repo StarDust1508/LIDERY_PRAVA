@@ -186,10 +186,10 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   const [total, setTotal] = useState(0);
   const perPage = 50;
 
-  const listFields = useMemo(
-    () => config.fields.filter((field) => field.inList).slice(0, 6),
-    [config.fields]
-  );
+  // Раньше список обрезался до шести колонок: «Опубликовано» у архива
+  // законопроектов и дата заявки у архива 2026 пропадали, хотя фильтры по ним
+  // есть. Показываем все объявленные колонки.
+  const listFields = useMemo(() => config.fields.filter((field) => field.inList), [config.fields]);
 
   const load = useCallback(async () => {
     setLoading(true);

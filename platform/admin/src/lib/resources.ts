@@ -69,10 +69,41 @@ const PUBLICATION_STATES = [
   { value: 'false', title: 'Не опубликовано' },
 ];
 
+// Значения совпадают с CHECK в БД (миграция 019) и с ACT_LEVEL_TITLES общего
+// модуля: раньше в списке был «муниципальный правовой акт», которого нет в
+// схеме (ошибка 23514 при сохранении), и не было федерального конституционного
+// закона, который схема допускает.
+// Типы документов — те же коды, что в CHECK таблицы documents (миграция 025).
+const DOCUMENT_TYPES = [
+  { value: 'regulation', title: 'Положение' },
+  { value: 'appendix', title: 'Приложение' },
+  { value: 'offer', title: 'Оферта' },
+  { value: 'privacy_policy', title: 'Политика обработки ПДн' },
+  { value: 'terms', title: 'Пользовательское соглашение' },
+  { value: 'cookies_policy', title: 'Политика cookie' },
+  { value: 'jury_regulations', title: 'Регламент Жюри' },
+  { value: 'mailing_consent', title: 'Согласие на информационные сообщения' },
+  { value: 'consent_pdn', title: 'Согласие на обработку ПДн' },
+  { value: 'consent_distribution', title: 'Согласие на распространение ПДн' },
+  { value: 'consent_legal_representative', title: 'Согласие законного представителя' },
+  { value: 'license_terms', title: 'Лицензия на материалы' },
+  { value: 'appeal_form', title: 'Форма апелляции' },
+  { value: 'other', title: 'Иной документ' },
+];
+
+// Номинации конкурса: в таблице winners номинация — свободный текст, значения
+// заданы Положением (раздел 11).
+const WINNER_NOMINATIONS = [
+  { value: 'Лидеры права', title: 'Лидеры права' },
+  { value: 'Наставник Лидеров права', title: 'Наставник Лидеров права' },
+  { value: 'Лучший оратор', title: 'Лучший оратор' },
+  { value: 'Приз зрительских симпатий', title: 'Приз зрительских симпатий' },
+];
+
 const ACT_LEVELS = [
+  { value: 'federal_constitutional', title: 'Федеральный конституционный закон' },
   { value: 'federal', title: 'Федеральный закон' },
   { value: 'regional', title: 'Закон субъекта Российской Федерации' },
-  { value: 'municipal', title: 'Муниципальный правовой акт' },
 ];
 
 const STAGES = [
@@ -129,6 +160,21 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'stage1_to', title: 'Первый этап по', type: 'timestamptz' },
       { name: 'final_from', title: 'Финал с', type: 'timestamptz' },
       { name: 'final_to', title: 'Финал по', type: 'timestamptz' },
+      // Даты, которые публикует страница «Календарь»: без них этапы
+      // показывались как «по календарному плану», а заполнить их можно было
+      // только через SQL.
+      { name: 'expertise_from', title: 'Экспертиза отборочного этапа с', type: 'timestamptz' },
+      { name: 'expertise_to', title: 'Экспертиза отборочного этапа по', type: 'timestamptz' },
+      { name: 'protocol_selection_at', title: 'Публикация протокола отборочного этапа', type: 'timestamptz' },
+      { name: 'video_publication_from', title: 'Публикация видеороликов с', type: 'timestamptz' },
+      { name: 'video_publication_to', title: 'Публикация видеороликов по', type: 'timestamptz' },
+      { name: 'stage1_evaluation_from', title: 'Оценка первого этапа с', type: 'timestamptz' },
+      { name: 'stage1_evaluation_to', title: 'Оценка первого этапа по', type: 'timestamptz' },
+      { name: 'protocol_stage1_at', title: 'Публикация протокола первого этапа', type: 'timestamptz' },
+      { name: 'masterclasses_from', title: 'Мастер-классы с', type: 'timestamptz' },
+      { name: 'masterclasses_to', title: 'Мастер-классы по', type: 'timestamptz' },
+      { name: 'post_final_from', title: 'После финала с', type: 'timestamptz' },
+      { name: 'post_final_to', title: 'После финала по', type: 'timestamptz' },
       { name: 'appeal_window_days', title: 'Срок апелляции, рабочих дней', type: 'int' },
       { name: 'timezone', title: 'Часовой пояс', type: 'text', maxLength: 64 },
       { name: 'description', title: 'Описание', type: 'textarea', maxLength: 5000 },
@@ -308,7 +354,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'is_active', title: 'Опубликован', type: 'bool', inList: true },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
     ],
-    filters: [{ name: 'type', title: 'Тип', options: [] }],
+    filters: [{ name: 'type', title: 'Тип', options: DOCUMENT_TYPES }],
     searchable: true,
     emptyText: 'Документов пока нет. Положение и приложения загружаются перед открытием приёма заявок.',
   },
@@ -387,7 +433,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'is_published', title: 'Опубликовано', type: 'bool', inList: true },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
     ],
-    filters: [{ name: 'nomination', title: 'Номинация', options: [] }],
+    filters: [{ name: 'nomination', title: 'Номинация', options: WINNER_NOMINATIONS }],
     searchable: true,
     emptyText: 'Победителей пока нет. Записи вносятся после Гранд-финала.',
   },

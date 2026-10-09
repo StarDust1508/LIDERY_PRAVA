@@ -268,10 +268,10 @@ export function DashboardPage() {
                   to="/appeals?term=open"
                   className="flex h-full flex-col gap-1 border border-border px-5 py-4 hover:border-accent"
                 >
-                  <span className="mono-label text-muted">Апелляции в сроке</span>
+                  <span className="mono-label text-muted">Апелляции без решения</span>
                   <span className="text-h3 font-semibold">{attention.appeals_open}</span>
                   <span className="text-sm text-muted">
-                    Решение не принято, срок рассмотрения не истёк. Срок рассмотрения — пять рабочих дней.
+                    Апелляции, по которым решение ещё не принято.
                   </span>
                 </Link>
               </li>
@@ -403,7 +403,7 @@ export function DashboardPage() {
 
           <SectionCard
             title="Рейтинг по этапам"
-            description="Строки рейтинга считаются по внесённым оценкам. Если суммы оценок расходятся более чем на 20 баллов, команде нужна дополнительная оценка председателя — без неё протокол не публикуется."
+            description="Строки рейтинга считаются по внесённым оценкам: средний балл — по всем членам комиссии. Расхождение сумм показывается справочно."
             actions={
               <Link
                 to="/rankings"

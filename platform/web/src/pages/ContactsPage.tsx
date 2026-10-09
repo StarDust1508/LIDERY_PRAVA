@@ -36,7 +36,7 @@ export function ContactsPage() {
 
   const settings = (data?.settings ?? {}) as Record<string, unknown>;
   const contactEmail =
-    typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'ssla_av@mail.ru';
+    typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'lidery.prava@mail.ru';
   const contactPhone =
     typeof settings['site.contact_phone'] === 'string' ? settings['site.contact_phone'] : '+7 (906) 074-73-13';
   const vk = typeof settings['site.vk_community'] === 'string' ? settings['site.vk_community'] : 'https://vk.com/lideri.prava2026';

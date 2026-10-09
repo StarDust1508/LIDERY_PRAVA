@@ -56,7 +56,9 @@ export function ApplicationsPage() {
         source: source || undefined,
         submitted_from: submittedFrom || undefined,
         submitted_to: submittedTo || undefined,
-        has_remarks: hasRemarks === '' ? undefined : hasRemarks === 'true',
+        // queryString пропускает только строки и числа: boolean терялся, и
+        // фильтр «с замечаниями» не влиял на выборку.
+        has_remarks: hasRemarks === '' ? undefined : hasRemarks,
         limit: 300,
       };
       setRows(await adminApi.applications(query));

@@ -144,8 +144,8 @@ export function RegulationsPage() {
               ) : !regulation ? (
                 <p className="max-w-measure text-sm text-muted">
                   Файл Положения готовится к публикации: действующая редакция появится после утверждения. Вопросы —{' '}
-                  <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-                    ssla_av@mail.ru
+                  <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+                    lidery.prava@mail.ru
                   </a>
                   .
                 </p>
@@ -214,8 +214,8 @@ export function RegulationsPage() {
                 <Alert tone="info" title="Приложения пока не опубликованы">
                   Приложения публикуются вместе с Положением. Формы согласий участник оформляет электронно при
                   подаче заявки. Вопросы —{' '}
-                  <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-                    ssla_av@mail.ru
+                  <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+                    lidery.prava@mail.ru
                   </a>
                   .
                 </Alert>
@@ -261,8 +261,8 @@ export function RegulationsPage() {
           «Документы»
         </Link>
         . Вопросы по документам —{' '}
-        <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-          ssla_av@mail.ru
+        <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+          lidery.prava@mail.ru
         </a>
         .
       </p>

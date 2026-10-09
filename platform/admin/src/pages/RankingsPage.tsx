@@ -3,7 +3,7 @@ import { AdminApiError, EVALUATION_STAGES, TextField, adminApi, evaluationStageT
 import { Alert, Button, PageHeader, SectionCard, SelectField } from '@shared/index';
 
 // Рейтинг этапа: расчёт по пункту 7.7 (среднее арифметическое сумм членов
-// комиссии, расхождение более 20 баллов — на дополнительную оценку председателя)
+// комиссии; расхождение сумм показывается справочно)
 // и публикация протокола. Публикация — единственный способ показать баллы
 // участникам и точка отсчёта срока апелляции (п. 12.1).
 
@@ -185,7 +185,11 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
                   const result = await adminApi.publishRankings(Number(seasonId), stage);
                   const ties = result.ties ?? [];
                   const withoutEvaluations = result.without_evaluations ?? [];
+                  const warnings = result.warnings ?? [];
                   const parts = [result.message ?? `Опубликовано записей: ${result.published}.`];
+                  if (warnings.length > 0) {
+                    parts.push(`Замечания: ${warnings.join(' ')}`);
+                  }
                   if (ties.length > 0) {
                     parts.push(
                       `Равные баллы: ${ties.map((tie) => `${tie.team} (${tie.place} место)`).join(', ')}.`
@@ -359,7 +363,7 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
                     <td className="py-2 pr-4">{row.evaluations_count}</td>
                     <td className="py-2 pr-4">
                       {row.needs_chair_review ? (
-                        <span className="text-warning">нужна доп. оценка председателя</span>
+                        <span className="text-muted">расхождение сумм — справочно</span>
                       ) : (
                         <span className="text-muted">расчёт готов</span>
                       )}
@@ -400,7 +404,7 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted">Состояние</dt>
-                      <dd>{row.needs_chair_review ? 'нужна доп. оценка председателя' : 'расчёт готов'}</dd>
+                      <dd>расчёт готов</dd>
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-muted">Публикация</dt>

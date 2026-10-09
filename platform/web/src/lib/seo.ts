@@ -66,7 +66,7 @@ export const ORGANIZATION_JSON_LD = {
   name: 'Межрегиональная общественная организация выпускников Саратовской государственной юридической академии «Ассоциация выпускников СЮИ – СГАП – СГЮА»',
   alternateName: 'Ассоциация выпускников СЮИ – СГАП – СГЮА',
   url: BASE_URL,
-  email: 'ssla_av@mail.ru',
+  email: 'lidery.prava@mail.ru',
   address: {
     '@type': 'PostalAddress',
     streetAddress: 'ул. Мясницкая, д. 48',

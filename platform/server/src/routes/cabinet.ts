@@ -3,6 +3,7 @@ import multer from 'multer';
 import { MAX_FILE_SIZE } from '../config.js';
 import { query, withTransaction } from '../db.js';
 import { asyncHandler, parsePositiveInt, queryString } from '../lib/http.js';
+import { featureEnabled } from '../lib/features.js';
 import {
   MATERIAL_URL_POLICY_MESSAGE,
   isAllowedMaterialUrl,
@@ -1199,6 +1200,12 @@ router.post(
       res.status(400).json({ error: parsed.error ?? 'Некорректные подтверждения согласий.' });
       return;
     }
+    // Включатель рассылки (features.mailing): пока транспорт не подключён,
+    // согласие на информационные сообщения не записываем — иначе в системе
+    // появляется согласие на рассылку, которой нет.
+    if (!(await featureEnabled('mailing'))) {
+      parsed.value = { ...parsed.value, marketing_consent: false };
+    }
 
     const submissionContext: SubmissionContext = {
       teamId: context.teamId,
@@ -1357,6 +1364,11 @@ router.post(
   uploadSingle,
   asyncHandler(async (req, res) => {
     const context = teamContext(res);
+    // Включатель апелляций (ТЗ 07, п. 2.16).
+    if (!(await featureEnabled('appeals'))) {
+      res.status(403).json({ error: 'Приём апелляций приостановлен Оргкомитетом.' });
+      return;
+    }
     const bundle = await loadTeamBundle(context.teamId);
     if (!bundle) {
       res.status(404).json({ error: 'Команда не найдена' });
@@ -1423,16 +1435,15 @@ router.post(
       await query('UPDATE media SET file_url = $1 WHERE id = $2', [`/api/media/file/${scanMediaId}`, scanMediaId]);
     }
 
-    // Срок рассмотрения — пять рабочих дней с регистрации (ТЗ 07, п. 2.9):
-    // просроченные обращения Оргкомитет видит в своём разделе.
-    const decisionDueAt = addWorkingDays(new Date(), 5);
+    // Срок рассмотрения из Положения исключён: дата не рассчитывается и не
+    // хранится (поле остаётся в схеме для прежних записей).
     const inserted = await query(
       `INSERT INTO appeals
          (season_id, team_id, stage, grounds, text, status, submitted_at, deadline_at,
           registered_at, decision_due_at, scan_media_id)
        VALUES ($1, $2, $3, $4, $5, 'submitted', now(), $6, now(), $7, $8)
        RETURNING id, submitted_at, deadline_at, registered_at, decision_due_at, scan_media_id`,
-      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt, decisionDueAt.toISOString(), scanMediaId]
+      [context.seasonId, context.teamId, stage, grounds, text, deadlineAt, null, scanMediaId]
     );
 
     void logAccess(context, req, 'appeal_submitted', { appeal_id: inserted.rows[0].id, stage });

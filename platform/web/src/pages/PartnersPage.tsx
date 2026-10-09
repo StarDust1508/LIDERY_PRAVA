@@ -106,8 +106,8 @@ export function PartnersPage() {
           </p>
           <p className="text-sm text-muted">
             Вопросы об участии и о партнёрстве —{' '}
-            <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-              ssla_av@mail.ru
+            <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+              lidery.prava@mail.ru
             </a>
             . Контакты Оргкомитета — в разделе{' '}
             <Link to="/contacts" className="text-accent underline underline-offset-2">
@@ -139,8 +139,8 @@ export function PartnersPage() {
           <p className="max-w-measure text-sm text-muted">
             Список пополняется: Оргкомитет публикует организации по мере подтверждения участия и согласия на
             размещение логотипов. Генеральный партнёр и учредитель указаны выше. Предложения о партнёрстве —{' '}
-            <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-              ssla_av@mail.ru
+            <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+              lidery.prava@mail.ru
             </a>
             .
           </p>

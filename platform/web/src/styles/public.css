@@ -25,6 +25,12 @@
   padding: 0;
 }
 
+/* Вертикальный ритм разделов: прежние clamp(4rem, 11vh, 9rem) давали на
+   длинных страницах «пустые экраны» между смысловыми блоками. */
+.site section.block {
+  padding: clamp(2.6rem, 6.5vh, 5.2rem) 0;
+}
+
 /* Заголовок страницы, если страница не использует компонент .phero. */
 .site main > header:first-child:not(.hero):not(.phero) {
   max-width: var(--maxw);
@@ -1193,20 +1199,30 @@
   }
 }
 
-/* Фон: бумага с едва заметной сеткой и тёплым свечением сверху.
-   Прежний ровный фон на длинных страницах выглядел пустым. */
+/* Фон: бумага с тёплым свечением сверху. Вертикальная сетка убрана по
+   замечанию заказчика: линии спорили с волосяными линиями блоков и сбивали
+   чтение колонок. */
 .site-body {
   background-color: var(--paper);
-  background-image:
-    radial-gradient(120% 60% at 50% 0%, rgba(229, 35, 28, 0.05), transparent 62%),
-    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 25%);
+  background-image: radial-gradient(120% 60% at 50% 0%, rgba(229, 35, 28, 0.05), transparent 62%);
   background-attachment: fixed;
 }
 
-/* Первый экран: горизонтальная полоса вместо вертикальной обрезки фотографии. */
+/* Первый экран: заголовок-плакат без наложения строк и обрезки по колонке.
+   Прежний кегль 13vw не помещался в колонку 1.2fr (слово «ЛИДЕРЫ» уходило за
+   край), а line-height 0.84 сталкивал «ЛИДЕРЫ» с «ПРАВА»: буква «Д» заходила
+   на красную строку. Здесь кегль привязан к ширине колонки, а междустрочный
+   интервал оставляет место выносным элементам. */
 .site .hero {
-  min-height: calc(100vh - 68px);
+  min-height: clamp(30rem, 76vh, 44rem);
   padding-top: 0;
+}
+
+.site .hero h1 {
+  font-size: clamp(2.6rem, 9.2vw, 8.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  overflow-wrap: break-word;
 }
 
 .site .hero-topmeta {

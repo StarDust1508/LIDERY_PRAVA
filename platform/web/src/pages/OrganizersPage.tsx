@@ -214,8 +214,8 @@ export function OrganizersPage() {
         <Alert tone="info" title="Состав публикуется после утверждения">
           Персональный состав Конкурсной комиссии и Жюри публикуется после утверждения Оргкомитетом. Пока на
           странице описаны органы конкурса и их задачи; имена появятся по мере публикации. Вопросы —{' '}
-          <a href="mailto:ssla_av@mail.ru" className="text-accent underline underline-offset-2">
-            ssla_av@mail.ru
+          <a href="mailto:lidery.prava@mail.ru" className="text-accent underline underline-offset-2">
+            lidery.prava@mail.ru
           </a>
           .
         </Alert>

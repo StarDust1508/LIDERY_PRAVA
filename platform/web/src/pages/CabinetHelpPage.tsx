@@ -130,7 +130,7 @@ function HelpSection({ data, onReload }: { data: CabinetData; onReload: () => Pr
   const { data: season } = useSeason();
   const settings = (season?.settings ?? {}) as Record<string, unknown>;
 
-  const contactEmail = typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'ssla_av@mail.ru';
+  const contactEmail = typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'lidery.prava@mail.ru';
   const community =
     typeof settings['site.vk_community'] === 'string' ? settings['site.vk_community'] : 'https://vk.com/lideri.prava2026';
   const organizerPhone = '8 (966) 789-76-05';

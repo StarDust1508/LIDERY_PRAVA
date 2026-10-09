@@ -300,6 +300,9 @@ export function materialTypeTitle(value: string | null | undefined): string {
 /** Типы материалов, которые передаются ссылкой, а не файлом. */
 export const LINK_ONLY_MATERIAL_TYPES = ['video_link'] as const;
 
+/** Типы материалов, для которых ссылка допустима наравне с файлом. */
+export const LINK_ALLOWED_MATERIAL_TYPES = ['video_link', 'presentation', 'other'] as const;
+
 /** Категории согласия на распространение персональных данных (Приложение № 12). */
 export const DISTRIBUTION_CATEGORIES = [
   { code: 'full_name', title: 'Фамилия, имя, отчество' },
