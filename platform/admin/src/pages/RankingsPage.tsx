@@ -180,9 +180,11 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
             <Button
               loading={busy}
               onClick={() => {
-                setConfirmPublish(false);
                 void run(async () => {
                   const result = await adminApi.publishRankings(Number(seasonId), stage);
+                  // Закрываем подтверждение только после успеха: при отказе
+                  // сервера администратор должен видеть окно и причину.
+                  setConfirmPublish(false);
                   const ties = result.ties ?? [];
                   const withoutEvaluations = result.without_evaluations ?? [];
                   const warnings = result.warnings ?? [];
@@ -229,9 +231,10 @@ export function RankingsPage({ canPublish = true }: { canPublish?: boolean }) {
                 disabled={unpublishReason.trim().length < 3}
                 onClick={() => {
                   const reason = unpublishReason.trim();
-                  setConfirmUnpublish(false);
                   void run(async () => {
                     const result = await adminApi.publishRankings(Number(seasonId), stage, false, reason);
+                    setConfirmUnpublish(false);
+                    setUnpublishReason('');
                     return result.message ?? 'Протокол снят с публикации.';
                   });
                 }}

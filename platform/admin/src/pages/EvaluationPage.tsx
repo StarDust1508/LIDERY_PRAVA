@@ -47,6 +47,8 @@ export function EvaluationPage() {
   const [expertAccessBusy, setExpertAccessBusy] = useState(false);
   const [expertAccessInfo, setExpertAccessInfo] = useState<string | null>(null);
   // Матрица «команда × эксперт» с прогрессом заполнения (ТЗ 07, п. 2.7).
+  // Активный сезон нужен и после сохранения оценки: по нему перезагружается матрица.
+  const [matrixSeasonId, setMatrixSeasonId] = useState<number | null>(null);
   const [matrix, setMatrix] = useState<{
     experts: Array<{ id: number; full_name: string; role: string | null }>;
     rows: Array<{
@@ -89,6 +91,7 @@ export function EvaluationPage() {
         // этапа к публикации протокола.
         const activeSeason = seasonsData.find((season) => season.is_active) ?? seasonsData[0];
         if (activeSeason) {
+          setMatrixSeasonId(activeSeason.id);
           void adminApi
             .evaluationMatrix(activeSeason.id, stage)
             .then((data) => {
@@ -219,10 +222,19 @@ export function EvaluationPage() {
         is_conflicted: isConflicted,
         conflict_reason: isConflicted ? conflictReason.trim() || null : null,
       });
-      setNotice('Оценка сохранена. Итог по этапу считается по пункту 7.7 Положения.');
+      setNotice('Оценка сохранена. Итог по этапу считается как среднее арифметическое сумм баллов.');
       setComment('');
       setRecommendations('');
       await loadEvaluations();
+      // Матрица «команда × эксперт» показывает прогресс: после сохранения её
+      // нужно обновить, иначе счётчик оценок отстаёт от факта.
+      if (matrixSeasonId !== null) {
+        try {
+          setMatrix(await adminApi.evaluationMatrix(matrixSeasonId, stage));
+        } catch {
+          // Ошибка обновления матрицы не отменяет сохранённую оценку.
+        }
+      }
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось сохранить оценку.');
     } finally {

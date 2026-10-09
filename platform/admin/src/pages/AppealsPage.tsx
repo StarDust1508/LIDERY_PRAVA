@@ -106,6 +106,11 @@ export function AppealsPage() {
   const [confirm, setConfirm] = useState<{ status: string; label: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Постраничность: сервер отдаёт total, фильтр по состоянию считается по всей
+  // выборке, а не по загруженной странице (ТЗ 07, п. 1.4).
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 50;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -114,20 +119,23 @@ export function AppealsPage() {
     setError(null);
     try {
       const [appeals, teams] = await Promise.all([
-        adminApi.appeals({
+        adminApi.appealsPage({
           status: status === '' ? undefined : status,
           stage: stage === '' ? undefined : stage,
+          page,
+          perPage,
         }),
         adminApi.teams().catch(() => []),
       ]);
-      setRows(appeals);
+      setRows(appeals.data);
+      setTotal(appeals.meta?.total ?? appeals.data.length);
       setTeamNames(new Map(teams.map((team) => [team.id, team.name])));
     } catch (caught) {
       setError(explain(caught, 'Не удалось получить список апелляций.'));
     } finally {
       setLoading(false);
     }
-  }, [status, stage]);
+  }, [status, stage, page]);
 
   useEffect(() => {
     void load();
@@ -225,7 +233,7 @@ export function AppealsPage() {
 
       <SectionCard
         title="Фильтры"
-        description={`Апелляций в выборке: ${rows.length}. По сроку рассмотрения: в сроке — ${termCounts[0]?.count ?? 0}, просрочено — ${termCounts[1]?.count ?? 0}, рассмотрено — ${termCounts[2]?.count ?? 0}.`}
+        description={`Найдено апелляций: ${total}. На странице: ${rows.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}); не рассмотрено на странице: ${termCounts.find((item) => item.key === 'open')?.count ?? 0}.`}
       >
         <div className="grid gap-4 md:grid-cols-3">
           <SelectField
@@ -577,6 +585,31 @@ export function AppealsPage() {
           </>
         ) : null}
       </SectionCard>
+      {total > perPage ? (
+        <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Постраничная навигация">
+          <span className="text-sm text-muted">
+            Страница {page} из {Math.max(1, Math.ceil(total / perPage))}
+          </span>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page >= Math.ceil(total / perPage) || loading}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Вперёд
+            </Button>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }

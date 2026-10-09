@@ -107,6 +107,11 @@ export function MaterialsPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Постраничность (ТЗ 07, п. 1.4): сервер отдаёт total, панель показывает
+  // страницу и переходит между страницами, а не «обрезает» список молча.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 50;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -122,15 +127,18 @@ export function MaterialsPage() {
       // сервер отдаёт только team_id. Если справочник недоступен, показываем
       // номер команды, а не пустое место.
       const [materials, teams] = await Promise.all([
-        adminApi.materials({
+        adminApi.materialsPage({
           ...(status === '' ? {} : { status }),
           // Фильтры очереди и сроков считает сервер: иначе «просрочено» зависело бы
           // от того, попала ли запись в первые 500 строк выборки.
           ...(deadlineFilter === '' ? {} : { deadline: deadlineFilter === 'urgent' ? 'soon' : deadlineFilter }),
+          page,
+          perPage,
         }),
         adminApi.teams().catch(() => []),
       ]);
-      setRows(materials);
+      setRows(materials.data);
+      setTotal(materials.meta?.total ?? materials.data.length);
       setTeamNames(new Map(teams.map((team) => [team.id, team.name])));
       setSelected(new Set());
       setPreview(null);
@@ -140,7 +148,7 @@ export function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, deadlineFilter]);
+  }, [status, deadlineFilter, page]);
 
   useEffect(() => {
     void load();
@@ -363,7 +371,7 @@ export function MaterialsPage() {
 
       <SectionCard
         title="Фильтры"
-        description={`Материалов в выборке: ${rows.length}; показано: ${visible.length}; выбрано: ${selected.size}.`}
+        description={`Найдено материалов: ${total}. На странице: ${rows.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}); выбрано: ${selected.size}.`}
       >
         <form className="grid gap-4 md:grid-cols-[2fr,1fr,1fr,auto]" onSubmit={applySearch}>
           <TextField
@@ -944,6 +952,31 @@ export function MaterialsPage() {
           </>
         ) : null}
       </SectionCard>
+      {total > perPage ? (
+        <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Постраничная навигация">
+          <span className="text-sm text-muted">
+            Страница {page} из {Math.max(1, Math.ceil(total / perPage))}
+          </span>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page >= Math.ceil(total / perPage) || loading}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Вперёд
+            </Button>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }

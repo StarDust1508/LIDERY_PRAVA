@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminApiError, type AuditRecord, adminApi, formatMoscowHuman } from '@shared/index';
 import { saveBlob } from '../lib/download';
-import { Alert, Button, PageHeader, SectionCard, TextField } from '@shared/index';
+import { Alert, Button, PageHeader, SectionCard, SelectField, TextField } from '@shared/index';
 
 // Журнал действий: кто, что и когда изменил (ТЗ 07, п. 2.16–2.17).
 // Записи создаются автоматически на каждый успешный изменяющий запрос админки,
@@ -26,10 +26,63 @@ const ENTITY_TITLES: Record<string, string> = {
   auth: 'Вход в админ-панель',
 };
 
+/** Названия действий для человека: код в журнале читать невозможно. */
+const ACTION_TITLES: Record<string, string> = {
+  application_accept: 'Заявка принята',
+  application_reject: 'Заявка отклонена',
+  application_update: 'Заявка изменена',
+  applications_bulk_review: 'Массовая техническая проверка',
+  material_review: 'Решение по материалу',
+  materials_bulk_review: 'Массовое решение по материалам',
+  ranking_publish: 'Протокол опубликован',
+  rankings_publish: 'Протокол опубликован',
+  rankings_unpublish: 'Протокол снят с публикации',
+  rankings_recalculate: 'Рейтинг пересчитан',
+  evaluation_save: 'Оценка сохранена',
+  evaluation_delete: 'Оценка удалена',
+  appeal_decide: 'Решение по апелляции',
+  appeal_submitted: 'Апелляция подана',
+  lead_respond: 'Ответ на обращение',
+  setting_update: 'Настройка изменена',
+  settings_update: 'Настройка изменена',
+  user_create: 'Учётная запись создана',
+  user_update: 'Учётная запись изменена',
+  user_password_reset: 'Пароль сброшен',
+  user_sessions_revoked: 'Сеансы завершены',
+  team_status: 'Статус команды изменён',
+  team_token_issue: 'Ссылка доступа выдана',
+  team_token_revoke: 'Ссылка доступа отозвана',
+  media_upload: 'Файл загружен',
+  media_delete: 'Файл удалён',
+  media_grant_link: 'Выдана ссылка на файл',
+  document_update: 'Документ изменён',
+  initiative_publish: 'Инициатива опубликована',
+  initiatives_import: 'Импорт архива',
+  pdn_export: 'Выгрузка сведений субъекта',
+  pdn_erase: 'Обезличивание по требованию',
+  legacy_export: 'Выгрузка архива 2026',
+  expert_access_issued: 'Доступ эксперта выдан',
+  expert_access_revoked: 'Доступ эксперта отозван',
+};
+
+/** Подпись действия: известные коды переводим, остальные показываем как есть. */
+function actionTitle(action: unknown): string {
+  const code = String(action ?? '');
+  return ACTION_TITLES[code] ?? code;
+}
+
 export function AuditPage() {
   const [records, setRecords] = useState<AuditRecord[]>([]);
   const [entity, setEntity] = useState('');
   const [search, setSearch] = useState('');
+  // Фильтры ТЗ 07, п. 2.17: по пользователю и действию, а не только по объекту
+  // и периоду. Сервер их поддерживал, но панель не отправляла.
+  const [action, setAction] = useState('');
+  const [userId, setUserId] = useState('');
+  const [users, setUsers] = useState<Array<{ id: number; full_name: string | null; email: string }>>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 50;
   // Фильтры по периоду и выгрузка (ТЗ 07, п. 2.17).
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -41,21 +94,24 @@ export function AuditPage() {
     setLoading(true);
     setError(null);
     try {
-      setRecords(
-        await adminApi.audits({
-          entity: entity || undefined,
-          q: search.trim() || undefined,
-          from: from || undefined,
-          to: to || undefined,
-          limit: 200,
-        })
-      );
+      const result = await adminApi.auditsPage({
+        entity: entity || undefined,
+        action: action.trim() || undefined,
+        q: search.trim() || undefined,
+        user_id: userId ? Number(userId) : undefined,
+        from: from || undefined,
+        to: to || undefined,
+        page,
+        perPage,
+      });
+      setRecords(result.data);
+      setTotal(result.meta?.total ?? result.data.length);
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось получить журнал.');
     } finally {
       setLoading(false);
     }
-  }, [entity, search, from, to]);
+  }, [entity, search, action, userId, from, to, page]);
 
   /** Выгрузка журнала с текущими фильтрами: файл отдаёт сервер. */
   async function exportCsv() {
@@ -66,6 +122,9 @@ export function AuditPage() {
       // а не ссылкой: ссылка не передаёт заголовок Authorization.
       const blob = await adminApi.exportAudit({
         entity: entity || undefined,
+        action: action.trim() || undefined,
+        q: search.trim() || undefined,
+        user_id: userId ? Number(userId) : undefined,
         from: from || undefined,
         to: to || undefined,
       });
@@ -76,6 +135,17 @@ export function AuditPage() {
       setExporting(false);
     }
   }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const list = await adminApi.users();
+        setUsers(list.map((user) => ({ id: user.id, full_name: user.full_name ?? null, email: user.email })));
+      } catch {
+        // Без списка пользователей фильтр просто остаётся пустым.
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     void load();
@@ -96,7 +166,10 @@ export function AuditPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <SectionCard title="Фильтры" description={`Записей в выборке: ${records.length}.`}>
+      <SectionCard
+        title="Фильтры"
+        description={`Найдено записей: ${total}. На странице: ${records.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}).`}
+      >
         <form
           className="grid gap-4 md:grid-cols-[1fr,1fr,auto]"
           onSubmit={(event) => {
@@ -117,6 +190,25 @@ export function AuditPage() {
             value={entity}
             onChange={(event) => setEntity(event.target.value)}
             placeholder="applications, rankings, settings"
+          />
+          <TextField
+            id="audit-action"
+            label="Действие"
+            value={action}
+            onChange={(event) => setAction(event.target.value)}
+            placeholder="rankings_publish, application_accept"
+            hint="Часть кода действия; пусто — все действия."
+          />
+          <SelectField
+            id="audit-user"
+            label="Пользователь"
+            value={userId}
+            options={users.map((user) => ({
+              value: user.id,
+              title: user.full_name ? `${user.full_name} (${user.email})` : user.email,
+            }))}
+            placeholder="Все пользователи"
+            onChange={(event) => setUserId(event.target.value)}
           />
           <TextField
             id="audit-from"
@@ -168,7 +260,9 @@ export function AuditPage() {
                       <td className="py-2 pr-4">
                         {record.user_name ?? record.actor_label ?? record.actor_type}
                       </td>
-                      <td className="py-2 pr-4 font-mono text-sm">{record.action}</td>
+                      <td className="py-2 pr-4 text-sm" title={String(record.action ?? '')}>
+                        {actionTitle(record.action)}
+                      </td>
                       <td className="py-2 pr-4">
                         {ENTITY_TITLES[record.entity] ?? record.entity}
                         {record.entity_id ? ` № ${record.entity_id}` : ''}
@@ -188,7 +282,7 @@ export function AuditPage() {
               {records.map((record) => (
                 <li key={`card-${record.id}`} className="border border-border p-4 text-sm">
                   <p className="mono-label text-muted">{formatMoscowHuman(record.created_at)}</p>
-                  <p className="mt-1 font-mono">{record.action}</p>
+                  <p className="mt-1">{actionTitle(record.action)}</p>
                   <p className="mt-2">
                     {ENTITY_TITLES[record.entity] ?? record.entity}
                     {record.entity_id ? ` № ${record.entity_id}` : ''}
@@ -205,6 +299,32 @@ export function AuditPage() {
           </>
         )}
       </SectionCard>
+
+      {total > perPage ? (
+        <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Постраничная навигация">
+          <span className="text-sm text-muted">
+            Страница {page} из {Math.max(1, Math.ceil(total / perPage))}
+          </span>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page >= Math.ceil(total / perPage) || loading}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Вперёд
+            </Button>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }

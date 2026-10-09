@@ -264,6 +264,10 @@ export const adminApi = {
   materials: (params: { status?: string; team_id?: number } = {}) =>
     adminRequest<AdminMaterial[]>(`/api/admin/materials${queryString(params)}`),
 
+  /** Материалы вместе с метаданными: всего записей, страница, размер страницы. */
+  materialsPage: (params: { status?: string; team_id?: number; deadline?: string; page?: number; perPage?: number } = {}) =>
+    adminRequestWithMeta<AdminMaterial[]>(`/api/admin/materials${queryString(params)}`),
+
   // Сервер читает поле `comment` (routes/admin.ts, POST /materials/:id/review).
   reviewMaterial: (
     id: number,
@@ -395,7 +399,9 @@ export const adminApi = {
   ) => adminRequestWithMeta<AuditRecord[]>(`/api/admin/audit${queryString(params)}`),
 
   /** Выгрузка журнала в CSV (ТЗ 07, п. 2.17): файл тянется с токеном сессии. */
-  exportAudit: async (params: { entity?: string; user_id?: number; from?: string; to?: string } = {}): Promise<Blob> => {
+  exportAudit: async (
+    params: { entity?: string; action?: string; q?: string; user_id?: number; from?: string; to?: string } = {}
+  ): Promise<Blob> => {
     const token = getAdminToken();
     const response = await fetch(`/api/admin/audit/export${queryString(params)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -684,6 +690,10 @@ export const adminApi = {
     }),
 
   appeals: (params: { status?: string; stage?: string } = {}) => adminRequest<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
+
+  /** Апелляции вместе с метаданными: всего записей, страница, размер страницы. */
+  appealsPage: (params: { status?: string; stage?: string; season_id?: number; page?: number; perPage?: number } = {}) =>
+    adminRequestWithMeta<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
 
   // Поля решения по апелляции: статус, решение, обоснование и ссылка на протокол
   // (routes/admin.ts, PATCH /appeals/:id).

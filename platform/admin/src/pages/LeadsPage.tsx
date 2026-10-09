@@ -55,10 +55,39 @@ export function LeadsPage() {
   // Ответ на обращение (ТЗ 07, п. 2.15): текст фиксируется в карточке, письмо
   // включится вместе с почтовым транспортом.
   const [responseDraft, setResponseDraft] = useState('');
+  // Шаблоны писем из настроек (ТЗ 07, п. 2.15): текст ответа не должен
+  // набираться заново. Ключи mail.templates.* заведены в БД, но в панели
+  // не использовались.
+  const [templates, setTemplates] = useState<Array<{ key: string; title: string; body: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const settings = await adminApi.settings();
+        const list = settings
+          .filter((setting) => String(setting.key).startsWith('mail.templates.'))
+          .map((setting) => {
+            const value = (setting.value ?? {}) as { value?: unknown; subject?: unknown; body?: unknown };
+            const payload = (value.value ?? value) as { subject?: unknown; body?: unknown };
+            return {
+              key: String(setting.key),
+              title: typeof payload.subject === 'string' && payload.subject !== ''
+                ? payload.subject
+                : String(setting.key).replace('mail.templates.', ''),
+              body: typeof payload.body === 'string' ? payload.body : '',
+            };
+          })
+          .filter((template) => template.body !== '');
+        setTemplates(list);
+      } catch {
+        // Без шаблонов форма ответа работает как раньше.
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     setSearchDraft(query);
@@ -351,6 +380,21 @@ export function LeadsPage() {
             />
             {/* Ответ на обращение (ТЗ 07, п. 2.15): текст сохраняется в карточке
                 и будет отправлен, когда подключится почтовый транспорт. */}
+            {templates.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mono-label text-muted">Шаблон ответа:</span>
+                {templates.map((template) => (
+                  <Button
+                    key={template.key}
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setResponseDraft(template.body)}
+                  >
+                    {template.title}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
             <TextAreaField
               id="lead-response"
               label="Ответ участнику"

@@ -319,7 +319,7 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   }
 
   /** Выгрузка текущей выборки: те же фильтры, что на экране (ТЗ 07, п. 1.8). */
-  /** Выгрузка в XLSX (ТЗ 07, п. 1.8): тот же список, что и в CSV. */
+  /** Выгрузка в XLSX (ТЗ 07, п. 1.8): строки текущей страницы, как и в CSV. */
   function exportXlsx() {
     const headers = config.fields.map((field) => field.title);
     const data = rows.map((row) => config.fields.map((field) => displayValue(row, field)));
@@ -424,11 +424,13 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
             <Button type="button" onClick={startCreate}>
               Добавить
             </Button>
+            {/* Выгружается текущая страница: подпись говорит об этом прямо,
+                иначе «выгрузка выборки» обещает больше, чем отдаёт файл. */}
             <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportCsv}>
-              Выгрузить CSV
+              Выгрузить CSV (страница)
             </Button>
             <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportXlsx}>
-              Выгрузить XLSX
+              Выгрузить XLSX (страница)
             </Button>
           </div>
         }

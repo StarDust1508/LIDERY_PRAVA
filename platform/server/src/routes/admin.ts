@@ -112,6 +112,15 @@ interface CrudConfig {
   guardDelete?: (row: Record<string, unknown>) => string | null | Promise<string | null>;
   /** Вместо удаления помечает запись архивной (ТЗ 07, п. 2.13). */
   archiveInsteadOfDelete?: { column: string };
+  /**
+   * Поле-отметка времени, которое проставляется автоматически при выполнении
+   * условия. Нужно для даты публикации: карта сайта берёт из неё `lastmod`,
+   * а «галочка» публикации дату не выставляла (ТЗ 07, п. 2.14а).
+   */
+  stamp?: {
+    column: string;
+    when: (values: Record<string, unknown>) => boolean;
+  };
 }
 
 function coerceField(field: CrudField, raw: unknown): { ok: boolean; value: unknown } {
@@ -279,6 +288,13 @@ function buildCrud(config: CrudConfig): Router {
         return;
       }
 
+      if (config.stamp && config.stamp.when(record) && !record[config.stamp.column]) {
+        const stamp = new Date().toISOString();
+        record[config.stamp.column] = stamp;
+        columns.push(config.stamp.column);
+        values.push(stamp);
+      }
+
       const placeholders = columns.map((_column, index) => `$${index + 1}`);
       try {
         const result = await query(
@@ -348,16 +364,29 @@ function buildCrud(config: CrudConfig): Router {
         }
       }
 
-      if (config.validate) {
+      let existingRow: Record<string, unknown> | null = null;
+      if (config.validate || config.stamp) {
         const existing = await query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id]);
         if (existing.rows.length === 0) {
           res.status(404).json({ error: 'Запись не найдена' });
           return;
         }
-        const validationError = await config.validate({ ...existing.rows[0], ...patch }, 'update');
+        existingRow = existing.rows[0] as Record<string, unknown>;
+      }
+
+      if (config.validate && existingRow) {
+        const validationError = await config.validate({ ...existingRow, ...patch }, 'update');
         if (validationError) {
           res.status(400).json({ error: validationError });
           return;
+        }
+      }
+
+      if (config.stamp && existingRow) {
+        const merged = { ...existingRow, ...patch };
+        if (config.stamp.when(merged) && !merged[config.stamp.column]) {
+          values.push(new Date().toISOString());
+          assignments.push(`${config.stamp.column} = $${values.length}`);
         }
       }
 
@@ -3320,6 +3349,18 @@ router.get(
       params.push(entity);
       where.push(`a.entity = $${params.length}`);
     }
+    // Те же фильтры, что на экране журнала: иначе выгрузка не совпадает с тем,
+    // что видит администратор (ТЗ 07, п. 2.17).
+    const action = queryString(req.query.action);
+    if (action) {
+      params.push(`%${action}%`);
+      where.push(`a.action ILIKE $${params.length}`);
+    }
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(`(a.actor_label ILIKE $${params.length} OR a.entity_id ILIKE $${params.length})`);
+    }
     const userId = parsePositiveInt(queryString(req.query.user_id));
     if (userId !== null) {
       params.push(userId);
@@ -3748,6 +3789,8 @@ router.use(
 
 router.use(
   '/winners',
+  // Раздел не входит в полномочия оператора (ТЗ 07, п. 1.3).
+  requireAdminForWrites,
   buildCrud({
     table: 'winners',
     fields: [
@@ -3774,6 +3817,8 @@ router.use(
 
 router.use(
   '/pages',
+  // Раздел не входит в полномочия оператора (ТЗ 07, п. 1.3).
+  requireAdminForWrites,
   buildCrud({
     table: 'pages',
     slugFrom: 'title',
@@ -3797,8 +3842,13 @@ router.use(
 
 router.use(
   '/initiatives',
+  // Публикация архива — решение администратора (ТЗ 07, п. 1.3).
+  requireAdminForWrites,
   buildCrud({
     table: 'initiatives',
+    // Дата публикации: из неё карта сайта берёт lastmod, а «галочка» её не
+    // выставляла — записи уходили в карту сайта без даты (ТЗ 07, п. 2.14а).
+    stamp: { column: 'published_at', when: (values) => values.is_published === true },
     // Публикация решением Оргкомитета, а не «галочкой» в общем списке: маршрут
     // публикации такую проверку делал, а PATCH с is_published — нет, и правило
     // можно было обойти (ТЗ 07, п. 2.14а; ТЗ 02, п. 14, правило 4).
