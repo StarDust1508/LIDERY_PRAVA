@@ -25,6 +25,7 @@ import {
 import { generateAccessToken, hashAccessToken } from '../middleware/team-auth.js';
 import {
   adminAuditActor,
+  adminStablePrincipal,
   bearerToken,
   requireAdminForWrites,
   requireAdminRole,
@@ -507,10 +508,21 @@ function buildApplicationFilter(req: Request): ApplicationFilter {
     params.push(seasonId);
     where.push(`a.season_id = $${params.length}`);
   }
+  // Статусов может быть несколько через запятую: плитка «необработанные»
+  // считает pending + in_review, и список должен открываться с тем же набором.
   const status = queryString(req.query.tech_status) ?? queryString(req.query.status);
   if (status) {
-    params.push(status);
-    where.push(`a.tech_status = $${params.length}`);
+    const statuses = String(status)
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value !== '');
+    if (statuses.length === 1) {
+      params.push(statuses[0]);
+      where.push(`a.tech_status = $${params.length}`);
+    } else if (statuses.length > 1) {
+      params.push(statuses);
+      where.push(`a.tech_status = ANY($${params.length}::text[])`);
+    }
   }
   const source = queryString(req.query.source);
   if (source) {
@@ -2917,7 +2929,22 @@ router.get(
   '/settings',
   requireAdminRole('admin'),
   asyncHandler(async (_req, res) => {
-    const result = await query('SELECT key, value, description, updated_by, updated_at FROM site_settings ORDER BY key');
+    // Ревизия и автор: без них в панели печаталось «Ревизия: undefined», а
+    // автором был псевдоним сессии вида admin-session:1a2b (ТЗ 07, п. 2.16).
+    const result = await query(
+      `SELECT s.key, s.value, s.description, s.updated_by, s.updated_at,
+              COALESCE(r.revision, 0)::int AS revision,
+              u.full_name AS author_name, u.email AS author_email
+         FROM site_settings s
+         LEFT JOIN LATERAL (
+              SELECT count(*) AS revision FROM site_settings_revisions WHERE key = s.key
+         ) r ON TRUE
+         -- Сравнение по тексту: в прежних записях updated_by хранит псевдоним
+         -- сессии, и приведение к int роняло список настроек.
+         LEFT JOIN users u
+                ON u.id::text = NULLIF(split_part(COALESCE(s.updated_by, ''), ':', 2), 'owner')
+        ORDER BY s.key`
+    );
     res.json(result.rows);
   })
 );
@@ -2937,7 +2964,7 @@ router.put(
       res.status(400).json({ error: 'Передайте значение настройки в поле value' });
       return;
     }
-    const actor = adminAuditActor(req);
+    const actor = adminStablePrincipal(req) ?? adminAuditActor(req);
 
     const saved = await withTransaction(async (client) => {
       const result = await client.query(
@@ -3013,17 +3040,44 @@ router.get(
       `SELECT status, count(*)::int AS count FROM teams ${teamWhere} GROUP BY status ORDER BY status`,
       teamParams
     );
+    // Команды по этапам (ТЗ 07, п. 2.1): сколько команд прошло отбор, первый
+    // этап и финал. Раньше блок назывался «по этапам», а показывал статусы.
+    const teamsByStage = await query(
+      `SELECT sp.stage,
+              count(DISTINCT sp.team_id)::int AS total,
+              count(DISTINCT sp.team_id) FILTER (WHERE sp.advanced IS TRUE)::int AS advanced
+         FROM stage_participation sp
+         JOIN teams t ON t.id = sp.team_id
+        WHERE $1::int IS NULL OR t.season_id = $1
+        GROUP BY sp.stage
+        ORDER BY sp.stage`,
+      [seasonId]
+    );
     const applications = await query(
       `SELECT tech_status, count(*)::int AS count FROM applications
         ${seasonId !== null ? 'WHERE season_id = $1' : ''}
         GROUP BY tech_status ORDER BY tech_status`,
       teamParams
     );
+    // Обращения могут быть привязаны к сезону (через команду или поле season_id),
+    // материалы — через заявку. Без этого подписи «по сезону» показывали
+    // всесезонные числа.
     const leads = await query(
-      `SELECT status, count(*)::int AS count FROM leads GROUP BY status ORDER BY status`
+      `SELECT l.status, count(*)::int AS count
+         FROM leads l
+        WHERE $1::int IS NULL
+           OR l.team_id IS NULL
+           OR l.team_id IN (SELECT id FROM teams WHERE season_id = $1)
+        GROUP BY l.status ORDER BY l.status`,
+      [seasonId]
     );
     const materials = await query(
-      `SELECT status, count(*)::int AS count FROM application_materials GROUP BY status ORDER BY status`
+      `SELECT am.status, count(*)::int AS count
+         FROM application_materials am
+         JOIN applications a ON a.id = am.application_id
+        WHERE $1::int IS NULL OR a.season_id = $1
+        GROUP BY am.status ORDER BY am.status`,
+      [seasonId]
     );
     const rankings = await query(
       `SELECT stage, count(*)::int AS count,
@@ -3086,6 +3140,7 @@ router.get(
 
     res.json({
       teams_by_status: teamsByStatus.rows,
+      teams_by_stage: teamsByStage.rows,
       applications_by_status: applications.rows,
       leads_by_status: leads.rows,
       materials_by_status: materials.rows,

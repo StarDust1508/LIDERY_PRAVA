@@ -96,12 +96,15 @@ export function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, auditData] = await Promise.all([
+      // Сводка и журнал загружаются независимо: сбой журнала не должен гасить
+      // всю страницу с цифрами.
+      const [statsResult, auditResult] = await Promise.allSettled([
         adminApi.stats(seasonId === null ? {} : { season_id: seasonId }),
         adminApi.audits({ limit: 10 }),
       ]);
-      setStats(statsData);
-      setAudits(auditData);
+      if (statsResult.status === 'fulfilled') setStats(statsResult.value);
+      else throw statsResult.reason;
+      setAudits(auditResult.status === 'fulfilled' ? auditResult.value : []);
     } catch (caught) {
       setError(explain(caught, 'Не удалось получить сводку.'));
     } finally {
@@ -132,6 +135,7 @@ export function DashboardPage() {
   const materialsAccepted = materialsByStatus.find((row) => row.status === 'accepted')?.count ?? 0;
 
   const teamsByStatus = stats?.teams_by_status ?? [];
+  const teamsByStage = stats?.teams_by_stage ?? [];
   const teamsTotal = teamsByStatus.reduce((sum, row) => sum + row.count, 0);
 
   const rankingsByStage = stats?.rankings_by_stage ?? [];
@@ -219,7 +223,7 @@ export function DashboardPage() {
             {(stats?.appeal_windows ?? []).map((item) => (
               <li key={`appeal-${item.stage}-${item.closes_at}`} className="flex flex-wrap items-baseline justify-between gap-3">
                 <span>
-                  <span className="mono-label">апелляции</span> {item.stage} — {item.season_title}
+                  <span className="mono-label">апелляции</span> {evaluationStageTitle(item.stage)} — {item.season_title}
                 </span>
                 <span className="text-muted">до {formatMoscowHuman(item.closes_at)}</span>
               </li>
@@ -241,7 +245,7 @@ export function DashboardPage() {
                 {/* Переход сразу в отфильтрованный список (ТЗ 07, п. 1.7):
                     счётчик без фильтра заставлял искать очередь вручную. */}
                 <Link
-                  to="/applications?tech_status_filter=pending&remarks=any"
+                  to="/applications?tech_status_filter=pending,in_review"
                   className="flex h-full flex-col gap-1 border border-border px-5 py-4 hover:border-accent"
                 >
                   <span className="mono-label text-muted">Необработанные заявки</span>
@@ -309,17 +313,21 @@ export function DashboardPage() {
             ) : (
               <ul className="flex flex-col">
                 {applicationsByStatus.map((row) => (
-                  <li
-                    key={row.tech_status}
-                    className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
-                  >
-                    <span>{TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status}</span>
-                    <span className="flex items-center gap-4">
-                      <span className="mono-label text-muted">
-                        {row.count} из {applicationsTotal}
+                  <li key={row.tech_status} className="border-b border-border last:border-b-0">
+                    {/* Строка ведёт в список с этим статусом: раньше цифры были
+                        видны, а перейти к самим заявкам было нельзя. */}
+                    <Link
+                      to={`/applications?tech_status_filter=${encodeURIComponent(row.tech_status)}`}
+                      className="flex items-center justify-between gap-4 py-3 hover:text-accent"
+                    >
+                      <span>{TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status}</span>
+                      <span className="flex items-center gap-4">
+                        <span className="mono-label text-muted">
+                          {row.count} из {applicationsTotal}
+                        </span>
+                        <span className="mono-label text-accent">{row.count}</span>
                       </span>
-                      <span className="mono-label text-accent">{row.count}</span>
-                    </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -366,7 +374,28 @@ export function DashboardPage() {
           </SectionCard>
 
           <SectionCard
-            title="Команды по этапам и статусам"
+            title="Команды по этапам"
+            description={`Всего команд: ${teamsTotal}. Показано, сколько команд участвовало в каждом этапе и сколько прошло дальше.`}
+          >
+            {teamsByStage.length === 0 ? (
+              <p className="text-sm text-muted">Участие команд в этапах ещё не отмечено.</p>
+            ) : (
+              <ul className="flex flex-col">
+                {teamsByStage.map((row) => (
+                  <li key={row.stage} className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
+                    <span>{evaluationStageTitle(row.stage)}</span>
+                    <span className="flex items-center gap-4">
+                      <span className="mono-label text-muted">участвовало: {row.total}</span>
+                      <span className="mono-label text-accent">прошло дальше: {row.advanced}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Команды по статусам"
             description={`Всего команд: ${teamsTotal}. Состав, доступы в личный кабинет и ссылка на карточку заявки — в разделе «Команды».`}
             actions={
               <Link

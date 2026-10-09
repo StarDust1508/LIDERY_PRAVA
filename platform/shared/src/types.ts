@@ -816,6 +816,8 @@ export interface AdminLegacyApplication {
 /** Сводка админ-панели: состояние сезона и счётчики внимания (ТЗ 07, п. 2.1). */
 export interface AdminStats {
   teams_by_status: Array<{ status: string; count: number }>;
+  /** Команды по этапам: сколько дошло и сколько прошло дальше (ТЗ 07, п. 2.1). */
+  teams_by_stage?: Array<{ stage: string; total: number; advanced: number }>;
   applications_by_status: Array<{ tech_status: string; count: number }>;
   leads_by_status: Array<{ status: string; count: number }>;
   materials_by_status: Array<{ status: string; count: number }>;

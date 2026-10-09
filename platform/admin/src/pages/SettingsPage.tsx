@@ -24,6 +24,9 @@ interface SettingRow {
 interface SettingExtras {
   description?: string | null;
   updated_by?: string | null;
+  /** ФИО и почта автора последнего изменения (из таблицы пользователей). */
+  author_name?: string | null;
+  author_email?: string | null;
 }
 
 interface RevisionRow {
@@ -32,6 +35,9 @@ interface RevisionRow {
   author?: string | null;
   actor?: string | null;
   created_at: string;
+  /** ФИО и почта автора последнего изменения (из таблицы пользователей). */
+  author_name?: string | null;
+  author_email?: string | null;
 }
 
 const SETTING_LABELS: Record<string, string> = {
@@ -45,6 +51,15 @@ const SETTING_LABELS: Record<string, string> = {
   'site.documents_acceptance_required': 'Требовать отметку о согласии с документами при подаче',
   'site.organizer_head': 'Руководитель Оргкомитета',
   'documents.current_version': 'Действующая редакция Положения и Приложений',
+  'operator.name': 'Наименование оператора',
+  'operator.address': 'Адрес оператора',
+  'operator.ogrn': 'ОГРН оператора',
+  'operator.inn': 'ИНН оператора',
+  'operator.pdn_officer': 'Ответственный за организацию обработки ПДн',
+  'mail.templates.application_received': 'Письмо: заявка получена',
+  'mail.templates.material_needs_fix': 'Письмо: материал возвращён на доработку',
+  'mail.templates.appeal_decision': 'Письмо: решение по апелляции',
+  'mail.templates.access_link': 'Письмо: ссылка доступа в кабинет',
 };
 
 const GROUPS = [
@@ -52,6 +67,10 @@ const GROUPS = [
   { prefix: 'season', title: 'Сроки сезона' },
   { prefix: 'documents', title: 'Документы' },
   { prefix: 'features', title: 'Включатели функций' },
+  // Реквизиты оператора и тексты писем раньше попадали в «Прочие настройки»,
+  // хотя это отдельные сущности ТЗ 07, п. 2.16.
+  { prefix: 'operator', title: 'Реквизиты оператора персональных данных' },
+  { prefix: 'mail', title: 'Шаблоны писем' },
 ];
 
 /**
@@ -242,9 +261,20 @@ export function SettingsPage() {
             <p className="mono-label mt-1 text-muted">{row.key}</p>
           </div>
           <div className="text-right text-sm text-muted">
-            {typeof row.revision === 'number' ? <p>Ревизия: {row.revision}</p> : null}
+            {typeof row.revision === 'number' ? (
+              <p>Ревизия: {row.revision === 0 ? 'изменений ещё не было' : row.revision}</p>
+            ) : null}
             <p>Изменена: {formatMoscowHuman(row.updated_at)}</p>
-            {extrasOf(row).updated_by ? <p>Автор: {extrasOf(row).updated_by}</p> : null}
+            {extrasOf(row).author_name || extrasOf(row).author_email || extrasOf(row).updated_by ? (
+              <p>
+                Автор:{' '}
+                {extrasOf(row).author_name ??
+                  extrasOf(row).author_email ??
+                  String(extrasOf(row).updated_by) === 'env:owner'
+                    ? 'владелец (вход по паролю из окружения)'
+                    : String(extrasOf(row).updated_by)}
+              </p>
+            ) : null}
           </div>
         </div>
 
