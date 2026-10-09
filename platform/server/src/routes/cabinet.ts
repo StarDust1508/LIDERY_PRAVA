@@ -166,7 +166,9 @@ async function loadTeamBundle(teamId: number) {
             personal_contribution, faculty, course, study_program
        FROM participants
       WHERE team_id = $1
-      ORDER BY role DESC, id`,
+      -- Капитан идёт первым (п. 4.3 Положения): сортировка по роли в
+      -- обратном порядке ставила впереди участника.
+      ORDER BY CASE WHEN role = 'captain' THEN 0 ELSE 1 END, id`,
     [teamId]
   );
 
@@ -418,6 +420,20 @@ router.patch(
       mentors.push(parsed.value);
     }
 
+    // Клиент может не прислать идентификаторы участников (например, после
+    // перезагрузки черновика). Тогда человека опознаём по почте: иначе сервер
+    // вставил бы вторую строку с тем же адресом, а по старому капитану
+    // сработал бы уникальный индекс «один капитан на команду» — и запрос
+    // падал с 500 (найдено при сквозной проверке кабинета).
+    const savedParticipants = bundle.participants as Array<{ id: number; email: string | null }>;
+    for (const participant of participants) {
+      if (participant.id !== null) continue;
+      const email = participant.email?.trim().toLowerCase();
+      if (!email) continue;
+      const saved = savedParticipants.find((row) => (row.email ?? '').trim().toLowerCase() === email);
+      if (saved) participant.id = Number(saved.id);
+    }
+
     // Состав до изменения: нужен, чтобы отличить правку данных от замены людей
     // и посчитать, какая часть состава сохранена.
     const existingIds = new Set(
@@ -488,6 +504,15 @@ router.patch(
             context.teamId,
             rosterChanged && rosterRuleActive,
           ]
+        );
+
+        // Снимаем роль капитана с текущего состава до записи: уникальный индекс
+        // «один капитан на команду» проверяется на каждой строке, и вставка
+        // нового капитана при живом старом давала нарушение ограничения.
+        await client.query(
+          `UPDATE participants SET role = 'member', updated_at = now()
+            WHERE team_id = $1 AND role = 'captain'`,
+          [context.teamId]
         );
 
         const keptIds: number[] = [];

@@ -776,9 +776,12 @@ router.get(
     }
     const application = applicationResult.rows[0];
 
-    const participants = await query('SELECT * FROM participants WHERE team_id = $1 ORDER BY role DESC, id', [
-      application.team_id,
-    ]);
+    // Капитан идёт первым (п. 4.3 Положения).
+    const participants = await query(
+      `SELECT * FROM participants WHERE team_id = $1
+        ORDER BY CASE WHEN role = 'captain' THEN 0 ELSE 1 END, id`,
+      [application.team_id]
+    );
     const mentors = await query('SELECT * FROM mentors WHERE team_id = $1 ORDER BY id', [application.team_id]);
     const materials = await query(
       `SELECT m.*, media.file_name, media.file_type, media.file_size
@@ -1392,7 +1395,11 @@ router.get(
       res.status(404).json({ error: 'Команда не найдена' });
       return;
     }
-    const participants = await query('SELECT * FROM participants WHERE team_id = $1 ORDER BY role DESC, id', [id]);
+    const participants = await query(
+      `SELECT * FROM participants WHERE team_id = $1
+        ORDER BY CASE WHEN role = 'captain' THEN 0 ELSE 1 END, id`,
+      [id]
+    );
     const mentors = await query('SELECT * FROM mentors WHERE team_id = $1 ORDER BY id', [id]);
     const application = await query('SELECT * FROM applications WHERE team_id = $1 ORDER BY id DESC LIMIT 1', [id]);
     const materials = await query(
@@ -1981,7 +1988,7 @@ router.get(
     const experts = await query(
       `SELECT id, full_name, role FROM experts
         WHERE stage = $1 AND is_active = TRUE
-        ORDER BY role DESC, full_name`,
+        ORDER BY CASE WHEN role = 'captain' THEN 0 ELSE 1 END, full_name`,
       [stage]
     );
 
@@ -3601,7 +3608,7 @@ router.use(
       { name: 'photo_media_id', type: 'text', maxLength: 64 },
       { name: 'about', type: 'text', maxLength: 4000 },
     ],
-    orderBy: 'stage, role DESC, full_name',
+    orderBy: "stage, CASE WHEN role = 'captain' THEN 0 ELSE 1 END, full_name",
     filters: ['stage', 'role', 'is_active', 'is_public'],
     searchFields: ['full_name', 'organization'],
   })
@@ -3626,7 +3633,7 @@ router.use(
       { name: 'photo_media_id', type: 'text', maxLength: 64 },
       { name: 'about', type: 'text', maxLength: 4000 },
     ],
-    orderBy: 'role DESC, full_name',
+    orderBy: "CASE WHEN role = 'captain' THEN 0 ELSE 1 END, full_name",
     filters: ['stage', 'role'],
     searchFields: ['full_name', 'organization'],
   })

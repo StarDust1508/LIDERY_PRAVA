@@ -71,6 +71,24 @@ export function unwrapEnvelope<T>(payload: unknown): T {
 }
 
 /** Ответ списка с метаданными: сколько всего записей, страница и размер страницы. */
+/** Участник команды в админке (ответ /api/admin/participants). */
+export interface AdminParticipantRow {
+  id: number;
+  team_id: number;
+  full_name: string;
+  role: string;
+  category?: string | null;
+  birth_date?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  organization?: string | null;
+  position?: string | null;
+  education?: string | null;
+  is_minor?: boolean | null;
+  consent_pdn?: boolean | null;
+  team_name?: string | null;
+}
+
 /** Файл в хранилище (ответ /api/admin/media). */
 export interface AdminMediaFile {
   id: string;
@@ -641,6 +659,31 @@ export const adminApi = {
     resource: string,
     params: Record<string, string | number | boolean | undefined> = {}
   ) => adminRequestWithMeta<T[]>(`/api/admin/${resource}${queryString(params)}`),
+
+  // ── Участники (ТЗ 07, п. 2.4) ────────────────────────────────────────────
+  // Правка данных участника из карточки команды: раньше состав был доступен
+  // только для чтения, хотя сервер принимает изменения.
+  participants: (params: { team_id?: number; q?: string } = {}) =>
+    adminRequest<AdminParticipantRow[]>(`/api/admin/participants${queryString(params)}`),
+
+  updateParticipant: (
+    id: number,
+    payload: {
+      full_name?: string | null;
+      organization?: string | null;
+      position?: string | null;
+      education?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      role?: string;
+      category?: string;
+      birth_date?: string | null;
+    }
+  ) =>
+    adminRequest<AdminParticipantRow>(`/api/admin/participants/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
 
   // ── Файлы (ТЗ 07, п. 2.11–2.14) ──────────────────────────────────────────
   // Раньше загрузки не было вовсе: поля вроде логотипа партнёра или PDF

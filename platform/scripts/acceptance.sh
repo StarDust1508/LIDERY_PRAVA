@@ -311,6 +311,47 @@ PY
 )
 expect "состав 2 участника и наставник сохраняются" 200 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$TWO"
 
+# Состав без идентификаторов участников: клиент может их не прислать, и сервер
+# обязан опознать людей по почте, а не вставлять дубли (иначе вставка второго
+# капитана нарушала уникальный индекс и запрос падал с 500).
+# Данные те же, что в TWO, но без идентификаторов: проверяем сопоставление по
+# почте, а не только happy path с id. Наставник сохраняется — иначе следующие
+# проверки бланка заявки не найдут его в документе.
+NO_IDS=$(python3 <<'PY'
+import json
+rows = [
+  {"full_name": "Приёмов Пётр Петрович", "birth_date": "2001-03-03", "category": "student",
+   "email": "accept@example.ru", "phone": "+7 900 333-33-33", "role": "captain", "consent_pdn": True,
+   "citizenship": "Российская Федерация", "region": "Саратовская область", "settlement": "г. Саратов",
+   "vk_url": "https://vk.com/id1", "competencies": "Публикации по гражданскому праву.",
+   "personal_contribution": "Структура законопроекта.", "faculty": "Юридический факультет",
+   "course": 3, "study_program": "40.03.01 Юриспруденция"},
+  {"full_name": "Приёмова Анна Львовна", "birth_date": "2002-07-07", "category": "magistrant",
+   "email": "accept2@example.ru", "role": "member", "consent_pdn": True,
+   "citizenship": "Российская Федерация", "region": "Саратовская область", "settlement": "г. Энгельс",
+   "competencies": "Юридическая клиника.", "personal_contribution": "Анализ практики."},
+]
+mentors = [{"full_name": "Наставников Лев Иванович", "organization": "СГЮА", "position": "доцент",
+            "academic_degree": "кандидат юридических наук", "academic_title": "доцент",
+            "email": "mentor@example.ru", "consent_pdn": True}]
+print(json.dumps({"name": "Приёмочная команда", "direction_id": 1, "participants": rows, "mentors": mentors}, ensure_ascii=False))
+PY
+)
+expect "состав сохраняется без идентификаторов участников" 200 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" \
+    -H 'Content-Type: application/json' -d "$NO_IDS"
+ROSTER_SHAPE=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/team" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+d = d.get('data', d) if isinstance(d, dict) else d
+rows = d.get('participants') or []
+print(f\"{len(rows)}:{rows[0]['role'] if rows else 'нет'}\")
+" 2>/dev/null || echo '0:нет')
+if [ "${ROSTER_SHAPE%%:*}" = "2" ] && [ "${ROSTER_SHAPE##*:}" = "captain" ]; then
+    ok "дублей нет, капитан идёт первым в карточке команды"
+else
+    bad "состав после сохранения без id: $ROSTER_SHAPE"
+fi
+
 # ── С2. Материалы, лимиты и ссылки ───────────────────────────────────────────
 step "С2. Конкурсные материалы, лимиты и ссылки"
 printf '%%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%%%EOF\n' > /tmp/lp_acc_law.pdf

@@ -46,6 +46,12 @@ export function EvaluationPage() {
   const [expertAccessDays, setExpertAccessDays] = useState('14');
   const [expertAccessBusy, setExpertAccessBusy] = useState(false);
   const [expertAccessInfo, setExpertAccessInfo] = useState<string | null>(null);
+  // История выдач и обращений эксперта: маршрут на сервере был, но панель его
+  // не показывала — Оргкомитет не видел, кто получил ссылку и когда её открыл.
+  const [expertAccessHistory, setExpertAccessHistory] = useState<{
+    tokens: Array<{ id: number; label: string | null; created_at?: string; expires_at: string; revoked_at: string | null; used_count: number; last_used_at: string | null }>;
+    log: Array<{ event: string; created_at: string }>;
+  } | null>(null);
   // Матрица «команда × эксперт» с прогрессом заполнения (ТЗ 07, п. 2.7).
   // Активный сезон нужен и после сохранения оценки: по нему перезагружается матрица.
   const [matrixSeasonId, setMatrixSeasonId] = useState<number | null>(null);
@@ -319,9 +325,17 @@ export function EvaluationPage() {
             label="Эксперт"
             value={expertAccessId}
             onChange={(event) => {
-              setExpertAccessId(event.target.value);
+              const value = event.target.value;
+              setExpertAccessId(value);
               setExpertAccessUrl(null);
               setExpertAccessInfo(null);
+              setExpertAccessHistory(null);
+              if (value !== '') {
+                void adminApi
+                  .expertAccess(Number(value))
+                  .then(setExpertAccessHistory)
+                  .catch(() => undefined);
+              }
             }}
             placeholder="Выберите эксперта"
             options={experts.map((expert) => ({ value: String(expert.id), title: expert.full_name }))}
@@ -359,6 +373,48 @@ export function EvaluationPage() {
           </div>
         </div>
         {expertAccessInfo ? <p className="mt-3 text-sm text-muted">{expertAccessInfo}</p> : null}
+
+        {expertAccessHistory && expertAccessHistory.tokens.length > 0 ? (
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="mono-label text-muted">История доступов эксперта</p>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[520px] border-collapse text-sm">
+                <caption className="sr-only-text">Выданные ссылки доступа эксперта</caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-muted">
+                    <th scope="col" className="py-2 pr-4">Выдана</th>
+                    <th scope="col" className="py-2 pr-4">Действует до</th>
+                    <th scope="col" className="py-2 pr-4">Открытий</th>
+                    <th scope="col" className="py-2">Состояние</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expertAccessHistory.tokens.map((token) => {
+                    const expired = new Date(token.expires_at).getTime() < Date.now();
+                    const state = token.revoked_at ? 'отозвана' : expired ? 'истекла' : 'действует';
+                    return (
+                      <tr key={token.id} className="border-b border-border">
+                        <td className="py-2 pr-4">{formatMoscowHuman(token.created_at ?? token.expires_at)}</td>
+                        <td className="py-2 pr-4">{formatMoscowHuman(token.expires_at)}</td>
+                        <td className="py-2 pr-4">
+                          {token.used_count}
+                          {token.last_used_at ? ` (последний раз ${formatMoscowHuman(token.last_used_at)})` : ''}
+                        </td>
+                        <td className="py-2">{state}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {expertAccessHistory.log.length > 0 ? (
+              <p className="mt-3 text-sm text-muted">
+                Обращений в контуре эксперта: {expertAccessHistory.log.length}; последнее —{' '}
+                {formatMoscowHuman(expertAccessHistory.log[0]?.created_at)}.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {expertAccessUrl ? (
           <div className="mt-4 border border-border-strong p-4">
             <p className="mono-label text-muted">Ссылка для эксперта</p>

@@ -115,6 +115,202 @@ function statusChangeText(record: { before: unknown; after: unknown }): string {
   return 'изменение данных команды';
 }
 
+/**
+ * Карточка команды: состав, участие в этапах, результаты и история статусов.
+ * Раньше эти сведения показывались только на узких экранах: на большом в
+ * раскрытой строке были только доступы в личный кабинет.
+ */
+function TeamCardBody({ card, onReload }: { card: AdminTeamCard; onReload: () => void }) {
+  // Правка данных участника (ТЗ 07, п. 2.4): сервер принимает изменения, но
+  // в панели состав был доступен только для чтения.
+  const [editing, setEditing] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function startEdit(participant: AdminTeamCard['participants'][number]) {
+    setEditing(participant.id);
+    setError(null);
+    setNotice(null);
+    setDraft({
+      full_name: participant.full_name ?? '',
+      organization: participant.organization ?? '',
+      position: participant.position ?? '',
+      email: participant.email ?? '',
+      phone: participant.phone ?? '',
+    });
+  }
+
+  async function saveParticipant() {
+    if (editing === null) return;
+    if ((draft.full_name ?? '').trim().length < 3) {
+      setError('Фамилия, имя и отчество обязательны.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminApi.updateParticipant(editing, {
+        full_name: draft.full_name?.trim() ?? '',
+        organization: draft.organization?.trim() || null,
+        position: draft.position?.trim() || null,
+        email: draft.email?.trim() || null,
+        phone: draft.phone?.trim() || null,
+      });
+      setNotice('Данные участника сохранены.');
+      setEditing(null);
+      onReload();
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось сохранить данные участника.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-4 border border-border p-4">
+                      <div className="mt-4 flex flex-col gap-4 border border-border p-4">
+                        {card.team.disqualification_reason ? (
+                          <Alert tone="danger" title="Санкции по команде">
+                            <p>{card.team.disqualification_reason}</p>
+                          </Alert>
+                        ) : null}
+
+                        <div>
+                          <p className="mono-label text-muted">Состав</p>
+                          <ul className="mt-2 flex flex-col gap-2">
+                            {card.participants.map((participant) => (
+                              <li key={`card-p-${participant.id}`} className="flex flex-wrap items-center gap-2">
+                                <span>
+                                  {participant.full_name}
+                                  {participant.role === 'captain' ? ' — капитан' : ''}
+                                  {participant.is_minor ? ' (несовершеннолетний)' : ''}
+                                </span>
+                                <Button type="button" variant="quiet" onClick={() => startEdit(participant)}>
+                                  Изменить данные
+                                </Button>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {editing !== null ? (
+                            <div className="mt-3 border border-border p-4">
+                              <p className="mono-label text-muted">Правка участника</p>
+                              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                                <TextField
+                                  id={`participant-name-${editing}`}
+                                  label="Фамилия, имя, отчество"
+                                  value={draft.full_name ?? ''}
+                                  onChange={(event) => setDraft({ ...draft, full_name: event.target.value })}
+                                />
+                                <TextField
+                                  id={`participant-organization-${editing}`}
+                                  label="Образовательная организация (место работы)"
+                                  value={draft.organization ?? ''}
+                                  onChange={(event) => setDraft({ ...draft, organization: event.target.value })}
+                                />
+                                <TextField
+                                  id={`participant-position-${editing}`}
+                                  label="Должность (направление подготовки)"
+                                  value={draft.position ?? ''}
+                                  onChange={(event) => setDraft({ ...draft, position: event.target.value })}
+                                />
+                                <TextField
+                                  id={`participant-email-${editing}`}
+                                  label="Адрес электронной почты"
+                                  type="email"
+                                  value={draft.email ?? ''}
+                                  onChange={(event) => setDraft({ ...draft, email: event.target.value })}
+                                />
+                                <TextField
+                                  id={`participant-phone-${editing}`}
+                                  label="Контактный телефон"
+                                  value={draft.phone ?? ''}
+                                  onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+                                />
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-3">
+                                <Button type="button" loading={busy} onClick={() => void saveParticipant()}>
+                                  Сохранить участника
+                                </Button>
+                                <Button type="button" variant="quiet" onClick={() => setEditing(null)}>
+                                  Отменить
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {notice ? <Alert tone="success">{notice}</Alert> : null}
+                          {error ? <Alert tone="danger">{error}</Alert> : null}
+                          {card.mentors.length > 0 ? (
+                            <p className="mt-2 text-muted">
+                              Наставники: {card.mentors.map((mentor) => mentor.full_name).join(', ')}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-muted">Наставники не указаны.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">Участие в этапах</p>
+                          {card.stage_participation.length === 0 ? (
+                            <p className="mt-2 text-muted">Участие в этапах ещё не отмечено.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {card.stage_participation.map((row) => (
+                                <li key={`card-stage-${row.stage}-${row.created_at}`}>
+                                  {row.stage}: {row.advanced === true ? 'прошла дальше' : row.advanced === false ? 'не прошла' : 'без решения'}
+                                  {row.group_code ? `, группа ${row.group_code}` : ''}
+                                  {row.final_place ? `, место ${row.final_place}` : ''}
+                                  {row.nomination ? `, номинация «${row.nomination}»` : ''}
+                                  {row.advance_reason ? ` — ${row.advance_reason}` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">Результаты и протоколы</p>
+                          {card.rankings.length === 0 ? (
+                            <p className="mt-2 text-muted">Рейтинг ещё не рассчитывался.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {card.rankings.map((row) => (
+                                <li key={`card-rank-${row.stage}`}>
+                                  {row.stage}: место {row.place ?? '—'}, средний балл{' '}
+                                  {row.average_score === null ? '—' : Number(row.average_score).toFixed(2)},{' '}
+                                  {row.is_published ? `протокол опубликован ${formatMoscowHuman(row.published_at)}` : 'протокол не опубликован'}
+                                  {row.needs_chair_review ? ', требуется дополнительная оценка председателя' : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">История статусов</p>
+                          {card.status_history.length === 0 ? (
+                            <p className="mt-2 text-muted">Решений по команде ещё не принималось.</p>
+                          ) : (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {card.status_history.map((record, index) => (
+                                <li key={`card-history-${record.created_at}-${index}`}>
+                                  {formatMoscowHuman(record.created_at)} · {record.actor_label ?? 'система'} ·{' '}
+                                  {statusChangeText(record)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    
+    </div>
+  );
+}
+
 export function TeamsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get('status') ?? '';
@@ -739,6 +935,9 @@ export function TeamsPage() {
                               ) : null}
                             </div>
                           ) : null}
+                          {isOpen && cards[team.id] ? (
+                            <TeamCardBody card={cards[team.id]!} onReload={() => void loadCard(team.id)} />
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -804,86 +1003,7 @@ export function TeamsPage() {
                       </Button>
                     </div>
                     {isOpen && cards[team.id] ? (
-                      <div className="mt-4 flex flex-col gap-4 border border-border p-4">
-                        {cards[team.id]!.team.disqualification_reason ? (
-                          <Alert tone="danger" title="Санкции по команде">
-                            <p>{cards[team.id]!.team.disqualification_reason}</p>
-                          </Alert>
-                        ) : null}
-
-                        <div>
-                          <p className="mono-label text-muted">Состав</p>
-                          <ul className="mt-2 flex flex-col gap-1">
-                            {cards[team.id]!.participants.map((participant) => (
-                              <li key={`card-p-${participant.id}`}>
-                                {participant.full_name}
-                                {participant.role === 'captain' ? ' — капитан' : ''}
-                                {participant.is_minor ? ' (несовершеннолетний)' : ''}
-                              </li>
-                            ))}
-                          </ul>
-                          {cards[team.id]!.mentors.length > 0 ? (
-                            <p className="mt-2 text-muted">
-                              Наставники: {cards[team.id]!.mentors.map((mentor) => mentor.full_name).join(', ')}
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-muted">Наставники не указаны.</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="mono-label text-muted">Участие в этапах</p>
-                          {cards[team.id]!.stage_participation.length === 0 ? (
-                            <p className="mt-2 text-muted">Участие в этапах ещё не отмечено.</p>
-                          ) : (
-                            <ul className="mt-2 flex flex-col gap-1">
-                              {cards[team.id]!.stage_participation.map((row) => (
-                                <li key={`card-stage-${row.stage}-${row.created_at}`}>
-                                  {row.stage}: {row.advanced === true ? 'прошла дальше' : row.advanced === false ? 'не прошла' : 'без решения'}
-                                  {row.group_code ? `, группа ${row.group_code}` : ''}
-                                  {row.final_place ? `, место ${row.final_place}` : ''}
-                                  {row.nomination ? `, номинация «${row.nomination}»` : ''}
-                                  {row.advance_reason ? ` — ${row.advance_reason}` : ''}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="mono-label text-muted">Результаты и протоколы</p>
-                          {cards[team.id]!.rankings.length === 0 ? (
-                            <p className="mt-2 text-muted">Рейтинг ещё не рассчитывался.</p>
-                          ) : (
-                            <ul className="mt-2 flex flex-col gap-1">
-                              {cards[team.id]!.rankings.map((row) => (
-                                <li key={`card-rank-${row.stage}`}>
-                                  {row.stage}: место {row.place ?? '—'}, средний балл{' '}
-                                  {row.average_score === null ? '—' : Number(row.average_score).toFixed(2)},{' '}
-                                  {row.is_published ? `протокол опубликован ${formatMoscowHuman(row.published_at)}` : 'протокол не опубликован'}
-                                  {row.needs_chair_review ? ', требуется дополнительная оценка председателя' : ''}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="mono-label text-muted">История статусов</p>
-                          {cards[team.id]!.status_history.length === 0 ? (
-                            <p className="mt-2 text-muted">Решений по команде ещё не принималось.</p>
-                          ) : (
-                            <ul className="mt-2 flex flex-col gap-1">
-                              {cards[team.id]!.status_history.map((record, index) => (
-                                <li key={`card-history-${record.created_at}-${index}`}>
-                                  {formatMoscowHuman(record.created_at)} · {record.actor_label ?? 'система'} ·{' '}
-                                  {statusChangeText(record)}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
+                      <TeamCardBody card={cards[team.id]!} onReload={() => void loadCard(team.id)} />
                     ) : null}
                     {isOpen && cardsLoading === team.id && !cards[team.id] ? (
                       <p className="mt-4 text-sm text-muted" role="status">
