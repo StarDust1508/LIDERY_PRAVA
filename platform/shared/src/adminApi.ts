@@ -755,7 +755,9 @@ export const adminApi = {
   appeals: (params: { status?: string; stage?: string } = {}) => adminRequest<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
 
   /** Апелляции вместе с метаданными: всего записей, страница, размер страницы. */
-  appealsPage: (params: { status?: string; stage?: string; season_id?: number; page?: number; perPage?: number } = {}) =>
+  appealsPage: (
+    params: { status?: string; stage?: string; season_id?: number; page?: number; perPage?: number } = {}
+  ) =>
     adminRequestWithMeta<AdminAppeal[]>(`/api/admin/appeals${queryString(params)}`),
 
   // Поля решения по апелляции: статус, решение, обоснование и ссылка на протокол

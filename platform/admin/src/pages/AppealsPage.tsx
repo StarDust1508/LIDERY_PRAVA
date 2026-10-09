@@ -110,6 +110,10 @@ export function AppealsPage() {
   const [loading, setLoading] = useState(true);
   // Постраничность: сервер отдаёт total, фильтр по состоянию считается по всей
   // выборке, а не по загруженной странице (ТЗ 07, п. 1.4).
+  // Фильтр по сезону: сервер его поддерживал, панель не отправляла — апелляции
+  // прошлых сезонов смешивались с текущими.
+  const [seasons, setSeasons] = useState<Array<{ id: number; title: string }>>([]);
+  const [seasonId, setSeasonId] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const perPage = 50;
@@ -124,6 +128,7 @@ export function AppealsPage() {
         adminApi.appealsPage({
           status: status === '' ? undefined : status,
           stage: stage === '' ? undefined : stage,
+          season_id: seasonId === '' ? undefined : Number(seasonId),
           page,
           perPage,
         }),
@@ -137,7 +142,14 @@ export function AppealsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, stage, page]);
+  }, [status, stage, seasonId, page]);
+
+  useEffect(() => {
+    void adminApi
+      .resourceList<{ id: number; title: string }>('seasons')
+      .then(setSeasons)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -271,6 +283,17 @@ export function AppealsPage() {
             onChange={(event) => setParam('stage', event.target.value)}
           />
           <SelectField
+            id="appeals-season"
+            label="Сезон"
+            value={seasonId}
+            options={seasons.map((season) => ({ value: String(season.id), title: season.title }))}
+            placeholder="Все сезоны"
+            onChange={(event) => {
+              setSeasonId(event.target.value);
+              setPage(1);
+            }}
+          />
+          <SelectField
             id="appeals-term"
             label="Состояние"
             value={term}
@@ -282,7 +305,7 @@ export function AppealsPage() {
             onChange={(event) => setParam('term', event.target.value)}
           />
         </div>
-        {status !== '' || stage !== '' || term !== '' ? (
+        {status !== '' || stage !== '' || term !== '' || seasonId !== '' ? (
           <div className="mt-4">
             <Button type="button" variant="quiet" onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}>
               Сбросить фильтры

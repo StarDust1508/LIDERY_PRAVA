@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminApiError, adminApi, formatMoscowHuman } from '@shared/index';
-import { Alert, Button, PageHeader, SectionCard, TextAreaField } from '@shared/index';
+import { Alert, Button, CheckboxField, PageHeader, SectionCard, TextAreaField, TextField } from '@shared/index';
 
 // Настройки конкурса (ТЗ 07, п. 2.16).
 //
@@ -138,6 +138,31 @@ function groupTitle(key: string): string {
   return GROUPS.find((group) => group.prefix === prefix)?.title ?? 'Прочие настройки';
 }
 
+/**
+ * Вид настройки: включатель (логическое значение), письмо (тема и текст) или
+ * произвольное значение. Раньше всё правилось сырым JSON, из-за чего включение
+ * функции требовало вручную писать {"value": true}.
+ */
+type SettingKind =
+  | { kind: 'bool'; value: boolean }
+  | { kind: 'mail'; subject: string; body: string }
+  | { kind: 'text'; value: string }
+  | { kind: 'json'; value: unknown };
+
+function settingKind(value: unknown): SettingKind {
+  const payload = (value ?? {}) as Record<string, unknown>;
+  if (typeof payload.value === 'boolean') return { kind: 'bool', value: payload.value };
+  if (typeof payload.subject === 'string' || typeof payload.body === 'string') {
+    return {
+      kind: 'mail',
+      subject: typeof payload.subject === 'string' ? payload.subject : '',
+      body: typeof payload.body === 'string' ? payload.body : '',
+    };
+  }
+  if (typeof payload.value === 'string') return { kind: 'text', value: payload.value };
+  return { kind: 'json', value };
+}
+
 function jsonText(value: unknown): string {
   if (typeof value === 'string') return JSON.stringify(value, null, 2);
   return JSON.stringify(value, null, 2) ?? 'null';
@@ -165,6 +190,9 @@ export function SettingsPage() {
   const [rows, setRows] = useState<SettingRow[]>([]);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  // Черновики понятных редакторов: тема и текст письма, текстовое значение.
+  const [mailDraft, setMailDraft] = useState({ subject: '', body: '' });
+  const [textDraft, setTextDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Record<string, RevisionRow[]>>({});
   const [revisionsLoading, setRevisionsLoading] = useState<string | null>(null);
@@ -211,6 +239,9 @@ export function SettingsPage() {
   function startEdit(row: SettingRow) {
     setEditingKey(row.key);
     setDraft(jsonText(row.value));
+    const parsed = settingKind(row.value);
+    if (parsed.kind === 'mail') setMailDraft({ subject: parsed.subject, body: parsed.body });
+    if (parsed.kind === 'text') setTextDraft(parsed.value);
     setDraftError(null);
     setNotice(null);
     setError(null);
@@ -239,12 +270,26 @@ export function SettingsPage() {
   }
 
   async function save(key: string) {
+    const row = rows.find((item) => item.key === key);
+    const view = row ? settingKind(row.value) : ({ kind: 'json', value: null } as const);
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(draft);
-    } catch {
-      setDraftError('Значение должно быть корректным JSON. Например: {"value": "lideryprava.ru"}');
-      return;
+    if (view.kind === 'bool') {
+      parsed = { value: draft === 'true' };
+    } else if (view.kind === 'mail') {
+      if (mailDraft.subject.trim() === '' || mailDraft.body.trim() === '') {
+        setDraftError('Заполните тему и текст письма.');
+        return;
+      }
+      parsed = { subject: mailDraft.subject.trim(), body: mailDraft.body };
+    } else if (view.kind === 'text') {
+      parsed = { value: textDraft };
+    } else {
+      try {
+        parsed = JSON.parse(draft);
+      } catch {
+        setDraftError('Значение должно быть корректным JSON. Например: {"value": "lideryprava.ru"}');
+        return;
+      }
     }
     setDraftError(null);
     if (dangerFor(key) !== null) {
@@ -306,17 +351,55 @@ export function SettingsPage() {
 
         {isEditing ? (
           <div className="mt-4 flex flex-col gap-4">
-            <TextAreaField
-              id={`setting-${row.key}`}
-              label="Значение (JSON)"
-              value={draft}
-              error={draftError ?? undefined}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setDraftError(null);
-              }}
-              hint='Значение хранится как JSON. Чаще всего это объект с одним полем: {"value": …} — меняйте только содержимое поля value.'
-            />
+            {/* Включатели и тексты писем правятся понятными полями: сырой JSON
+                остаётся только для структур переменного состава. */}
+            {settingKind(row.value).kind === 'bool' ? (
+              <CheckboxField
+                id={`setting-${row.key}`}
+                label="Функция включена"
+                checked={draft === 'true'}
+                onChange={(checked) => setDraft(checked ? 'true' : 'false')}
+                hint="Выключение действует сразу: раздел или приём перестают работать у всех."
+              />
+            ) : settingKind(row.value).kind === 'mail' ? (
+              <div className="flex flex-col gap-4">
+                <TextField
+                  id={`setting-subject-${row.key}`}
+                  label="Тема письма"
+                  value={mailDraft.subject}
+                  maxLength={300}
+                  onChange={(event) => setMailDraft({ ...mailDraft, subject: event.target.value })}
+                />
+                <TextAreaField
+                  id={`setting-body-${row.key}`}
+                  label="Текст письма"
+                  value={mailDraft.body}
+                  maxLength={5000}
+                  onChange={(event) => setMailDraft({ ...mailDraft, body: event.target.value })}
+                  hint="Допустимы подстановки вида {{team_name}}, {{public_number}}, {{link}}."
+                />
+              </div>
+            ) : settingKind(row.value).kind === 'text' ? (
+              <TextField
+                id={`setting-${row.key}`}
+                label="Значение"
+                value={textDraft}
+                maxLength={1000}
+                onChange={(event) => setTextDraft(event.target.value)}
+              />
+            ) : (
+              <TextAreaField
+                id={`setting-${row.key}`}
+                label="Значение (JSON)"
+                value={draft}
+                error={draftError ?? undefined}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setDraftError(null);
+                }}
+                hint='Структура переменного состава. Чаще всего это объект с одним полем: {"value": …}.'
+              />
+            )}
             <div className="flex flex-wrap gap-3">
               <Button type="button" loading={busy} onClick={() => void save(row.key)}>
                 Сохранить настройку
