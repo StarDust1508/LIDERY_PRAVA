@@ -1225,6 +1225,43 @@ print('ok' if meta.get('perPage') == 1 and 'total' in meta and len(rows) <= 1 el
 " 2>/dev/null || echo error)
 [ "$MATERIALS_PAGED" = "ok" ] && ok "очередь материалов отдаёт meta" || bad "очередь материалов без meta: $MATERIALS_PAGED"
 
+APPEALS_PAGED=$(curl -s -H "$AUTH" "${BASE}/api/admin/appeals?perPage=1" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+meta = d.get('meta') or {}
+rows = d.get('data') or []
+print('ok' if meta.get('perPage') == 1 and 'total' in meta and len(rows) <= 1 else 'no')
+" 2>/dev/null || echo error)
+[ "$APPEALS_PAGED" = "ok" ] && ok "список апелляций отдаёт meta" || bad "список апелляций без meta: $APPEALS_PAGED"
+
+# Журнал действий: фильтры по действию и пользователю и постраничность
+# (ТЗ 07, п. 2.17). Проверяем, что фильтр действительно сужает выборку.
+AUDIT_FILTERED=$(curl -s -H "$AUTH" "${BASE}/api/admin/audit?action=application&page=1&perPage=5" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data') or []
+meta = d.get('meta') or {}
+matches = all('application' in str(row.get('action', '')) for row in rows)
+print('ok' if matches and meta.get('perPage') == 5 and 'total' in meta else 'no')
+" 2>/dev/null || echo error)
+[ "$AUDIT_FILTERED" = "ok" ] && ok "журнал фильтруется по действию и отдаёт meta" || bad "фильтр журнала по действию: $AUDIT_FILTERED"
+
+# Дата публикации инициативы: от неё зависит lastmod карты сайта
+INIT_PUBLISHED=$(curl -s -H "$AUTH" -X POST "${BASE}/api/admin/initiatives" \
+    -H 'Content-Type: application/json' \
+    -d '{"title":"Приёмочная инициатива публикации","archive_year":2025,"is_published":true}' | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+d = d.get('data', d)
+print(d.get('id') if d.get('published_at') else 'нет')
+" 2>/dev/null || echo error)
+if [ "$INIT_PUBLISHED" != "нет" ] && [ "$INIT_PUBLISHED" != "error" ]; then
+    ok "публикация инициативы проставляет дату (lastmod карты сайта)"
+    curl -s -o /dev/null -H "$AUTH" -X DELETE "${BASE}/api/admin/initiatives/${INIT_PUBLISHED}"
+else
+    bad "дата публикации инициативы не проставлена: $INIT_PUBLISHED"
+fi
+
 # ── Авторы инициативы и массовый импорт (ТЗ 07, п. 2.14а) ───────────────────
 step "Авторы инициативы и импорт архива"
 

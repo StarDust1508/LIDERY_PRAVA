@@ -119,7 +119,8 @@ interface CrudConfig {
    */
   stamp?: {
     column: string;
-    when: (values: Record<string, unknown>) => boolean;
+    /** values — итоговое состояние записи, previous — прежняя строка при правке. */
+    when: (values: Record<string, unknown>, previous?: Record<string, unknown>) => boolean;
   };
 }
 
@@ -384,7 +385,9 @@ function buildCrud(config: CrudConfig): Router {
 
       if (config.stamp && existingRow) {
         const merged = { ...existingRow, ...patch };
-        if (config.stamp.when(merged) && !merged[config.stamp.column]) {
+        // При повторной публикации дата обновляется: карта сайта показывает
+        // lastmod по последней публикации, а не по первой.
+        if (config.stamp.when(merged, existingRow)) {
           values.push(new Date().toISOString());
           assignments.push(`${config.stamp.column} = $${values.length}`);
         }
@@ -3848,7 +3851,10 @@ router.use(
     table: 'initiatives',
     // Дата публикации: из неё карта сайта берёт lastmod, а «галочка» её не
     // выставляла — записи уходили в карту сайта без даты (ТЗ 07, п. 2.14а).
-    stamp: { column: 'published_at', when: (values) => values.is_published === true },
+    stamp: {
+      column: 'published_at',
+      when: (values, previous) => values.is_published === true && previous?.is_published !== true,
+    },
     // Публикация решением Оргкомитета, а не «галочкой» в общем списке: маршрут
     // публикации такую проверку делал, а PATCH с is_published — нет, и правило
     // можно было обойти (ТЗ 07, п. 2.14а; ТЗ 02, п. 14, правило 4).
