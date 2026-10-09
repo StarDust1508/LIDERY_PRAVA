@@ -28,7 +28,8 @@ import {
 const router = Router();
 
 /** Стоимость bcrypt: ТЗ 11, п. 45 требует не ниже 12. */
-const BCRYPT_COST = 12;
+/** Стоимость bcrypt: та же, что при создании учётных записей. */
+export const BCRYPT_COST = 12;
 const MIN_PASSWORD_LENGTH = 12;
 const ROLES = ['admin', 'operator'] as const;
 type UserRole = (typeof ROLES)[number];
@@ -66,7 +67,8 @@ function publicUser(row: UserRow, sessions: number) {
   };
 }
 
-function validatePassword(password: string, email: string): string | null {
+/** Проверка требований к паролю; используется и при смене своего пароля. */
+export function validatePassword(password: string, email: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) {
     return `Пароль должен быть не короче ${MIN_PASSWORD_LENGTH} символов.`;
   }

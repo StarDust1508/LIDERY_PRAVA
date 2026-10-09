@@ -23,10 +23,13 @@ import {
   requiredText,
 } from '../lib/validation.js';
 import { generateAccessToken, hashAccessToken } from '../middleware/team-auth.js';
+import bcrypt from 'bcryptjs';
+import { BCRYPT_COST, validatePassword } from './admin-users.js';
 import {
   adminAuditActor,
   adminStablePrincipal,
   bearerToken,
+  resolveAdminIdentity,
   requireAdminForWrites,
   requireAdminRole,
   verifyTokenSignature,
@@ -4251,6 +4254,67 @@ router.post(
       delivery_note:
         'Ответ сохранён в карточке обращения. Отправка письмом включится вместе с почтовым транспортом — текст уже готов к отправке.',
     });
+  })
+);
+
+// POST /api/admin/profile/password — смена собственного пароля.
+//
+// Доступна любой роли: временный пароль, выданный администратором, должен
+// действительно меняться, иначе флаг «пароль временный» остаётся навсегда.
+router.post(
+  '/profile/password',
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const current = typeof body.current_password === 'string' ? body.current_password : '';
+    const next = typeof body.new_password === 'string' ? body.new_password : '';
+
+    const identity = await resolveAdminIdentity(req);
+    if (!identity.ok || identity.identity.kind !== 'user' || identity.identity.userId === null) {
+      res.status(403).json({
+        error:
+          'Смена пароля доступна учётной записи. При входе по общему паролю из окружения смените его в файле настроек сервиса.',
+      });
+      return;
+    }
+    const userId = identity.identity.userId;
+    const existing = await query('SELECT id, email, password_hash FROM users WHERE id = $1 LIMIT 1', [userId]);
+    const user = existing.rows[0];
+    if (!user || !user.password_hash) {
+      res.status(404).json({ error: 'Учётная запись не найдена' });
+      return;
+    }
+    if (!(await bcrypt.compare(current, String(user.password_hash)))) {
+      res.status(401).json({ error: 'Текущий пароль указан неверно' });
+      return;
+    }
+    const passwordError = validatePassword(next, String(user.email));
+    if (passwordError) {
+      res.status(400).json({ error: passwordError });
+      return;
+    }
+    if (next === current) {
+      res.status(400).json({ error: 'Новый пароль должен отличаться от текущего' });
+      return;
+    }
+
+    const hash = await bcrypt.hash(next, BCRYPT_COST);
+    await query(
+      `UPDATE users SET password_hash = $1, password_changed_at = now(),
+                        must_change_password = FALSE, auth_version = auth_version + 1,
+                        updated_at = now()
+        WHERE id = $2`,
+      [hash, userId]
+    );
+    // Прежние сеансы завершаются: вход выполняется заново, уже с новым паролем.
+    await query('DELETE FROM admin_session_activity WHERE user_id = $1', [userId]);
+    await writeAudit({
+      action: 'user_password_changed',
+      entity: 'users',
+      entityId: userId,
+      after: { email: String(user.email), sessions_revoked: true },
+      req,
+    });
+    res.json({ success: true, sessions_revoked: true });
   })
 );
 

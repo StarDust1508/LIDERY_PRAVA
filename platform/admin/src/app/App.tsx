@@ -16,6 +16,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { EvaluationPage } from '../pages/EvaluationPage';
 import { LeadsPage } from '../pages/LeadsPage';
 import { LoginPage } from '../pages/LoginPage';
+import { PasswordChangePage } from '../pages/PasswordChangePage';
 import { MaterialsPage } from '../pages/MaterialsPage';
 import { InitiativeAuthorsPage } from '../pages/InitiativeAuthorsPage';
 import { InitiativesImportPage } from '../pages/InitiativesImportPage';
@@ -246,6 +247,19 @@ function AdminShell() {
           }
         />
       </Routes>
+    );
+  }
+
+  // Временный пароль: пока он не заменён, разделы не показываем — иначе
+  // требование «сменить пароль» остаётся подписью в списке пользователей.
+  if (session?.must_change_password === true) {
+    return (
+      <PasswordChangePage
+        email={session.email ?? null}
+        onDone={async (message) => {
+          await signOut(message);
+        }}
+      />
     );
   }
 

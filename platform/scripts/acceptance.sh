@@ -598,14 +598,33 @@ login_attempt 401 'accept-operator@example.ru' "$OPERATOR_PASSWORD" "стары�
 login_attempt 200 'accept-operator@example.ru' "$ADMIN_PASSWORD_NEW" "вход с новым паролем" OPERATOR_TOKEN2
 AUTH_VERSION=$(psql_db "SELECT auth_version FROM liders.users WHERE id=${OPERATOR_ID}")
 [ "${AUTH_VERSION:-1}" -ge 2 ] && ok "сброс пароля поднял версию авторизации (${AUTH_VERSION})" || bad "версия авторизации не изменилась: ${AUTH_VERSION:-?}"
+
+# Временный пароль: его нужно заменить своим, иначе флаг «пароль временный»
+# остаётся навсегда (ТЗ 11, п. 45).
+MUST_CHANGE=$(psql_db "SELECT must_change_password FROM liders.users WHERE id=${OPERATOR_ID}")
+[ "$MUST_CHANGE" = "t" ] && ok "после сброса пароль помечен временным" || bad "флаг временного пароля: ${MUST_CHANGE:-?}"
+expect "смена своего пароля учётной записью" 200 -H "Authorization: Bearer ${OPERATOR_TOKEN2}" \
+    -X POST "${BASE}/api/admin/profile/password" -H 'Content-Type: application/json' \
+    -d "{\"current_password\":\"${ADMIN_PASSWORD_NEW}\",\"new_password\":\"Svoj-Parol-2027\"}"
+CLEARED=$(psql_db "SELECT must_change_password FROM liders.users WHERE id=${OPERATOR_ID}")
+[ "$CLEARED" = "f" ] && ok "после смены пароля флаг временного снят" || bad "флаг временного пароля после смены: ${CLEARED:-?}"
+expect "неверный текущий пароль отклоняется" 401 -H "Authorization: Bearer ${OPERATOR_TOKEN2}" \
+    -X POST "${BASE}/api/admin/profile/password" -H 'Content-Type: application/json' \
+    -d '{"current_password":"nepravilnyj","new_password":"Drugoj-Parol-2027"}'
+login_attempt 200 'accept-operator@example.ru' 'Svoj-Parol-2027' "вход с собственным паролем" OPERATOR_TOKEN3
+# При входе по общему паролю из окружения менять нечего: сервер объясняет это.
+expect "смена пароля при входе по общему паролю отклоняется" 403 -H "$AUTH" \
+    -X POST "${BASE}/api/admin/profile/password" -H 'Content-Type: application/json' \
+    -d '{"current_password":"x","new_password":"Drugoj-Parol-2027"}'
+
 # Бездействие: сервер завершает сеанс, если отметка активности старше окна.
 # Первый запрос создаёт отметку — без него обновлять было бы нечего.
-curl -s -o /dev/null -H "Authorization: Bearer ${OPERATOR_TOKEN2}" "${BASE}/api/admin/applications"
-TOKEN_HASH=$(printf '%s' "$OPERATOR_TOKEN2" | shasum -a 256 | awk '{print $1}')
+curl -s -o /dev/null -H "Authorization: Bearer ${OPERATOR_TOKEN3}" "${BASE}/api/admin/applications"
+TOKEN_HASH=$(printf '%s' "$OPERATOR_TOKEN3" | shasum -a 256 | awk '{print $1}')
 MARKED=$(psql_db "SELECT count(*) FROM liders.admin_session_activity WHERE token_hash='${TOKEN_HASH}'")
 [ "${MARKED:-0}" = "1" ] && ok "активность сеанса отмечается на сервере" || bad "отметка активности сеанса не создана: ${MARKED:-0}"
 psql_db "UPDATE liders.admin_session_activity SET last_seen_at = now() - interval '61 minutes' WHERE token_hash='${TOKEN_HASH}'" >/dev/null
-IDLE_CODE=$(curl -s -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${OPERATOR_TOKEN2}" "${BASE}/api/admin/applications")
+IDLE_CODE=$(curl -s -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${OPERATOR_TOKEN3}" "${BASE}/api/admin/applications")
 if [ "$IDLE_CODE" = "401" ] && grep -q 'бездействие' "$BODY"; then
     ok "сеанс завершается после 60 минут бездействия"
 else

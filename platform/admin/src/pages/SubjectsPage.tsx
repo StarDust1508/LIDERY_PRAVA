@@ -54,12 +54,24 @@ export function SubjectsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [requestFilter, setRequestFilter] = useState('');
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  // Дата получения и канал: от даты получения считается срок ответа по
+  // ст. 20 152-ФЗ, поэтому их нужно вводить, а не подразумевать.
+  const [newReceivedAt, setNewReceivedAt] = useState('');
+  const [newChannel, setNewChannel] = useState('email');
+  // Решение по обращению: основание обязательно и вводится в форме, а не в
+  // системном окне — отмена окна закрывала обращение без основания.
+  const [decisionTarget, setDecisionTarget] = useState<{ request: AdminPdnRequest; status: string } | null>(null);
+  const [decisionText, setDecisionText] = useState('');
 
   const loadRequests = useCallback(async () => {
+    setRequestsLoading(true);
     try {
       setRequests(await adminApi.pdnRequests({ status: requestFilter }));
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось загрузить обращения субъектов.');
+    } finally {
+      setRequestsLoading(false);
     }
   }, [requestFilter]);
 
@@ -173,6 +185,8 @@ export function SubjectsPage() {
       await adminApi.createPdnRequest({
         kind: newKind,
         subject_name: newName.trim(),
+        received_at: newReceivedAt === '' ? undefined : newReceivedAt,
+        channel: newChannel,
         subject_email: newEmail.trim(),
         message: newMessage.trim() || null,
       });
@@ -188,16 +202,24 @@ export function SubjectsPage() {
     }
   }
 
-  async function updateRequest(request: AdminPdnRequest, status: string) {
+  /** Решение по обращению: статус и основание отправляются вместе. */
+  async function confirmDecision() {
+    if (!decisionTarget) return;
+    const needsResolution = decisionTarget.status === 'done' || decisionTarget.status === 'refused';
+    if (needsResolution && decisionText.trim().length < 3) {
+      setError('Опишите, что сделано по обращению: без основания решение не сохраняется.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const resolution =
-        status === 'done' || status === 'refused'
-          ? window.prompt('Что сделано по обращению (ответ субъекту, обезличивание, отказ с основанием)?') ?? null
-          : null;
-      await adminApi.updatePdnRequest(request.id, { status, resolution });
+      await adminApi.updatePdnRequest(decisionTarget.request.id, {
+        status: decisionTarget.status,
+        resolution: needsResolution ? decisionText.trim() : null,
+      });
       setNotice('Состояние обращения обновлено.');
+      setDecisionTarget(null);
+      setDecisionText('');
       await loadRequests();
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось обновить обращение.');
@@ -336,6 +358,27 @@ export function SubjectsPage() {
             onChange={(event) => setNewEmail(event.target.value)}
             hint="По этому адресу направляется ответ."
           />
+          <TextField
+            id="pdn-received"
+            label="Дата получения обращения"
+            type="date"
+            value={newReceivedAt}
+            onChange={(event) => setNewReceivedAt(event.target.value)}
+            hint="От даты получения считается срок ответа — 10 рабочих дней (ст. 20 152-ФЗ). Пусто — сегодня."
+          />
+          <SelectField
+            id="pdn-channel"
+            label="Канал обращения"
+            value={newChannel}
+            onChange={(event) => setNewChannel(event.target.value)}
+            options={[
+              { value: 'email', title: 'Электронная почта' },
+              { value: 'site_form', title: 'Форма на сайте' },
+              { value: 'letter', title: 'Письменное заявление' },
+              { value: 'phone', title: 'Телефонный звонок' },
+              { value: 'in_person', title: 'Личное обращение' },
+            ]}
+          />
           <div className="md:col-span-2">
             <TextAreaField
               id="pdn-message"
@@ -369,7 +412,9 @@ export function SubjectsPage() {
           </div>
         }
       >
-        {requests.length === 0 ? (
+        {requestsLoading ? (
+          <p role="status" className="text-muted">Загружаем обращения…</p>
+        ) : requests.length === 0 ? (
           <p className="text-muted">Обращений нет. Зарегистрируйте обращение, чтобы контролировать срок ответа.</p>
         ) : (
           <ul className="flex flex-col gap-4">
@@ -391,12 +436,36 @@ export function SubjectsPage() {
                 {request.resolution ? <p className="mt-2 text-sm text-muted">Результат: {request.resolution}</p> : null}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {request.status === 'new' ? (
-                    <Button type="button" variant="secondary" onClick={() => void updateRequest(request, 'in_progress')}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={busy}
+                      onClick={() => {
+                        setBusy(true);
+                        void adminApi
+                          .updatePdnRequest(request.id, { status: 'in_progress' })
+                          .then(() => loadRequests())
+                          .catch((caught: unknown) =>
+                            setError(
+                              caught instanceof AdminApiError ? caught.message : 'Не удалось взять обращение в работу.'
+                            )
+                          )
+                          .finally(() => setBusy(false));
+                      }}
+                    >
                       Взять в работу
                     </Button>
                   ) : null}
                   {request.status !== 'done' ? (
-                    <Button type="button" onClick={() => void updateRequest(request, 'done')}>
+                    <Button
+                      type="button"
+                      loading={busy}
+                      onClick={() => {
+                        setDecisionTarget({ request, status: 'done' });
+                        setDecisionText('');
+                        setError(null);
+                      }}
+                    >
                       Исполнено
                     </Button>
                   ) : null}
@@ -405,12 +474,53 @@ export function SubjectsPage() {
                       type="button"
                       variant="secondary"
                       className="border-danger text-danger"
-                      onClick={() => void updateRequest(request, 'refused')}
+                      loading={busy}
+                      onClick={() => {
+                        setDecisionTarget({ request, status: 'refused' });
+                        setDecisionText('');
+                        setError(null);
+                      }}
                     >
                       Отказать
                     </Button>
                   ) : null}
                 </div>
+
+                {decisionTarget !== null && decisionTarget.request.id === request.id ? (
+                  <div className="mt-3 border border-border p-4">
+                    <p className="font-medium">
+                      {decisionTarget.status === 'done'
+                        ? 'Что сделано по обращению'
+                        : 'Основание отказа'}{' '}
+                      (обязательно)
+                    </p>
+                    <div className="mt-3">
+                      <TextAreaField
+                        id={`decision-${request.id}`}
+                        label="Основание и результат"
+                        value={decisionText}
+                        maxLength={2000}
+                        onChange={(event) => setDecisionText(event.target.value)}
+                        hint="Например: сведения выгружены и направлены субъекту 12 октября; либо: законных оснований для удаления нет — данные нужны для исполнения договора."
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <Button type="button" loading={busy} onClick={() => void confirmDecision()}>
+                        Сохранить решение
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="quiet"
+                        onClick={() => {
+                          setDecisionTarget(null);
+                          setDecisionText('');
+                        }}
+                      >
+                        Отменить
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

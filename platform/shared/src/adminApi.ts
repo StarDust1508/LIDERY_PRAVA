@@ -574,6 +574,13 @@ export const adminApi = {
       body: JSON.stringify({ season_id: seasonId, stage, is_published: isPublished, reason }),
     }),
 
+  /** Смена собственного пароля (ТЗ 11, п. 45): временный пароль заменяется. */
+  changeOwnPassword: (payload: { current_password: string; new_password: string }) =>
+    adminRequest<{ success: true; sessions_revoked: boolean }>('/api/admin/profile/password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   /** Архив заявок сезона 2026 из прежней системы: только чтение (ТЗ 10, п. 3.1). */
   legacyApplications: (params: { q?: string; status?: string } = {}) =>
     adminRequest<AdminLegacyApplication[]>(`/api/admin/legacy-applications${queryString(params)}`),
