@@ -25,6 +25,107 @@
   padding: 0;
 }
 
+/* Красное слово заголовка первого экрана: мягкий градиентный пробег —
+   тот же приём, что у текстовых компонентов ui.aceternity.com. Движение
+   выключается при prefers-reduced-motion (правило ниже). */
+.site .hero h1 .red {
+  background: linear-gradient(100deg, var(--red) 0%, var(--red-deep) 42%, var(--red) 68%, var(--red) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-red-sweep 7s ease-in-out infinite;
+}
+
+@keyframes hero-red-sweep {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site .hero h1 .red {
+    background: none;
+    color: var(--red);
+    animation: none;
+  }
+}
+
+/* Таблица критериев: строка — это номер, критерий и максимум баллов.
+   Прежние огромные промежутки между строками разрывали критерий и его балл. */
+.site .criteria-table td,
+.site .criteria-table th {
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+  vertical-align: top;
+}
+
+.site .criteria-table td:first-child {
+  width: 3rem;
+  font-family: var(--font-mono);
+  color: var(--ink-60);
+}
+
+/* Карточка истории — ссылка целиком, но год и подпись не должны выглядеть
+   гиперссылкой: раньше подчёркивание и красный цвет делали подпись похожей на
+   ссылку и мешали читать, к какому фото она относится. */
+.site .story-grid .pcard {
+  text-decoration: none;
+  color: inherit;
+}
+
+.site .story-grid .pcard .pyear,
+.site .story-grid .pcard .pdesc {
+  text-decoration: none;
+  color: inherit;
+}
+
+.site .story-grid .pcard .pyear {
+  color: var(--red-deep);
+}
+
+.site .story-grid .pcard:hover .pyear,
+.site .story-grid .pcard:focus-visible .pyear {
+  text-decoration: underline;
+}
+
+/* Фотолента истории: прежняя раскладка 7/5/4 колонок давала «рассыпанные»
+   ряды — фотографии разной высоты, подписи и годы на разном уровне.
+   Теперь ровные ряды по три карточки: одинаковые кадры, подпись под кадром. */
+.site .story-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.site .story-grid .pcard {
+  grid-column: span 1 !important;
+}
+
+.site .story-grid .pcard .duo,
+.site .story-grid .s-a .duo {
+  aspect-ratio: 4 / 3;
+}
+
+.site .story-grid .pcard .meta {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.site .story-grid .pcard .pdesc {
+  text-align: left;
+}
+
+@media (max-width: 1024px) {
+  .site .story-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .site .story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Вертикальный ритм разделов: прежние clamp(4rem, 11vh, 9rem) давали на
    длинных страницах «пустые экраны» между смысловыми блоками. */
 .site section.block {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { MediaPicker } from './MediaPicker';
 import {
   AdminApiError,
   adminApi,
@@ -31,6 +32,10 @@ function displayValue(row: Row, field: ResourceField): string {
   if (field.type === 'bool') return value === true ? 'да' : 'нет';
   if (field.type === 'timestamptz') return formatMoscowHuman(String(value));
   if (field.type === 'date') return formatMoscowHuman(`${String(value)}T00:00:00+03:00`).replace(/,.*/, '');
+  if (field.type === 'media') {
+    // В списке показываем не UUID, а понятную пометку: файл прикреплён или нет.
+    return 'файл прикреплён';
+  }
   if (field.type === 'json') {
     if (Array.isArray(value)) return `${value.length} элем.`;
     return typeof value === 'object' ? 'заполнено' : String(value);
@@ -110,6 +115,17 @@ function FieldControl({
           {field.hint ? <span className="mt-1 block text-muted">{field.hint}</span> : null}
         </label>
       </div>
+    );
+  }
+  if (field.type === 'media') {
+    return (
+      <MediaPicker
+        id={`field-${field.name}`}
+        label={field.title}
+        hint={field.hint}
+        value={value}
+        onChange={onChange}
+      />
     );
   }
   if (field.type === 'json') {

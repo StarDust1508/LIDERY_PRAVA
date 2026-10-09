@@ -16,7 +16,9 @@ export type FieldType =
   | 'timestamptz'
   | 'select'
   /** Структура переменного состава: редактируется текстом JSON. */
-  | 'json';
+  | 'json'
+  /** Файл в хранилище: выбор, загрузка и превью (MediaPicker). */
+  | 'media';
 
 export interface ResourceField {
   name: string;
@@ -238,7 +240,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       },
       { name: 'stage', title: 'Этап', type: 'select', options: STAGES, inList: true },
       { name: 'about', title: 'О человеке', type: 'textarea', maxLength: 4000 },
-      { name: 'photo_media_id', title: 'Фотография (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'photo_media_id', title: 'Фотография', type: 'media' },
       { name: 'email', title: 'Электронная почта', type: 'text', maxLength: 250, hint: 'Внутреннее поле: на сайте не публикуется.' },
       { name: 'phone', title: 'Телефон', type: 'text', maxLength: 32, hint: 'Внутреннее поле.' },
       { name: 'is_public', title: 'Показывать на сайте', type: 'bool', inList: true },
@@ -287,7 +289,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'partner_type', title: 'Тип партнёра', type: 'text', maxLength: 64, inList: true, hint: 'Например: генеральный партнёр' },
       { name: 'url', title: 'Сайт', type: 'text', maxLength: 500 },
       { name: 'description', title: 'Описание', type: 'textarea', maxLength: 2000 },
-      { name: 'logo_media_id', title: 'Логотип (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'logo_media_id', title: 'Логотип', type: 'media' },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
       { name: 'is_active', title: 'Показывать', type: 'bool', inList: true },
     ],
@@ -321,7 +323,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
         maxLength: 2000,
         hint: 'Только российские сервисы: «ВКонтакте», Rutube, Дзен, Одноклассники.',
       },
-      { name: 'cover_media_id', title: 'Обложка (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'cover_media_id', title: 'Обложка', type: 'media' },
       { name: 'published_at', title: 'Дата публикации', type: 'timestamptz', inList: true },
       { name: 'is_published', title: 'Опубликовано', type: 'bool', inList: true },
     ],
@@ -349,7 +351,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'version', title: 'Версия', type: 'text', maxLength: 64, inList: true },
       { name: 'revision_date', title: 'Дата редакции', type: 'date', inList: true },
       { name: 'external_url', title: 'Ссылка на файл', type: 'text', maxLength: 2000 },
-      { name: 'media_id', title: 'Файл в хранилище (идентификатор)', type: 'text', maxLength: 64 },
+      { name: 'media_id', title: 'Файл в хранилище', type: 'media' },
       { name: 'requires_acceptance', title: 'Требует согласия', type: 'bool' },
       { name: 'is_active', title: 'Опубликован', type: 'bool', inList: true },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
@@ -386,8 +388,8 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'starts_at', title: 'Дата и время (МСК)', type: 'timestamptz', inList: true },
       { name: 'place', title: 'Место или ссылка', type: 'text', maxLength: 300 },
       { name: 'recording_url', title: 'Ссылка на запись', type: 'text', maxLength: 2000 },
-      { name: 'media_id', title: 'Файл записи (идентификатор)', type: 'text', maxLength: 64 },
-      { name: 'cover_media_id', title: 'Обложка (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'media_id', title: 'Файл записи', type: 'media' },
+      { name: 'cover_media_id', title: 'Обложка', type: 'media' },
       { name: 'is_published', title: 'Опубликовано', type: 'bool', inList: true },
       {
         name: 'materials',
@@ -426,7 +428,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'mentors_text', title: 'Наставники', type: 'textarea', maxLength: 2000 },
       { name: 'initiative_title', title: 'Законопроект', type: 'text', maxLength: 300, inList: true },
       { name: 'announcement', title: 'Описание', type: 'textarea', maxLength: 4000 },
-      { name: 'photo_media_id', title: 'Фотография (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'photo_media_id', title: 'Фотография', type: 'media' },
       { name: 'video_url', title: 'Видеосюжет', type: 'text', maxLength: 2000 },
       { name: 'season_id', title: 'Сезон (идентификатор)', type: 'int' },
       { name: 'team_id', title: 'Команда в системе (идентификатор)', type: 'int' },
@@ -461,7 +463,7 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'body', title: 'Текст', type: 'textarea', maxLength: 100000 },
       { name: 'seo_title', title: 'Заголовок для поиска', type: 'text', maxLength: 200 },
       { name: 'seo_description', title: 'Описание для поиска', type: 'textarea', maxLength: 400 },
-      { name: 'og_media_id', title: 'Обложка для соцсетей (идентификатор)', type: 'text', maxLength: 64 },
+      { name: 'og_media_id', title: 'Обложка для соцсетей', type: 'media' },
       { name: 'is_published', title: 'Опубликовано', type: 'bool', inList: true },
       { name: 'sort_order', title: 'Порядок', type: 'int' },
     ],
@@ -486,8 +488,8 @@ export const RESOURCES: readonly ResourceConfig[] = [
       { name: 'direction_id', title: 'Направление (идентификатор)', type: 'int' },
       { name: 'season_id', title: 'Сезон (идентификатор)', type: 'int' },
       { name: 'team_id', title: 'Команда в системе (идентификатор)', type: 'int' },
-      { name: 'law_draft_media_id', title: 'Законопроект (идентификатор файла)', type: 'text', maxLength: 64 },
-      { name: 'explanatory_note_media_id', title: 'Записка (идентификатор файла)', type: 'text', maxLength: 64 },
+      { name: 'law_draft_media_id', title: 'Законопроект', type: 'media' },
+      { name: 'explanatory_note_media_id', title: 'Записка', type: 'media' },
       { name: 'video_url', title: 'Видеоролик', type: 'text', maxLength: 2000 },
       { name: 'authors_public', title: 'Согласие на распространение получено', type: 'bool', inList: true },
       { name: 'files_public', title: 'Лицензия на материалы получена', type: 'bool', inList: true },

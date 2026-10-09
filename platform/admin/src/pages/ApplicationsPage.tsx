@@ -43,6 +43,12 @@ export function ApplicationsPage() {
   const [bulkReason, setBulkReason] = useState('');
   const [bulkPreview, setBulkPreview] = useState<{ affected: number; rows: Array<Record<string, unknown>> } | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Постраничность (ТЗ 07, п. 1.4): сервер отдаёт total, клиент показывает
+  // «сколько всего» и переходит между страницами. Раньше запрашивалось 300
+  // записей, сервер молча отдавал 200, и подпись «всего в выборке» врала.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 50;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,14 +65,23 @@ export function ApplicationsPage() {
         // queryString пропускает только строки и числа: boolean терялся, и
         // фильтр «с замечаниями» не влиял на выборку.
         has_remarks: hasRemarks === '' ? undefined : hasRemarks,
-        limit: 300,
+        page,
+        perPage,
       };
-      setRows(await adminApi.applications(query));
+      const result = await adminApi.applicationsPage(query);
+      setRows(result.data);
+      setTotal(result.meta?.total ?? result.data.length);
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось получить список заявок.');
     } finally {
       setLoading(false);
     }
+  }, [search, techStatus, seasonId, directionId, source, submittedFrom, submittedTo, hasRemarks, page]);
+
+  // Смена фильтров возвращает на первую страницу: иначе выбранная страница
+  // может оказаться за пределами новой выборки.
+  useEffect(() => {
+    setPage(1);
   }, [search, techStatus, seasonId, directionId, source, submittedFrom, submittedTo, hasRemarks]);
 
   useEffect(() => {
@@ -176,7 +191,10 @@ export function ApplicationsPage() {
     }
   }
 
-  /** Выгрузка списка заявок в XLSX (ТЗ 07, п. 1.8). */
+  /**
+   * Выгрузка заявок в XLSX (ТЗ 07, п. 1.8). Если строки отмечены — выгружается
+   * выборка, а не вся страница: так задумано в подписи кнопки.
+   */
   function exportXlsx() {
     const headers = [
       'Номер заявки',
@@ -188,7 +206,8 @@ export function ApplicationsPage() {
       'Участников',
       'Материалов',
     ];
-    const data = rows.map((row) => [
+    const source = selected.size > 0 ? rows.filter((row) => selected.has(Number(row.id))) : rows;
+    const data = source.map((row) => [
       row.public_number ?? '',
       row.team_name ?? '',
       TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status,
@@ -219,7 +238,7 @@ export function ApplicationsPage() {
               Выгрузить CSV
             </Button>
             <Button variant="secondary" disabled={rows.length === 0} onClick={exportXlsx}>
-              Выгрузить XLSX
+              {selected.size > 0 ? `Выгрузить XLSX (${selected.size})` : 'Выгрузить XLSX'}
             </Button>
           </div>
         }
@@ -227,7 +246,10 @@ export function ApplicationsPage() {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <SectionCard title="Фильтры" description={`Всего заявок в выборке: ${rows.length}; ожидают проверки: ${newCount}; требуют исправлений: ${fixCount}.`}>
+      <SectionCard
+        title="Фильтры"
+        description={`Найдено заявок: ${total}. На странице: ${rows.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}); ожидают проверки: ${newCount}; требуют исправлений: ${fixCount}.`}
+      >
         <form
           className="grid gap-4 md:grid-cols-[2fr,1fr,auto]"
           onSubmit={(event) => {
@@ -418,6 +440,32 @@ export function ApplicationsPage() {
             </div>
           ) : null}
         </SectionCard>
+      ) : null}
+
+      {total > perPage ? (
+        <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Постраничная навигация">
+          <span className="text-sm text-muted">
+            Страница {page} из {Math.max(1, Math.ceil(total / perPage))}
+          </span>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={page >= Math.ceil(total / perPage) || loading}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Вперёд
+            </Button>
+          </div>
+        </nav>
       ) : null}
 
       <SectionCard title="Заявки" description="Нажмите на команду, чтобы открыть карточку заявки целиком.">

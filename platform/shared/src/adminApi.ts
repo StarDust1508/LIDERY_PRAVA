@@ -71,6 +71,18 @@ export function unwrapEnvelope<T>(payload: unknown): T {
 }
 
 /** Ответ списка с метаданными: сколько всего записей, страница и размер страницы. */
+/** Файл в хранилище (ответ /api/admin/media). */
+export interface AdminMediaFile {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  is_public: boolean;
+  category: string;
+  created_at?: string;
+}
+
 export interface AdminListMeta {
   total: number;
   page: number;
@@ -168,6 +180,9 @@ function queryString(params: object): string {
 }
 
 export interface ApplicationQuery {
+  /** Страница и размер страницы (ТЗ 07, п. 1.4). */
+  page?: number;
+  perPage?: number;
   q?: string;
   tech_status?: string;
   direction_id?: number;
@@ -215,6 +230,10 @@ export const adminApi = {
 
   applications: (params: ApplicationQuery = {}) =>
     adminRequest<AdminApplicationRow[]>(`/api/admin/applications${queryString(params)}`),
+
+  /** Список заявок вместе с метаданными: всего записей, страница, размер. */
+  applicationsPage: (params: ApplicationQuery = {}) =>
+    adminRequestWithMeta<AdminApplicationRow[]>(`/api/admin/applications${queryString(params)}`),
 
   application: (id: number) => adminRequest<AdminApplicationCard>(`/api/admin/applications/${id}`),
 
@@ -616,6 +635,26 @@ export const adminApi = {
     resource: string,
     params: Record<string, string | number | boolean | undefined> = {}
   ) => adminRequestWithMeta<T[]>(`/api/admin/${resource}${queryString(params)}`),
+
+  // ── Файлы (ТЗ 07, п. 2.11–2.14) ──────────────────────────────────────────
+  // Раньше загрузки не было вовсе: поля вроде логотипа партнёра или PDF
+  // Положения требовали UUID файла, а взять его было негде.
+  mediaList: (category?: string) =>
+    adminRequest<AdminMediaFile[]>(`/api/admin/media${category ? `?category=${encodeURIComponent(category)}` : ''}`),
+
+  mediaUpload: (file: File, options: { category?: string; isPublic?: boolean } = {}) => {
+    const form = new FormData();
+    form.set('file', file);
+    form.set('category', options.category ?? 'document');
+    form.set('is_public', options.isPublic === true ? 'true' : 'false');
+    return adminRequest<AdminMediaFile>('/api/admin/media', { method: 'POST', body: form }, 120_000);
+  },
+
+  mediaDelete: (id: string) => adminRequest<{ success: true }>(`/api/admin/media/${id}`, { method: 'DELETE' }),
+
+  /** Краткосрочная ссылка на приватный файл: чтобы передать коллеге (ТЗ 11, п. 24). */
+  mediaLink: (id: string) =>
+    adminRequest<{ path: string; expires_in: number }>(`/api/admin/media/${id}/link`, { method: 'POST' }),
 
   resourceCreate: <T>(resource: string, payload: Record<string, unknown>) =>
     adminRequest<T>(`/api/admin/${resource}`, { method: 'POST', body: JSON.stringify(payload) }),

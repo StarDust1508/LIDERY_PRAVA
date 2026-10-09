@@ -10,6 +10,7 @@ import {
 } from '@shared/index';
 import { Alert } from '@shared/index';
 import { DecadeScale } from '@/components/DecadeScale';
+import { CountUp } from '@/components/CountUp';
 import { Arc, ArrowRight, ArrowUpRight } from '@/components/Icon';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 
@@ -275,21 +276,23 @@ export function HomePage() {
           <div className="sec-label mono">(Цифры сезона)</div>
           <div className="stats reveal">
             <div className="stat">
-              <div className="num">2017</div>
+              <div className="num"><CountUp value="2017" /></div>
               <div className="lbl mono">Год основания</div>
             </div>
             <div className="stat">
               <div className="num">
-                <span className="red">10</span>
+                <span className="red">
+                  <CountUp value="10" />
+                </span>
               </div>
               <div className="lbl mono">Сезон конкурса</div>
             </div>
             <div className="stat">
-              <div className="num">70</div>
+              <div className="num"><CountUp value="70" /></div>
               <div className="lbl mono">Баллов отборочного этапа</div>
             </div>
             <div className="stat">
-              <div className="num">2–4</div>
+              <div className="num"><CountUp value="2–4" /></div>
               <div className="lbl mono">Человека в команде</div>
             </div>
           </div>
@@ -305,7 +308,7 @@ export function HomePage() {
               <Link
                 key={item.year}
                 to="/about/history"
-                className={`pcard reveal ${['s-a', 's-b', 's-c', 's-b', 's-a', 's-c'][index] ?? 's-c'}`}
+                className="pcard reveal"
                 style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
               >
                 <div className={`duo${index % 3 === 2 ? ' ink' : ''}`}>

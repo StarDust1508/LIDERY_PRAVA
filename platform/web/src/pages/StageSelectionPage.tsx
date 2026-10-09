@@ -115,7 +115,9 @@ export function StageSelectionPage() {
 
       <Section title="Сроки" description="Все даты — по московскому времени (МСК, UTC+3).">
         {season ? (
-          <ul className="flex flex-col gap-5 text-sm">
+          // Сроки читаются парами: на широком экране правая половина страницы
+          // больше не пустует, а взгляд охватывает весь календарь этапа.
+          <ul className="grid gap-5 text-sm md:grid-cols-2">
             <li>
               <p className="mono-label text-muted">Приём заявок и конкурсных материалов</p>
               <p className="mt-1">{formatPeriod(season.application_open_at, season.application_close_at)}</p>
@@ -127,21 +129,30 @@ export function StageSelectionPage() {
               <p className="mono-label text-muted">Техническая проверка конкурсных материалов</p>
               <p className="mt-1">{formatPeriod(season.tech_check_from, season.tech_check_to)}</p>
               <p className="mt-1 text-muted">
-                Устранимые недостатки оформления Оргкомитет предлагает устранить однократно — в срок не более двух
-                рабочих дней (пункты 7.4 и 7.5 Положения).
+                Недостатки оформления, которые можно устранить, Оргкомитет предлагает исправить однократно —
+                в срок не более двух рабочих дней (пункты 7.4 и 7.5 Положения).
               </p>
             </li>
             <li>
               <p className="mono-label text-muted">Экспертиза и оценка законотворческих инициатив</p>
+              <p className="mt-1">
+                {season.expertise_from || season.expertise_to
+                  ? formatPeriod(season.expertise_from, season.expertise_to)
+                  : 'Срок определяется после технической проверки'}
+              </p>
               <p className="mt-1 text-muted">
-                Проводится после технической проверки. Каждую инициативу оценивает Конкурсная
-                комиссии независимо друг от друга.
+                Проводится после технической проверки. Каждую инициативу оценивают члены Конкурсной комиссии.
               </p>
             </li>
             <li>
               <p className="mono-label text-muted">Публикация протокола итогов отборочного этапа</p>
+              <p className="mt-1">
+                {season.protocol_selection_at
+                  ? formatMoscowHuman(season.protocol_selection_at)
+                  : 'После завершения экспертизы'}
+              </p>
               <p className="mt-1 text-muted">
-                Протокол публикуется на сайте после завершения экспертизы; баллы команды видны в личном кабинете.
+                Протокол публикуется на сайте; баллы команды видны в личном кабинете.
               </p>
             </li>
             <li>
