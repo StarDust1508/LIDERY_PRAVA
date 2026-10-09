@@ -47,6 +47,10 @@ export function ApplicationPage() {
 
   const [techStatus, setTechStatus] = useState('pending');
   const [rejectionReason, setRejectionReason] = useState('');
+  // Подтверждения (ТЗ 07, п. 2.2): приёмка при красных отметках и отказ с
+  // причиной — решения, которые нельзя принимать «одной кнопкой».
+  const [acceptConfirmed, setAcceptConfirmed] = useState(false);
+  const failedChecks = (card?.requirements_check ?? []).filter((check) => !check.passed);
   const [organizerNotes, setOrganizerNotes] = useState('');
   const [reviewDraft, setReviewDraft] = useState<Record<number, { status: string; comment: string; deadline: string }>>({});
 
@@ -138,6 +142,15 @@ export function ApplicationPage() {
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
 
+      <div className="flex flex-wrap gap-3">
+        <Link className="text-accent underline underline-offset-2" to={`/teams?q=${encodeURIComponent(application.team_name ?? '')}`}>
+          Карточка команды
+        </Link>
+        <Link className="text-accent underline underline-offset-2" to={`/materials?team_id=${application.team_id}`}>
+          Материалы команды
+        </Link>
+      </div>
+
       {/* Проверка требований (ТЗ 07, п. 2.2): Оргкомитет видит результат до
           допуска заявки, а не ищет расхождения вручную по документам. */}
       {card.requirements_check && card.requirements_check.length > 0 ? (
@@ -220,21 +233,50 @@ export function ApplicationPage() {
             hint="Участникам не показываются."
           />
           <div>
-            <Button
-              loading={busy}
-              onClick={() =>
-                void run(async () => {
-                  await adminApi.updateApplication(applicationId, {
-                    tech_status: techStatus,
-                    tech_rejection_reason: rejectionReason.trim() || null,
-                    organizer_notes: organizerNotes.trim() || null,
-                  });
-                  return 'Решение по технической проверке сохранено.';
-                })
-              }
-            >
-              Сохранить решение
-            </Button>
+            <div className="flex flex-col gap-3">
+              {failedChecks.length > 0 && techStatus === 'accepted' ? (
+                <div className="border border-danger p-3 text-sm">
+                  <p className="font-medium text-danger">
+                    Не пройдено проверок: {failedChecks.length}. Приёмка заявки с этими отметками означает решение
+                    Оргкомитета допустить команду несмотря на них.
+                  </p>
+                  <label className="mt-2 flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-5 w-5"
+                      checked={acceptConfirmed}
+                      onChange={(event) => setAcceptConfirmed(event.target.checked)}
+                    />
+                    <span>Подтверждаю приёмку: расхождения проверены и допущены осознанно.</span>
+                  </label>
+                </div>
+              ) : null}
+              {techStatus === 'rejected' && rejectionReason.trim().length < 3 ? (
+                <p className="text-sm text-danger">Укажите причину отказа: она сохраняется в карточке и в журнале.</p>
+              ) : null}
+              <div>
+                <Button
+                  loading={busy}
+                  disabled={
+                    (techStatus === 'rejected' && rejectionReason.trim().length < 3) ||
+                    (techStatus === 'accepted' && failedChecks.length > 0 && !acceptConfirmed)
+                  }
+                  onClick={() =>
+                    void run(async () => {
+                      await adminApi.updateApplication(applicationId, {
+                        tech_status: techStatus,
+                        tech_rejection_reason: rejectionReason.trim() || null,
+                        organizer_notes: organizerNotes.trim() || null,
+                      });
+                      setAcceptConfirmed(false);
+                      return 'Решение по технической проверке сохранено.';
+                    })
+                  }
+                >
+                  Сохранить решение
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </SectionCard>

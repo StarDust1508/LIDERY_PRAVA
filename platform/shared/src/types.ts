@@ -625,6 +625,9 @@ export interface Evaluation {
   recommendations: string | null;
   is_chair_extra: boolean;
   is_final_vote: boolean;
+  /** Конфликт интересов: оценка исключается из подсчёта (ТЗ 07, п. 2.7). */
+  is_conflicted?: boolean;
+  conflict_reason?: string | null;
   created_at: string;
 }
 
@@ -1046,6 +1049,8 @@ export interface AdminTeamCard {
     city: string | null;
     season_title?: string | null;
     direction_title?: string | null;
+    /** Идентификатор направления: нужен для правки реквизитов команды. */
+    direction_id?: number | null;
     disqualification_reason?: string | null;
     status_changed_at?: string | null;
     roster_change_used_at?: string | null;

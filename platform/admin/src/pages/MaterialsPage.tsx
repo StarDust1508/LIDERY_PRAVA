@@ -88,6 +88,13 @@ interface BulkPreview {
 const BULK_ACTIONS = {
   accept: { title: 'Принять выбранные', confirmed: 'Подтвердить приёмку', done: 'принято' },
   request_fix: { title: 'Вернуть выбранные на доработку', confirmed: 'Подтвердить возврат', done: 'возвращено на доработку' },
+  // Блокировка содержания доступна и по одному материалу, и массово: сервер
+  // принимает действие `block`, но кнопки для него в панели не было.
+  block: {
+    title: 'Заблокировать содержание выбранных',
+    confirmed: 'Подтвердить блокировку',
+    done: 'заблокировано',
+  },
 } as const;
 
 export function MaterialsPage() {
@@ -95,6 +102,9 @@ export function MaterialsPage() {
   const status = searchParams.get('status') ?? '';
   const query = searchParams.get('q') ?? '';
   const deadlineFilter = searchParams.get('deadline') ?? '';
+  // Переход из карточки команды: «Материалы команды» открывает очередь уже
+  // отфильтрованной по этой команде.
+  const teamId = searchParams.get('team_id') ?? '';
 
   const [searchDraft, setSearchDraft] = useState(query);
   const [rows, setRows] = useState<AdminMaterial[]>([]);
@@ -132,6 +142,7 @@ export function MaterialsPage() {
           // Фильтры очереди и сроков считает сервер: иначе «просрочено» зависело бы
           // от того, попала ли запись в первые 500 строк выборки.
           ...(deadlineFilter === '' ? {} : { deadline: deadlineFilter === 'urgent' ? 'soon' : deadlineFilter }),
+          ...(teamId === '' ? {} : { team_id: Number(teamId) }),
           page,
           perPage,
         }),
@@ -148,7 +159,7 @@ export function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, deadlineFilter, page]);
+  }, [status, deadlineFilter, teamId, page]);
 
   useEffect(() => {
     void load();

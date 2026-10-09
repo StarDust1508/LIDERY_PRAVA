@@ -775,7 +775,13 @@ export const adminApi = {
   /** Смена статуса команды: допуск, этапы, дисквалификация (ТЗ 07, п. 2.5). */
   updateTeam: (
     teamId: number,
-    payload: { status?: string; disqualification_reason?: string | null; organization?: string | null; city?: string | null }
+    payload: {
+      status?: string;
+      disqualification_reason?: string | null;
+      organization?: string | null;
+      city?: string | null;
+      direction_id?: number | null;
+    }
   ) =>
     adminRequest<{ id: number; name: string; status: string }>(`/api/admin/teams/${teamId}`, {
       method: 'PATCH',

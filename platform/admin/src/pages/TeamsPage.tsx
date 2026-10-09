@@ -120,7 +120,15 @@ function statusChangeText(record: { before: unknown; after: unknown }): string {
  * Раньше эти сведения показывались только на узких экранах: на большом в
  * раскрытой строке были только доступы в личный кабинет.
  */
-function TeamCardBody({ card, onReload }: { card: AdminTeamCard; onReload: () => void }) {
+function TeamCardBody({
+  card,
+  onReload,
+  directions,
+}: {
+  card: AdminTeamCard;
+  onReload: () => void;
+  directions: Array<{ id: number; title: string }>;
+}) {
   // Правка данных участника (ТЗ 07, п. 2.4): сервер принимает изменения, но
   // в панели состав был доступен только для чтения.
   const [editing, setEditing] = useState<number | null>(null);
@@ -128,6 +136,32 @@ function TeamCardBody({ card, onReload }: { card: AdminTeamCard; onReload: () =>
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Реквизиты команды: организация, город и направление принимаются сервером,
+  // но исправить их было негде.
+  const [teamDraft, setTeamDraft] = useState({
+    organization: card.team.organization ?? '',
+    city: card.team.city ?? '',
+    direction_id: card.team.direction_id === null ? '' : String(card.team.direction_id),
+  });
+
+  async function saveTeamDetails() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminApi.updateTeam(card.team.id, {
+        organization: teamDraft.organization.trim() || null,
+        city: teamDraft.city.trim() || null,
+        direction_id: teamDraft.direction_id === '' ? null : Number(teamDraft.direction_id),
+      });
+      setNotice('Реквизиты команды сохранены.');
+      onReload();
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось сохранить реквизиты команды.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function startEdit(participant: AdminTeamCard['participants'][number]) {
     setEditing(participant.id);
@@ -177,6 +211,56 @@ function TeamCardBody({ card, onReload }: { card: AdminTeamCard; onReload: () =>
                             <p>{card.team.disqualification_reason}</p>
                           </Alert>
                         ) : null}
+
+                        {/* Переходы между связанными сущностями (ТЗ 07, п. 3.5):
+                            из команды видно её заявку, материалы и оценки. */}
+                        <div className="flex flex-wrap gap-3">
+                          {card.application?.id ? (
+                            <Link className="text-accent underline underline-offset-2" to={`/applications/${card.application.id}`}>
+                              Карточка заявки{card.application.public_number ? ` ${card.application.public_number}` : ''}
+                            </Link>
+                          ) : null}
+                          <Link className="text-accent underline underline-offset-2" to={`/materials?team_id=${card.team.id}`}>
+                            Материалы команды
+                          </Link>
+                          <Link className="text-accent underline underline-offset-2" to={`/evaluation/${card.team.id}`}>
+                            Оценочный лист
+                          </Link>
+                        </div>
+
+                        <div>
+                          <p className="mono-label text-muted">Реквизиты команды</p>
+                          <div className="mt-2 grid gap-4 md:grid-cols-3">
+                            <TextField
+                              id={`team-organization-${card.team.id}`}
+                              label="Образовательная организация или место работы"
+                              value={teamDraft.organization}
+                              onChange={(event) => setTeamDraft({ ...teamDraft, organization: event.target.value })}
+                            />
+                            <TextField
+                              id={`team-city-${card.team.id}`}
+                              label="Город"
+                              value={teamDraft.city}
+                              onChange={(event) => setTeamDraft({ ...teamDraft, city: event.target.value })}
+                            />
+                            <SelectField
+                              id={`team-direction-${card.team.id}`}
+                              label="Направление конкурса"
+                              value={teamDraft.direction_id}
+                              options={directions.map((direction) => ({
+                                value: String(direction.id),
+                                title: direction.title,
+                              }))}
+                              placeholder="Не выбрано"
+                              onChange={(event) => setTeamDraft({ ...teamDraft, direction_id: event.target.value })}
+                            />
+                          </div>
+                          <div className="mt-3">
+                            <Button type="button" variant="secondary" loading={busy} onClick={() => void saveTeamDetails()}>
+                              Сохранить реквизиты
+                            </Button>
+                          </div>
+                        </div>
 
                         <div>
                           <p className="mono-label text-muted">Состав</p>
@@ -319,6 +403,8 @@ export function TeamsPage() {
   const parsedSeason = seasonParam === null ? null : Number(seasonParam);
   const [searchDraft, setSearchDraft] = useState(query);
   const [seasons, setSeasons] = useState<Season[]>([]);
+  // Направления нужны для правки реквизитов команды.
+  const [directions, setDirections] = useState<Array<{ id: number; title: string }>>([]);
   // Источник истины по сезону — адресная строка (п. 3.6): при отсутствии
   // параметра подставляется активный сезон из справочника.
   const [defaultSeasonId, setDefaultSeasonId] = useState<number | null>(null);
@@ -396,6 +482,14 @@ export function TeamsPage() {
       setLoading(false);
     }
   }, [seasonId, status, query]);
+
+  // Справочник направлений: без него не заполнить поле в карточке команды.
+  useEffect(() => {
+    void adminApi
+      .resourceList<{ id: number; title: string }>('directions')
+      .then(setDirections)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!seasonsReady) return;
@@ -936,7 +1030,11 @@ export function TeamsPage() {
                             </div>
                           ) : null}
                           {isOpen && cards[team.id] ? (
-                            <TeamCardBody card={cards[team.id]!} onReload={() => void loadCard(team.id)} />
+                            <TeamCardBody
+                              card={cards[team.id]!}
+                              onReload={() => void loadCard(team.id)}
+                              directions={directions}
+                            />
                           ) : null}
                         </td>
                       </tr>
@@ -1003,7 +1101,11 @@ export function TeamsPage() {
                       </Button>
                     </div>
                     {isOpen && cards[team.id] ? (
-                      <TeamCardBody card={cards[team.id]!} onReload={() => void loadCard(team.id)} />
+                      <TeamCardBody
+                              card={cards[team.id]!}
+                              onReload={() => void loadCard(team.id)}
+                              directions={directions}
+                            />
                     ) : null}
                     {isOpen && cardsLoading === team.id && !cards[team.id] ? (
                       <p className="mt-4 text-sm text-muted" role="status">

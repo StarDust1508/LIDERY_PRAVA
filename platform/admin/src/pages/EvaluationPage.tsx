@@ -127,11 +127,19 @@ export function EvaluationPage() {
       return;
     }
     try {
-      setEvaluations(await adminApi.evaluations({ stage, team_id: Number(teamId) }));
+      const rows = await adminApi.evaluations({ stage, team_id: Number(teamId) });
+      setEvaluations(rows);
+      // Подставляем сохранённую оценку выбранного эксперта: раньше отметка
+      // «конфликт интересов» не снималась и её нельзя было отменить.
+      const mine = rows.find((row) => Number(row.expert_id) === Number(expertId));
+      if (mine) {
+        setIsConflicted(mine.is_conflicted === true);
+        setConflictReason(mine.conflict_reason ?? '');
+      }
     } catch {
       setEvaluations([]);
     }
-  }, [stage, teamId]);
+  }, [stage, teamId, expertId]);
 
   useEffect(() => {
     void loadEvaluations();
