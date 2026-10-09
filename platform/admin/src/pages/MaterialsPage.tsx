@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AdminApiError,
@@ -115,6 +115,10 @@ export function MaterialsPage() {
   const [fixDraft, setFixDraft] = useState<Record<number, { comment: string; deadline: string }>>({});
   const [openFix, setOpenFix] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // Блокировка содержания: причина вводится в форме — системное окно не
+  // объясняет последствий и легко закрывается по Esc.
+  const [blockTarget, setBlockTarget] = useState<AdminMaterial | null>(null);
+  const [blockReason, setBlockReason] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   // Постраничность (ТЗ 07, п. 1.4): сервер отдаёт total, панель показывает
@@ -143,6 +147,7 @@ export function MaterialsPage() {
           // от того, попала ли запись в первые 500 строк выборки.
           ...(deadlineFilter === '' ? {} : { deadline: deadlineFilter === 'urgent' ? 'soon' : deadlineFilter }),
           ...(teamId === '' ? {} : { team_id: Number(teamId) }),
+          ...(query.trim() === '' ? {} : { q: query.trim() }),
           page,
           perPage,
         }),
@@ -159,7 +164,7 @@ export function MaterialsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, deadlineFilter, teamId, page]);
+  }, [status, deadlineFilter, teamId, query, page]);
 
   useEffect(() => {
     void load();
@@ -177,18 +182,9 @@ export function MaterialsPage() {
     setParam('q', searchDraft.trim());
   }
 
-  /** Поиск по команде и файлу и фильтр по сроку идут по загруженной выборке. */
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (needle !== '') {
-        const team = (teamNames.get(row.team_id) ?? '').toLowerCase();
-        const file = (row.file_name ?? row.external_url ?? '').toLowerCase();
-        if (!team.includes(needle) && !file.includes(needle)) return false;
-      }
-      return true;
-    });
-  }, [rows, query, teamNames, deadlineFilter]);
+  // Поиск выполняет сервер (по команде, номеру заявки и имени файла): раньше
+  // он шёл по загруженной странице и не находил материал в глубине списка.
+  const visible = rows;
 
   const allSelected = visible.length > 0 && visible.every((row) => selected.has(row.id));
 
@@ -284,15 +280,11 @@ export function MaterialsPage() {
     }
   }
 
-  /** Блокировка содержания: причина обязательна (ТЗ 07, п. 2.3). */
+  /** Блокировка содержания: причина обязательна и вводится в форме (ТЗ 07, п. 2.3). */
   async function blockOne(material: AdminMaterial) {
-    const reason = window.prompt(
-      `Блокировка содержания материала «${materialTypeTitle(material.type)}»\n` +
-        'Укажите причину: команда увидит пояснение, файл перестанет ей отдаваться, ' +
-        'запись останется для разбора Оргкомитетом.'
-    );
-    if (!reason || reason.trim().length < 5) {
-      setError('Блокировка отменена: причина обязательна.');
+    const reason = blockReason;
+    if (reason.trim().length < 5) {
+      setError('Причина блокировки обязательна: не короче пяти символов.');
       return;
     }
     setBusyId(material.id);
@@ -300,6 +292,8 @@ export function MaterialsPage() {
     setNotice(null);
     try {
       await adminApi.reviewMaterial(material.id, { status: 'blocked', comment: reason.trim() });
+      setBlockTarget(null);
+      setBlockReason('');
       setNotice('Содержание заблокировано: файл больше не отдаётся команде, причина видна в карточке.');
       await load();
     } catch (caught) {
@@ -390,8 +384,8 @@ export function MaterialsPage() {
             label="Поиск по команде или файлу"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
-            placeholder="Название команды или имя файла"
-            hint="Поиск идёт по загруженной выборке (до 500 записей)."
+            placeholder="Команда, номер заявки или имя файла"
+            hint="Ищет по всей очереди: название команды, номер заявки, имя файла."
           />
           <SelectField
             id="materials-status"
@@ -725,7 +719,11 @@ export function MaterialsPage() {
                               className="border-danger text-danger"
                               title="Материал нельзя показывать: файл перестанет отдаваться команде"
                               loading={busyId === material.id}
-                              onClick={() => void blockOne(material)}
+                              onClick={() => {
+                                setBlockTarget(material);
+                                setBlockReason('');
+                                setError(null);
+                              }}
                             >
                               Заблокировать содержание
                             </Button>
@@ -898,7 +896,11 @@ export function MaterialsPage() {
                         className="border-danger text-danger"
                         title="Материал нельзя показывать: файл перестанет отдаваться команде"
                         loading={busyId === material.id}
-                        onClick={() => void blockOne(material)}
+                        onClick={() => {
+                                setBlockTarget(material);
+                                setBlockReason('');
+                                setError(null);
+                              }}
                       >
                         Заблокировать содержание
                       </Button>
@@ -990,6 +992,43 @@ export function MaterialsPage() {
             </Button>
           </div>
         </nav>
+      ) : null}
+      {blockTarget !== null ? (
+        <SectionCard
+          title={`Заблокировать содержание: ${materialTypeTitle(blockTarget.type)}`}
+          description="Файл перестанет отдаваться команде, запись останется для разбора Оргкомитетом, причина попадёт в карточку и в журнал."
+        >
+          <div className="max-w-measure">
+            <TextAreaField
+              id="block-reason"
+              label="Причина блокировки (обязательно)"
+              value={blockReason}
+              maxLength={2000}
+              onChange={(event) => setBlockReason(event.target.value)}
+              hint="Например: в презентации использованы материалы без указания источника."
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              loading={busyId === blockTarget.id}
+              disabled={blockReason.trim().length < 5}
+              onClick={() => void blockOne(blockTarget)}
+            >
+              Заблокировать содержание
+            </Button>
+            <Button
+              type="button"
+              variant="quiet"
+              onClick={() => {
+                setBlockTarget(null);
+                setBlockReason('');
+              }}
+            >
+              Отменить
+            </Button>
+          </div>
+        </SectionCard>
       ) : null}
     </main>
   );

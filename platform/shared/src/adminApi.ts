@@ -290,7 +290,9 @@ export const adminApi = {
     adminRequest<AdminMaterial[]>(`/api/admin/materials${queryString(params)}`),
 
   /** Материалы вместе с метаданными: всего записей, страница, размер страницы. */
-  materialsPage: (params: { status?: string; team_id?: number; deadline?: string; page?: number; perPage?: number } = {}) =>
+  materialsPage: (
+    params: { status?: string; team_id?: number; deadline?: string; q?: string; page?: number; perPage?: number } = {}
+  ) =>
     adminRequestWithMeta<AdminMaterial[]>(`/api/admin/materials${queryString(params)}`),
 
   // Сервер читает поле `comment` (routes/admin.ts, POST /materials/:id/review).

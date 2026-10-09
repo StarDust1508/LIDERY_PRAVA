@@ -1677,11 +1677,27 @@ create_expect() {
 # Границы включительные: ровно 16 и ровно 35 лет допускаются, на день меньше или
 # на год больше — отказ. Даты считаются от реальной даты окончания приёма, чтобы
 # проверка не «застыла» вместе с календарём.
-python3 - "${DIRECTION_ID}" <<'PY'
+# Дату окончания приёма берём из сезона и переводим в московский календарь:
+# date.today() на машине прогона может отставать от Москвы на сутки, и тогда
+# «ровно 16 лет» превращалось в «16 лет без одного дня».
+CLOSE_DATE=$(curl -s "${BASE}/api/season/current" | python3 -c "
+import json, sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
+try:
+    raw = json.load(sys.stdin)
+    iso = (raw.get('data') or raw)['season']['application_close_at']
+    print(datetime.fromisoformat(iso.replace('Z', '+00:00')).astimezone(ZoneInfo('Europe/Moscow')).date().isoformat())
+except Exception:
+    print('')
+" 2>/dev/null || echo '')
+
+python3 - "${DIRECTION_ID}" "${CLOSE_DATE}" <<'PY'
 import json, sys
 from datetime import date, timedelta
 direction = int(sys.argv[1])
-close = date.today() + timedelta(days=10)
+raw_close = sys.argv[2].strip() if len(sys.argv) > 2 else ''
+close = date.fromisoformat(raw_close) if raw_close else date.today() + timedelta(days=10)
 def born(years, days=0):
     try:
         return (close.replace(year=close.year - years) + timedelta(days=days)).isoformat()

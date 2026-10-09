@@ -1184,6 +1184,17 @@ router.get(
       params.push(applicationId);
       where.push(`m.application_id = $${params.length}`);
     }
+    // Поиск по очереди материалов: название команды, номер заявки или имя файла
+    // (ТЗ 07, п. 2.3). Раньше поиск был только на клиенте — по загруженной
+    // странице, то есть находил не всё.
+    const search = queryString(req.query.q);
+    if (search) {
+      params.push(`%${search.trim().toLowerCase()}%`);
+      where.push(
+        `(lower(t.name) LIKE $${params.length} OR lower(COALESCE(a.public_number, '')) LIKE $${params.length}` +
+          ` OR lower(COALESCE(media.file_name, '')) LIKE $${params.length})`
+      );
+    }
     const page = paginationOf(req);
     const result = await query(
       `SELECT m.*, t.name AS team_name, a.public_number, media.file_name, media.file_type, media.file_size,
