@@ -11,6 +11,7 @@ import {
 import { Alert } from '@shared/index';
 import { DecadeScale } from '@/components/DecadeScale';
 import { CountUp } from '@/components/CountUp';
+import { SpotlightCard } from '@/components/SpotlightCard';
 import { Arc, ArrowRight, ArrowUpRight } from '@/components/Icon';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 
@@ -206,10 +207,17 @@ export function HomePage() {
             <span>Юридический конкурс — Россия</span>
             <span>2017—2027</span>
           </div>
+          {/* Заголовок по словам: каждое появляется со своей задержкой (приём
+              SplitText из reactbits.dev). Текст остаётся обычным текстом в DOM:
+              поиск и скринридеры видят «Лидеры права» целиком. */}
           <h1 aria-label="Лидеры права">
-            Лидеры
+            <span className="hero-word" style={{ '--d': '0ms' } as React.CSSProperties}>
+              Лидеры
+            </span>
             <br />
-            <span className="red">права</span>
+            <span className="hero-word red" style={{ '--d': '120ms' } as React.CSSProperties}>
+              права
+            </span>
           </h1>
           <div className="hero-bottom">
             <p className="hero-statement">
@@ -305,12 +313,12 @@ export function HomePage() {
           <div className="sec-label mono">(История проекта / 2017—2025)</div>
           <div className="story-grid">
             {HISTORY.map((item, index) => (
-              <Link
-                key={item.year}
-                to="/about/history"
-                className="pcard reveal"
-                style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
-              >
+              <SpotlightCard key={item.year} className="reveal">
+                <Link
+                  to="/about/history"
+                  className="pcard"
+                  style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
+                >
                 <div className={`duo${index % 3 === 2 ? ' ink' : ''}`}>
                   <img
                     src={item.image}
@@ -324,7 +332,8 @@ export function HomePage() {
                   <span className="pyear">{item.year}</span>
                   <span className="pdesc mono">{item.text}</span>
                 </div>
-              </Link>
+                </Link>
+              </SpotlightCard>
             ))}
           </div>
           <div className="story-cta reveal">

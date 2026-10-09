@@ -705,6 +705,10 @@ export const adminApi = {
   mediaLink: (id: string) =>
     adminRequest<{ path: string; expires_in: number }>(`/api/admin/media/${id}/link`, { method: 'POST' }),
 
+  /** Вся выборка ресурса с текущими фильтрами: для выгрузки CSV и XLSX. */
+  resourceExport: <T>(resource: string, params: Record<string, string | number> = {}) =>
+    adminRequest<T[]>(`/api/admin/${resource}/export${queryString(params)}`),
+
   resourceCreate: <T>(resource: string, payload: Record<string, unknown>) =>
     adminRequest<T>(`/api/admin/${resource}`, { method: 'POST', body: JSON.stringify(payload) }),
 

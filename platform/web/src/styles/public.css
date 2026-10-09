@@ -25,6 +25,34 @@
   padding: 0;
 }
 
+/* Слова заголовка первого экрана появляются по очереди: мягкий подъём и
+   проявление. При выключенной анимации текст виден сразу. */
+.site .hero h1 .hero-word {
+  display: inline-block;
+  animation: hero-word-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* Анимируется только сдвиг: слово всегда читается. Прозрачность не трогаем —
+   иначе при медленной загрузке первый экран встречает пустым местом вместо
+   названия конкурса. */
+@keyframes hero-word-in {
+  from {
+    transform: translateY(0.12em);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site .hero h1 .hero-word {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Красное слово заголовка первого экрана: мягкий градиентный пробег —
    тот же приём, что у текстовых компонентов ui.aceternity.com. Движение
    выключается при prefers-reduced-motion (правило ниже). */
@@ -63,6 +91,39 @@
   width: 3rem;
   font-family: var(--font-mono);
   color: var(--ink-60);
+}
+
+/* «Прожектор» под курсором (приём ui.aceternity.com): мягкое пятно света
+   внутри карточки. Положение задаёт компонент SpotlightCard через переменные
+   --spot-x/--spot-y; без наведения пятно скрыто. */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    320px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    rgba(229, 35, 28, 0.1),
+    transparent 62%
+  );
+}
+
+.spotlight-card:hover::before,
+.spotlight-card:focus-within::before {
+  opacity: 1;
+}
+
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .spotlight-card::before {
+    display: none;
+  }
 }
 
 /* Карточка истории — ссылка целиком, но год и подпись не должны выглядеть

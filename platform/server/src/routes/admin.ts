@@ -171,6 +171,32 @@ function sortOf(req: Request, config: CrudConfig): string {
   return direction ? `${requested} ${direction}` : requested;
 }
 
+/**
+ * Фильтры списка ресурса: общие для постраничной выдачи и выгрузки, чтобы
+ * файл совпадал с тем, что видит администратор на экране (ТЗ 07, п. 1.8).
+ */
+function listFilters(req: Request, config: CrudConfig): { where: string[]; params: unknown[] } {
+  const params: unknown[] = [];
+  const where: string[] = [];
+
+  for (const filter of config.filters ?? []) {
+    const value = queryString(req.query[filter]);
+    if (value !== undefined && value !== '') {
+      params.push(value);
+      where.push(`${filter} = $${params.length}`);
+    }
+  }
+
+  const search = queryString(req.query.q);
+  if (search && config.searchFields && config.searchFields.length > 0) {
+    params.push(`%${search}%`);
+    const placeholder = `$${params.length}`;
+    where.push(`(${config.searchFields.map((field) => `${field} ILIKE ${placeholder}`).join(' OR ')})`);
+  }
+
+  return { where, params };
+}
+
 function buildCrud(config: CrudConfig): Router {
   const crud = Router();
   const { table } = config;
@@ -178,23 +204,7 @@ function buildCrud(config: CrudConfig): Router {
   crud.get(
     '/',
     asyncHandler(async (req, res) => {
-      const params: unknown[] = [];
-      const where: string[] = [];
-
-      for (const filter of config.filters ?? []) {
-        const value = queryString(req.query[filter]);
-        if (value !== undefined && value !== '') {
-          params.push(value);
-          where.push(`${filter} = $${params.length}`);
-        }
-      }
-
-      const search = queryString(req.query.q);
-      if (search && config.searchFields && config.searchFields.length > 0) {
-        params.push(`%${search}%`);
-        const placeholder = `$${params.length}`;
-        where.push(`(${config.searchFields.map((field) => `${field} ILIKE ${placeholder}`).join(' OR ')})`);
-      }
+      const { where, params } = listFilters(req, config);
 
       // Постраничность по 50 записей со сведениями о странице (ТЗ 07, п. 1.4;
       // ТЗ 05, п. 1.4). Общее число нужно интерфейсу, чтобы показать страницы.
@@ -216,6 +226,25 @@ function buildCrud(config: CrudConfig): Router {
         page: page.page,
         perPage: page.perPage,
       });
+      res.json(result.rows);
+    })
+  );
+
+  // Выгрузка всей выборки с теми же фильтрами (ТЗ 07, п. 1.8). Список отдаёт
+  // страницу по 50 записей, поэтому файл «по экрану» получался неполным.
+  crud.get(
+    '/export',
+    asyncHandler(async (req, res) => {
+      const { where, params } = listFilters(req, config);
+      const limit = Math.min(10_000, Math.max(1, parsePositiveInt(queryString(req.query.limit)) ?? 10_000));
+      const result = await query(
+        `SELECT * FROM ${table}
+         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+         ORDER BY ${sortOf(req, config)}
+         LIMIT ${limit}`,
+        params
+      );
+      setListMeta(res, { total: result.rows.length, page: 1, perPage: limit });
       res.json(result.rows);
     })
   );

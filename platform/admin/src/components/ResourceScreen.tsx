@@ -191,6 +191,7 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: number | null; values: Record<string, string> } | null>(null);
@@ -319,17 +320,60 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
   }
 
   /** Выгрузка текущей выборки: те же фильтры, что на экране (ТЗ 07, п. 1.8). */
-  /** Выгрузка в XLSX (ТЗ 07, п. 1.8): строки текущей страницы, как и в CSV. */
-  function exportXlsx() {
-    const headers = config.fields.map((field) => field.title);
-    const data = rows.map((row) => config.fields.map((field) => displayValue(row, field)));
+  /** Вся выборка с текущими фильтрами: список отдаёт только страницу. */
+  async function loadAllRows(): Promise<Row[]> {
+    const params: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== '') params[key] = value;
+    }
+    if (search.trim() !== '') params.q = search.trim();
+    const all = await adminApi.resourceExport<Row>(config.key, params);
+    return Array.isArray(all) ? all : [];
+  }
+
+  /**
+   * Выгрузка в XLSX (ТЗ 07, п. 1.8). Выгружается вся выборка, а не страница:
+   * для этого строки запрашиваются отдельно (маршрут `/export`).
+   */
+  async function exportXlsx() {
+    setExporting(true);
+    setError(null);
+    try {
+      const all = await loadAllRows();
+      const headers = config.fields.map((field) => field.title);
+      downloadXlsx(all, headers);
+      setNotice(`Выгружено записей: ${all.length}.`);
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось выгрузить файл.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function downloadXlsx(source: Row[], headers: string[]) {
+    const data = source.map((row) => config.fields.map((field) => displayValue(row, field)));
     saveBlob(xlsxBlob(config.title.slice(0, 31), headers, data), `${config.key}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  function exportCsv() {
+  /** Выгрузка в CSV: тоже вся выборка, а не только открытая страница. */
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      const all = await loadAllRows();
+      downloadCsv(all);
+      setNotice(`Выгружено записей: ${all.length}.`);
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Не удалось выгрузить файл.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function downloadCsv(source: Row[]) {
     const header = config.fields.map((field) => field.title);
     const lines = [header.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(';')];
-    for (const row of rows) {
+    for (const row of source) {
       lines.push(
         config.fields
           .map((field) => `"${displayValue(row, field).replace(/"/g, '""')}"`)
@@ -424,13 +468,24 @@ export function ResourceScreen({ config }: { config: ResourceConfig }) {
             <Button type="button" onClick={startCreate}>
               Добавить
             </Button>
-            {/* Выгружается текущая страница: подпись говорит об этом прямо,
-                иначе «выгрузка выборки» обещает больше, чем отдаёт файл. */}
-            <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportCsv}>
-              Выгрузить CSV (страница)
+            {/* Выгружается вся выборка с текущими фильтрами (ТЗ 07, п. 1.8). */}
+            <Button
+              type="button"
+              variant="secondary"
+              loading={exporting}
+              disabled={rows.length === 0}
+              onClick={() => void exportCsv()}
+            >
+              Выгрузить CSV
             </Button>
-            <Button type="button" variant="secondary" disabled={rows.length === 0} onClick={exportXlsx}>
-              Выгрузить XLSX (страница)
+            <Button
+              type="button"
+              variant="secondary"
+              loading={exporting}
+              disabled={rows.length === 0}
+              onClick={() => void exportXlsx()}
+            >
+              Выгрузить XLSX
             </Button>
           </div>
         }

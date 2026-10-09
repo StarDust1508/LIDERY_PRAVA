@@ -1287,6 +1287,21 @@ print('ok' if matches and meta.get('perPage') == 5 and 'total' in meta else 'no'
 " 2>/dev/null || echo error)
 [ "$AUDIT_FILTERED" = "ok" ] && ok "журнал фильтруется по действию и отдаёт meta" || bad "фильтр журнала по действию: $AUDIT_FILTERED"
 
+# Выгрузка всей выборки в универсальных разделах: список отдаёт страницу,
+# поэтому файл «по экрану» получался неполным (ТЗ 07, п. 1.8).
+EXPORT_ALL=$(curl -s -H "$AUTH" "${BASE}/api/admin/documents/export" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data') if isinstance(d, dict) else d
+meta = (d.get('meta') or {}) if isinstance(d, dict) else {}
+print(f\"{len(rows or [])}:{meta.get('total')}\")
+" 2>/dev/null || echo '0:0')
+if [ "${EXPORT_ALL%%:*}" -ge 15 ] && [ "${EXPORT_ALL%%:*}" = "${EXPORT_ALL##*:}" ]; then
+    ok "выгрузка раздела отдаёт всю выборку, а не страницу (${EXPORT_ALL%%:*} записей)"
+else
+    bad "выгрузка раздела: $EXPORT_ALL"
+fi
+
 # Дата публикации инициативы: от неё зависит lastmod карты сайта
 INIT_PUBLISHED=$(curl -s -H "$AUTH" -X POST "${BASE}/api/admin/initiatives" \
     -H 'Content-Type: application/json' \
