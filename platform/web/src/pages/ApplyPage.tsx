@@ -654,7 +654,7 @@ export function ApplyPage() {
       setSubmitted({ public_number: response.public_number, submitted_at: response.submitted_at });
       clearDraft();
       setDraft(null);
-      goTo(5);
+      goTo(4);
     } catch (caught) {
       if (caught instanceof ApiError) {
         setError(caught.message);
@@ -849,6 +849,7 @@ export function ApplyPage() {
           ) : null}
 
           {step === 1 ? (
+            <>
             <SectionCard
               title="Участники"
               description="От 2 до 4 человек; первым указан капитан команды. Один участник может входить только в одну команду сезона (п. 4.3–4.4 Положения)."
@@ -955,68 +956,55 @@ export function ApplyPage() {
                 })}
               </div>
             </SectionCard>
-          ) : null}
-
-          {step === 2 ? (
-            <SectionCard
-              title="Наставники"
-              description="Не более двух наставников. Наставник не является членом команды и не выступает на этапах (п. 4.9 Положения)."
-              footer={
-                <div className="flex flex-wrap gap-3">
+              <SectionCard
+                title="Наставники"
+                description="Не более двух наставников. Наставник не является членом команды и не выступает на этапах (п. 4.9 Положения)."
+                footer={
                   <Button variant="secondary" onClick={() => setMentors((rows) => [...rows, { ...EMPTY_MENTOR }])} disabled={mentors.length >= 2}>
                     Добавить наставника
                   </Button>
-                  <Button
-                    loading={busy}
-                    onClick={() => {
-                      if (!checkStep(2)) return;
-                      void saveTeam().then(() => goTo(3));
-                    }}
-                  >
-                    Сохранить и продолжить
-                  </Button>
+                }
+              >
+                <div className="flex flex-col gap-8">
+                  {mentors.map((mentor, index) => (
+                    <fieldset key={`mentor-${index}`} className="flex flex-col gap-4 border border-border p-4">
+                      <legend className="mono-label px-2 text-muted">Наставник {index + 1}</legend>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <TextField id={`m-name-${index}`} error={fieldErrors[`m-name-${index}`]} label="Фамилия, имя, отчество" value={mentor.full_name} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
+                        <TextField id={`m-org-${index}`} label="Место работы" value={mentor.organization} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, organization: e.target.value } : row)))} />
+                        <TextField id={`m-position-${index}`} label="Должность" value={mentor.position} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, position: e.target.value } : row)))} />
+                        <TextField id={`m-degree-${index}`} label="Учёная степень" value={mentor.academic_degree} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, academic_degree: e.target.value } : row)))} />
+                        <TextField id={`m-title-${index}`} label="Учёное звание" value={mentor.academic_title} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, academic_title: e.target.value } : row)))} />
+                        <TextField id={`m-email-${index}`} label="Адрес электронной почты" type="email" value={mentor.email} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
+                        <TextField id={`m-phone-${index}`} label="Контактный телефон" type="tel" value={mentor.phone} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
+                      </div>
+                      <CheckboxField
+                        id={`m-consent-${index}`} error={fieldErrors[`m-consent-${index}`]}
+                        label="Согласие наставника на обработку персональных данных"
+                        checked={mentor.consent_pdn}
+                        onChange={(value) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, consent_pdn: value } : row)))}
+                      />
+                      {mentors.length > 1 ? (
+                        <Button variant="quiet" onClick={() => setMentors((rows) => rows.filter((_, i) => i !== index))}>
+                          Удалить наставника
+                        </Button>
+                      ) : null}
+                    </fieldset>
+                  ))}
                 </div>
-              }
-            >
-              <div className="flex flex-col gap-8">
-                {mentors.map((mentor, index) => (
-                  <fieldset key={`mentor-${index}`} className="flex flex-col gap-4 border border-border p-4">
-                    <legend className="mono-label px-2 text-muted">Наставник {index + 1}</legend>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <TextField id={`m-name-${index}`} error={fieldErrors[`m-name-${index}`]} label="Фамилия, имя, отчество" value={mentor.full_name} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, full_name: e.target.value } : row)))} />
-                      <TextField id={`m-org-${index}`} label="Место работы" value={mentor.organization} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, organization: e.target.value } : row)))} />
-                      <TextField id={`m-position-${index}`} label="Должность" value={mentor.position} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, position: e.target.value } : row)))} />
-                      <TextField id={`m-degree-${index}`} label="Учёная степень" value={mentor.academic_degree} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, academic_degree: e.target.value } : row)))} />
-                      <TextField id={`m-title-${index}`} label="Учёное звание" value={mentor.academic_title} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, academic_title: e.target.value } : row)))} />
-                      <TextField id={`m-email-${index}`} label="Адрес электронной почты" type="email" value={mentor.email} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
-                      <TextField id={`m-phone-${index}`} label="Контактный телефон" type="tel" value={mentor.phone} onChange={(e) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
-                    </div>
-                    <CheckboxField
-                      id={`m-consent-${index}`} error={fieldErrors[`m-consent-${index}`]}
-                      label="Согласие наставника на обработку персональных данных"
-                      checked={mentor.consent_pdn}
-                      onChange={(value) => setMentors((rows) => rows.map((row, i) => (i === index ? { ...row, consent_pdn: value } : row)))}
-                    />
-                    {mentors.length > 1 ? (
-                      <Button variant="quiet" onClick={() => setMentors((rows) => rows.filter((_, i) => i !== index))}>
-                        Удалить наставника
-                      </Button>
-                    ) : null}
-                  </fieldset>
-                ))}
-              </div>
-            </SectionCard>
+              </SectionCard>
+            </>
           ) : null}
 
-          {step === 3 ? (
+          {step === 2 ? (
             <SectionCard
               title="Конкурсные материалы"
               description="Состав комплекта ведёт Оргкомитет. Форматы и шаблон имени файла — по Приложению № 6."
               footer={
                 <Button
                   onClick={() => {
-                    if (!checkStep(3)) return;
-                    void saveTeam().then(() => goTo(4));
+                    if (!checkStep(2)) return;
+                    void saveTeam().then(() => goTo(3));
                   }}
                   loading={busy}
                 >
@@ -1137,15 +1125,15 @@ export function ApplyPage() {
             </SectionCard>
           ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <SectionCard
               title="Согласия"
               description="Согласие на обработку персональных данных и согласие на распространение оформляются отдельно друг от друга (п. 14.3 Положения). Фиксируются дата, время, сетевой адрес и версия текста согласия."
               footer={
                 <Button
                   onClick={() => {
-                    if (!checkStep(4)) return;
-                    goTo(5);
+                    if (!checkStep(3)) return;
+                    goTo(4);
                   }}
                   loading={busy}
                 >
@@ -1217,7 +1205,7 @@ export function ApplyPage() {
             </SectionCard>
           ) : null}
 
-          {step === 5 ? (
+          {step === 4 ? (
             <SectionCard title="Проверка и отправка" description="После отправки заявка получает статус «на технической проверке».">
               {!team ? (
                 <p className="text-sm text-muted">Данные заявки загружаются…</p>

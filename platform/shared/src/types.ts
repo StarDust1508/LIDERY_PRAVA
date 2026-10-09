@@ -318,8 +318,9 @@ export type DistributionCategoryCode = (typeof DISTRIBUTION_CATEGORIES)[number][
 /** Шаги мастера подачи заявки (ТЗ 05, п. 3.2). */
 export const MASTER_STEPS = [
   { id: 'team', title: 'Команда и инициатива' },
-  { id: 'participants', title: 'Участники' },
-  { id: 'mentors', title: 'Наставники' },
+  // Участники и наставники — один шаг: мастер короче на один экран, состав
+  // команды и наставники заполняются подряд, без перехода между шагами.
+  { id: 'participants', title: 'Участники и наставники' },
   { id: 'materials', title: 'Конкурсные материалы' },
   { id: 'consents', title: 'Согласия' },
   { id: 'review', title: 'Проверка и отправка' },
