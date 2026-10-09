@@ -645,6 +645,9 @@ export function MaterialsPage() {
                           >
                             {teamName(material.team_id)}
                           </Link>
+                          {material.public_number ? (
+                            <span className="block font-mono text-muted">{material.public_number}</span>
+                          ) : null}
                         </td>
                         <td className="py-3 pr-4">
                           {typeTitle}

@@ -47,6 +47,8 @@ export function ApplicationsPage() {
   // «сколько всего» и переходит между страницами. Раньше запрашивалось 300
   // записей, сервер молча отдавал 200, и подпись «всего в выборке» врала.
   const [page, setPage] = useState(1);
+  // Сортировка списка (ТЗ 07, п. 1.4): по дате, номеру, команде или статусу.
+  const [sortValue, setSortValue] = useState('created_at:desc');
   const [total, setTotal] = useState(0);
   const perPage = 50;
 
@@ -67,6 +69,8 @@ export function ApplicationsPage() {
         has_remarks: hasRemarks === '' ? undefined : hasRemarks,
         page,
         perPage,
+        sort_by: sortValue.split(':')[0],
+        sort_dir: sortValue.split(':')[1] as 'asc' | 'desc',
       };
       const result = await adminApi.applicationsPage(query);
       setRows(result.data);
@@ -76,7 +80,7 @@ export function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, techStatus, seasonId, directionId, source, submittedFrom, submittedTo, hasRemarks, page]);
+  }, [search, techStatus, seasonId, directionId, source, submittedFrom, submittedTo, hasRemarks, page, sortValue]);
 
   // Смена фильтров возвращает на первую страницу: иначе выбранная страница
   // может оказаться за пределами новой выборки.
@@ -231,6 +235,23 @@ export function ApplicationsPage() {
         lead="Заявки приходят только с сайта. Здесь — проверка комплектности, допуск к экспертизе и выгрузка для Оргкомитета."
         aside={
           <div className="flex flex-wrap gap-3">
+            <SelectField
+              id="applications-sort"
+              label="Сортировка"
+              value={sortValue}
+              options={[
+                { value: 'created_at:desc', title: 'Сначала новые' },
+                { value: 'created_at:asc', title: 'Сначала старые' },
+                { value: 'submitted_at:desc', title: 'По дате подачи' },
+                { value: 'team_name:asc', title: 'По названию команды' },
+                { value: 'public_number:asc', title: 'По номеру заявки' },
+                { value: 'tech_status:asc', title: 'По статусу проверки' },
+              ]}
+              onChange={(event) => {
+                setSortValue(event.target.value);
+                setPage(1);
+              }}
+            />
             <Button variant="secondary" onClick={() => void load()} loading={loading}>
               Обновить
             </Button>
@@ -493,8 +514,10 @@ export function ApplicationsPage() {
                   <th scope="col" className="py-2 pr-4">Подана</th>
                   <th scope="col" className="py-2 pr-4">Техпроверка</th>
                   <th scope="col" className="py-2 pr-4">Статус команды</th>
+                  <th scope="col" className="py-2 pr-4">Капитан</th>
+                  <th scope="col" className="py-2 pr-4">Источник</th>
                   <th scope="col" className="py-2 pr-4">Участники</th>
-                  <th scope="col" className="py-2">Материалы</th>
+                  <th scope="col" className="py-2">Комплект</th>
                 </tr>
               </thead>
               <tbody>
@@ -521,9 +544,28 @@ export function ApplicationsPage() {
                     <td className="py-2 pr-4">{TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status}</td>
                     <td className="py-2 pr-4">{teamStatusTitle(row.team_status)}</td>
                     <td className="py-2 pr-4">
+                      {row.captain_name ?? '—'}
+                      {row.captain_email ? <span className="block text-muted">{row.captain_email}</span> : null}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {row.source === 'site' ? 'Сайт' : row.source === 'yandex_form' ? 'Яндекс.Форма' : row.source}
+                    </td>
+                    <td className="py-2 pr-4">
                       {row.participants_count} / {row.mentors_count}
                     </td>
-                    <td className="py-2">{row.materials_count}</td>
+                    <td className="py-2">
+                      {row.materials_required !== undefined && row.materials_required > 0 ? (
+                        <span
+                          className={
+                            (row.materials_submitted ?? 0) >= row.materials_required ? 'text-success' : 'text-danger'
+                          }
+                        >
+                          {row.materials_submitted ?? 0} из {row.materials_required}
+                        </span>
+                      ) : (
+                        row.materials_count
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

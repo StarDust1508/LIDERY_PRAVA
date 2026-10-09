@@ -207,6 +207,13 @@ export interface ApplicationQuery {
   season_id?: number;
   limit?: number;
   offset?: number;
+  /** Сортировка списка: колонка из белого списка сервера и направление. */
+  sort_by?: string;
+  sort_dir?: 'asc' | 'desc';
+  source?: string;
+  submitted_from?: string;
+  submitted_to?: string;
+  has_remarks?: string;
 }
 
 export const adminApi = {

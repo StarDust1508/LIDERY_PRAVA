@@ -34,6 +34,38 @@ function Field({ label, value }: { label: string; value: string | number | null 
   );
 }
 
+/** Названия действий: машинные коды в истории заявки читать невозможно. */
+const ACTION_TITLES: Record<string, string> = {
+  application_update: 'Заявка изменена',
+  application_accept: 'Заявка принята',
+  application_reject: 'Заявка отклонена',
+  applications_bulk_review: 'Массовая техническая проверка',
+  material_review: 'Решение по материалу',
+  materials_bulk_review: 'Массовое решение по материалам',
+  evaluation_save: 'Оценка сохранена',
+  team_update: 'Команда изменена',
+  consent_revoked: 'Согласие отозвано',
+  pdn_erase: 'Обезличивание по требованию',
+  pdn_export: 'Выгрузка сведений субъекта',
+};
+
+const ENTITY_TITLES: Record<string, string> = {
+  applications: 'заявка',
+  application_materials: 'материалы',
+  materials: 'материалы',
+  teams: 'команда',
+  participants: 'участники',
+  mentors: 'наставники',
+  evaluations: 'оценки',
+  consents: 'согласия',
+  users: 'пользователи',
+};
+
+function entityTitle(entity: unknown): string {
+  const code = String(entity ?? '');
+  return ENTITY_TITLES[code] ?? code;
+}
+
 export function ApplicationPage() {
   const params = useParams();
   const applicationId = Number(params.id);
@@ -186,8 +218,10 @@ export function ApplicationPage() {
             {card.history.slice(0, 40).map((record) => (
               <li key={record.id} className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0 md:flex-row md:items-baseline md:justify-between">
                 <span>
-                  <span className="mono-label">{record.action}</span>{' '}
-                  <span className="text-muted">{record.entity}</span>
+                  <span className="mono-label" title={String(record.action)}>
+                    {ACTION_TITLES[String(record.action)] ?? record.action}
+                  </span>{' '}
+                  <span className="text-muted">{entityTitle(record.entity)}</span>
                 </span>
                 <span className="text-muted">
                   {record.user_name ?? record.actor_label ?? record.actor_type} · {formatMoscowHuman(record.created_at)}
@@ -505,8 +539,19 @@ export function ApplicationPage() {
                     <td className="py-2 pr-4">{consent.accepted_at ? formatMoscowHuman(consent.accepted_at) : '—'}</td>
                     <td className="py-2 pr-4 font-mono">{consent.ip ?? '—'}</td>
                     <td className="py-2">
-                      {consent.scan_media_id ? 'скан загружен' : '—'}
-                      {consent.revoked_at ? <span className="block text-danger">отозвано {formatMoscowHuman(consent.revoked_at)}</span> : null}
+                      {consent.scan_media_id ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => void openFile(String(consent.scan_media_id), 'скан согласия')}
+                        >
+                          Открыть скан
+                        </Button>
+                      ) : (
+                        '—'
+                      )}
+                      {consent.revoked_at ? (
+                        <span className="block text-danger">отозвано {formatMoscowHuman(consent.revoked_at)}</span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

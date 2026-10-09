@@ -459,6 +459,12 @@ export interface AdminApplicationRow {
   participants_count: number;
   mentors_count: number;
   materials_count: number;
+  /** Капитан команды: с кем связываться по заявке (ТЗ 07, п. 2.2). */
+  captain_name?: string | null;
+  captain_email?: string | null;
+  /** Комплект: сдано обязательных материалов из требуемых. */
+  materials_submitted?: number;
+  materials_required?: number;
   // Сведения об инициативе по Приложению № 1.
   public_number: string | null;
   law_title: string | null;
@@ -493,6 +499,8 @@ export interface AdminMaterial {
   file_size: number | null;
   /** Команда-владелец материала: сервер отдаёт имя вместе со строкой. */
   team_name?: string | null;
+  /** Номер заявки: по нему Оргкомитет ищет материал в переписке с командой. */
+  public_number?: string | null;
 }
 
 /** Пункт проверки требований к заявке (ТЗ 07, п. 2.2). */

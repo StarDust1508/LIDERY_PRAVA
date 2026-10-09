@@ -1306,6 +1306,29 @@ print('ok' if matches and meta.get('perPage') == 5 and 'total' in meta else 'no'
 " 2>/dev/null || echo error)
 [ "$AUDIT_FILTERED" = "ok" ] && ok "журнал фильтруется по действию и отдаёт meta" || bad "фильтр журнала по действию: $AUDIT_FILTERED"
 
+
+# Список заявок: капитан, комплект материалов и сортировка (ТЗ 07, п. 2.2).
+APPLICATION_COLUMNS=$(curl -s -H "$AUTH" "${BASE}/api/admin/applications?perPage=5" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data') or []
+row = rows[0] if rows else {}
+need = ('captain_name', 'materials_submitted', 'materials_required', 'source')
+missing = [key for key in need if key not in row]
+print('ok' if not missing else 'no: ' + ', '.join(missing))
+" 2>/dev/null || echo error)
+[ "$APPLICATION_COLUMNS" = "ok" ] && ok "список заявок отдаёт капитана, комплект и источник" || bad "колонки заявки: $APPLICATION_COLUMNS"
+
+APPLICATIONS_SORTED=$(curl -s -H "$AUTH" "${BASE}/api/admin/applications?perPage=5&sort_by=team_name&sort_dir=asc" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+rows = d.get('data') or []
+names = [str(row.get('team_name') or '') for row in rows]
+print('ok' if names == sorted(names) else 'no: ' + ' | '.join(names))
+" 2>/dev/null || echo error)
+[ "$APPLICATIONS_SORTED" = "ok" ] && ok "список заявок сортируется по названию команды" || bad "сортировка заявок: $APPLICATIONS_SORTED"
+
+
 # Выгрузка всей выборки в универсальных разделах: список отдаёт страницу,
 # поэтому файл «по экрану» получался неполным (ТЗ 07, п. 1.8).
 EXPORT_ALL=$(curl -s -H "$AUTH" "${BASE}/api/admin/documents/export" | python3 -c "

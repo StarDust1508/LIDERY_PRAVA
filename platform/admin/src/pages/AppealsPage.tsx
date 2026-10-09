@@ -58,6 +58,8 @@ interface AppealExtras {
   reviewed_at?: string | null;
   /** Ссылка на скан, приложенный командой (ТЗ 07, п. 2.9). */
   scan_url?: string | null;
+  /** Идентификатор файла скана: файл приватный, читается по админ-сессии. */
+  scan_media_id?: string | null;
 }
 
 type TermKey = 'open' | 'reviewed';
@@ -207,6 +209,19 @@ export function AppealsPage() {
 
   const teamName = (teamId: number): string => teamNames.get(teamId) ?? `Команда № ${teamId}`;
 
+  /** Скан апелляции открывается запросом с токеном: прямая ссылка не работает. */
+  async function openScan(mediaId: string) {
+    setError(null);
+    try {
+      const blob = await adminApi.materialFile(mediaId);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (caught) {
+      setError(caught instanceof AdminApiError ? caught.message : 'Документ недоступен.');
+    }
+  }
+
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-6 py-8">
       <PageHeader
@@ -351,18 +366,17 @@ export function AppealsPage() {
           <div className="mt-5">
             <p className="mono-label text-muted">Текст апелляции</p>
             <p className="mt-2 max-w-measure whitespace-pre-line break-words">{selected.text}</p>
-            {typeof extrasOf(selected).scan_url === 'string' && extrasOf(selected).scan_url !== '' ? (
-              <p className="mt-3">
-                <a
-                  href={String(extrasOf(selected).scan_url)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent underline underline-offset-2"
+            {typeof extrasOf(selected).scan_media_id === 'string' && extrasOf(selected).scan_media_id !== '' ? (
+              <p className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void openScan(String(extrasOf(selected).scan_media_id))}
                 >
-                  Приложенный командой документ
-                </a>
-                <span className="ml-2 text-sm text-muted">
-                  открывается по админ-сессии: файл приватный и команде не публикуется
+                  Открыть приложенный документ
+                </Button>
+                <span className="text-sm text-muted">
+                  Файл приватный: он читается по админ-сессии и команде не публикуется.
                 </span>
               </p>
             ) : (

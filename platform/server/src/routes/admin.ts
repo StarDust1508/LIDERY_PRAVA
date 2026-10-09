@@ -720,6 +720,17 @@ const APPLICATION_SELECT = `
          t.captain_participant_id,
          d.id AS direction_id, d.title AS direction_title,
          s.title AS season_title,
+         -- Капитан команды: без него в списке не видно, с кем связываться.
+         (SELECT p.full_name FROM participants p
+           WHERE p.team_id = t.id AND p.role = 'captain' LIMIT 1) AS captain_name,
+         (SELECT p.email FROM participants p
+           WHERE p.team_id = t.id AND p.role = 'captain' LIMIT 1) AS captain_email,
+         -- Комплект: сколько обязательных материалов сдано из требуемых.
+         (SELECT count(*) FROM application_materials am
+           WHERE am.application_id = a.id AND am.status <> 'rejected') AS materials_submitted,
+         (SELECT count(*) FROM material_requirements r
+           WHERE r.season_id = a.season_id AND r.stage = 'selection' AND r.is_active AND r.is_required
+             AND r.type NOT IN ('application_form', 'consent_pdn', 'consent_legal_rep')) AS materials_required,
          (SELECT count(*) FROM participants p WHERE p.team_id = t.id) AS participants_count,
          (SELECT count(*) FROM mentors m WHERE m.team_id = t.id) AS mentors_count,
          (SELECT count(*) FROM application_materials am WHERE am.application_id = a.id) AS materials_count
@@ -729,6 +740,26 @@ const APPLICATION_SELECT = `
     LEFT JOIN directions d ON d.id = t.direction_id
 `;
 
+/**
+ * Сортировка списка заявок. Колонка берётся из белого списка: подстановка
+ * пользовательской строки в ORDER BY дала бы внедрение SQL.
+ */
+function applicationSort(req: Request): string {
+  const requested = queryString(req.query.sort_by);
+  const direction = queryString(req.query.sort_dir) === 'asc' ? 'ASC' : 'DESC';
+  const allowed: Record<string, string> = {
+    created_at: 'a.created_at',
+    submitted_at: 'a.submitted_at',
+    public_number: 'a.public_number',
+    team_name: 't.name',
+    tech_status: 'a.tech_status',
+    participants_count: 'participants_count',
+    materials_count: 'materials_count',
+  };
+  const column = requested ? allowed[requested] : undefined;
+  return column ? `${column} ${direction} NULLS LAST` : 'a.created_at DESC';
+}
+
 // GET /api/admin/applications — список с фильтрами и постраничностью.
 router.get(
   '/applications',
@@ -736,7 +767,7 @@ router.get(
     const filter = buildApplicationFilter(req);
     const page = paginationOf(req);
     const result = await query(
-      `${APPLICATION_SELECT} ${filter.where} ORDER BY a.created_at DESC LIMIT ${page.limit} OFFSET ${page.offset}`,
+      `${APPLICATION_SELECT} ${filter.where} ORDER BY ${applicationSort(req)} LIMIT ${page.limit} OFFSET ${page.offset}`,
       filter.params
     );
     // Общее число записей нужно интерфейсу для постраничности (ТЗ 07, п. 1.4).
@@ -761,7 +792,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const filter = buildApplicationFilter(req);
     const result = await query(
-      `${APPLICATION_SELECT} ${filter.where} ORDER BY a.created_at DESC LIMIT 5000`,
+      `${APPLICATION_SELECT} ${filter.where} ORDER BY ${applicationSort(req)} LIMIT 5000`,
       filter.params
     );
     const csv = toCsv(
