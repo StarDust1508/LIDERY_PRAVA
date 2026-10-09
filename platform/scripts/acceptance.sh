@@ -392,6 +392,20 @@ MINOR_TEAM_ID=$(psql_db "SELECT team_id FROM liders.participants WHERE email='mi
 MINOR_STATUS=$(psql_db "SELECT status FROM liders.teams WHERE id=${MINOR_TEAM_ID}")
 [ "$MINOR_STATUS" = "awaiting_legal_representative_consent" ] && ok "команда получила статус «ожидает согласие законного представителя»" || bad "статус команды после отказа: ${MINOR_STATUS:-?}"
 expect "скан Приложения № 11 принимается" 201 -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/materials" -F "type=consent_legal_rep" -F "file=@/tmp/lp_acc_law.pdf;type=application/pdf"
+
+# Бланк заявки: DOCX формируется системой всегда, PDF — если установлен
+# LibreOffice с текстовым редактором. Проверка ловит случай, когда на сервере
+# стоит только ядро пакета: PDF отвечал 503, а кнопка в кабинете не работала.
+if command -v soffice >/dev/null 2>&1 || [ -x /Applications/LibreOffice.app/Contents/MacOS/soffice ]; then
+    expect "бланк заявки отдаётся в PDF" 200 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/application-form.pdf"
+    if head -c 5 "$BODY" | grep -q '%PDF-'; then
+        ok "файл бланка — PDF по сигнатуре"
+    else
+        bad "ответ не похож на PDF: $(head -c 40 "$BODY")"
+    fi
+else
+    gap "PDF бланка не проверяется: LibreOffice не установлен"
+fi
 expect "после скана заявка отправляется" 200 -b /tmp/lp_acc_minor.txt -X POST "${BASE}/api/cabinet/submit" -H 'Content-Type: application/json' -d '{"confirm_regulation":true,"image_license":true}'
 
 # ── Отправка основной заявки ─────────────────────────────────────────────────
