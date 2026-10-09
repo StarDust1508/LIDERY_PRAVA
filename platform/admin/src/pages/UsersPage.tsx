@@ -38,6 +38,11 @@ export function UsersPage({ currentUserId }: { currentUserId: number | null }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  // Блокировка — решение, которое закрывает человеку доступ: подтверждаем и
+  // требуем причину, иначе в журнале у всех блокировок один и тот же текст.
+  const [blockTarget, setBlockTarget] = useState<AdminUser | null>(null);
+  const [blockReason, setBlockReason] = useState('');
 
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
@@ -50,6 +55,9 @@ export function UsersPage({ currentUserId }: { currentUserId: number | null }) {
     setError(null);
     try {
       setUsers(await adminApi.users({ q: search.trim(), role: roleFilter }));
+      // Полный список — отдельным запросом без фильтров: он нужен счётчику
+      // «действующих администраторов» и защите от потери последнего админа.
+      setAllUsers(await adminApi.users());
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Не удалось загрузить пользователей.');
     } finally {
@@ -61,9 +69,11 @@ export function UsersPage({ currentUserId }: { currentUserId: number | null }) {
     void load();
   }, [load]);
 
+  // Счётчик считается по полному списку: при фильтре «Оператор» или поиске он
+  // показывал произвольное число, вплоть до нуля.
   const activeAdmins = useMemo(
-    () => users.filter((user) => user.role === 'admin' && user.is_active).length,
-    [users]
+    () => allUsers.filter((user) => user.role === 'admin' && user.is_active).length,
+    [allUsers]
   );
 
   async function createUser(event: React.FormEvent) {
@@ -231,7 +241,17 @@ export function UsersPage({ currentUserId }: { currentUserId: number | null }) {
                     <td className="py-3 pr-4">{user.last_login_at ? formatMoscowHuman(user.last_login_at) : 'не входил'}</td>
                     <td className="py-3 pr-4">{user.active_sessions}</td>
                     <td className="py-3">
-                      <UserActions user={user} busy={busyId === user.id} run={run} isSelf={user.id === currentUserId} />
+                      <UserActions
+                        user={user}
+                        busy={busyId === user.id}
+                        run={run}
+                        isSelf={user.id === currentUserId}
+                        onBlockRequest={(target) => {
+                          setBlockTarget(target);
+                          setBlockReason('');
+                          setError(null);
+                        }}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -251,13 +271,73 @@ export function UsersPage({ currentUserId }: { currentUserId: number | null }) {
                   {user.active_sessions}
                 </p>
                 <div className="mt-3">
-                  <UserActions user={user} busy={busyId === user.id} run={run} isSelf={user.id === currentUserId} />
+                  <UserActions
+                        user={user}
+                        busy={busyId === user.id}
+                        run={run}
+                        isSelf={user.id === currentUserId}
+                        onBlockRequest={(target) => {
+                          setBlockTarget(target);
+                          setBlockReason('');
+                          setError(null);
+                        }}
+                      />
                 </div>
               </li>
             ))}
           </ul>
         ) : null}
       </SectionCard>
+
+      {blockTarget !== null ? (
+        <SectionCard title={`Заблокировать учётную запись ${blockTarget.email}?`}>
+          <p className="text-sm text-muted">
+            Доступ в админ-панель закроется сразу, выданные сеансы завершатся. Причина попадёт в журнал действий —
+            она нужна, чтобы через месяц было понятно, почему доступ закрыли.
+          </p>
+          <div className="mt-4 max-w-measure">
+            <TextField
+              id="block-reason"
+              label="Причина блокировки"
+              value={blockReason}
+              onChange={(event) => setBlockReason(event.target.value)}
+              hint="Например: увольнение, окончание срока полномочий, решение Оргкомитета от 12 октября."
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              loading={busyId === blockTarget.id}
+              disabled={blockReason.trim().length < 3}
+              onClick={() => {
+                const target = blockTarget;
+                void run(target, async () => {
+                  await adminApi.updateUser(target.id, {
+                    is_active: false,
+                    blocked_reason: blockReason.trim(),
+                  });
+                  return `${target.email} заблокирована, выданные сеансы завершены.`;
+                }).then(() => {
+                  setBlockTarget(null);
+                  setBlockReason('');
+                });
+              }}
+            >
+              Заблокировать
+            </Button>
+            <Button
+              type="button"
+              variant="quiet"
+              onClick={() => {
+                setBlockTarget(null);
+                setBlockReason('');
+              }}
+            >
+              Отменить
+            </Button>
+          </div>
+        </SectionCard>
+      ) : null}
     </div>
   );
 }
@@ -267,11 +347,14 @@ function UserActions({
   busy,
   run,
   isSelf,
+  onBlockRequest,
 }: {
   user: AdminUser;
   busy: boolean;
   run: (user: AdminUser, action: () => Promise<string>) => Promise<void>;
   isSelf: boolean;
+  /** Открыть подтверждение блокировки: причина вводится в диалоге. */
+  onBlockRequest: (user: AdminUser) => void;
 }) {
   const nextRole: AdminUserRole = user.role === 'admin' ? 'operator' : 'admin';
 
@@ -300,16 +383,16 @@ function UserActions({
         disabled={user.is_active && isSelf}
         className={user.is_active ? 'border-danger text-danger' : undefined}
         title={user.is_active && isSelf ? 'Нельзя заблокировать собственную учётную запись' : undefined}
-        onClick={() =>
+        onClick={() => {
+          if (user.is_active) {
+            onBlockRequest(user);
+            return;
+          }
           void run(user, async () => {
-            if (user.is_active) {
-              await adminApi.updateUser(user.id, { is_active: false, blocked_reason: 'Решение Оргкомитета' });
-              return `${user.email} заблокирована, выданные сеансы завершены.`;
-            }
             await adminApi.updateUser(user.id, { is_active: true });
             return `${user.email} разблокирована.`;
-          })
-        }
+          });
+        }}
       >
         {user.is_active ? 'Заблокировать' : 'Разблокировать'}
       </Button>

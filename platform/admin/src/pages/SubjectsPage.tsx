@@ -39,6 +39,10 @@ const REQUEST_STATUSES = [
   { value: 'refused', title: 'Отказано' },
 ];
 
+// Отдельный фильтр «просроченные»: срок ответа 10 рабочих дней, и нарушение
+// срока — юридически значимый факт, его нужно видеть списком.
+const REQUEST_FILTERS = [...REQUEST_STATUSES, { value: 'overdue', title: 'Просроченные' }];
+
 export function SubjectsPage() {
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<AdminPdnSubject[]>([]);
@@ -46,7 +50,16 @@ export function SubjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [details, setDetails] = useState<{ subject: AdminPdnSubject; rows: Array<[string, string]> } | null>(null);
+  const [details, setDetails] = useState<{
+    subject: AdminPdnSubject;
+    rows: Array<[string, string]>;
+    // Право на доступ — это и согласия, и материалы: API их отдаёт, а панель
+    // показывала только сведения о человеке.
+    consents: Array<Record<string, unknown>>;
+    /** Матрица согласия на распространение по категориям (Приложение № 12). */
+    distribution: Array<Record<string, unknown>>;
+    materials: Array<Record<string, unknown>>;
+  } | null>(null);
 
   const [requests, setRequests] = useState<AdminPdnRequest[]>([]);
   const [newKind, setNewKind] = useState('access');
@@ -108,7 +121,16 @@ export function SubjectsPage() {
       const rows: Array<[string, string]> = Object.entries(data.person)
         .filter(([, value]) => value !== null && value !== undefined && value !== '')
         .map(([key, value]) => [key, String(value)]);
-      setDetails({ subject, rows });
+      setDetails({
+        subject,
+        rows,
+        consents: (data.consents ?? []) as Array<Record<string, unknown>>,
+        distribution: ((data as { distribution?: Array<Record<string, unknown>> }).distribution ??
+          []) as Array<Record<string, unknown>>,
+        materials: ((data as { materials?: Array<Record<string, unknown>> }).materials ?? []) as Array<
+          Record<string, unknown>
+        >,
+      });
     } catch (caught) {
       setError(caught instanceof AdminApiError ? caught.message : 'Сведения недоступны.');
     } finally {
@@ -317,8 +339,69 @@ export function SubjectsPage() {
                           </div>
                         ))}
                       </dl>
+                      {details.consents.length > 0 ? (
+                        <>
+                          <p className="mono-label mt-4 text-muted">Согласия</p>
+                          <ul className="mt-2 flex flex-col gap-2 text-sm">
+                            {details.consents.map((consent, index) => (
+                              <li key={`consent-${index}`} className="border-b border-border pb-2">
+                                {String(consent.document_title ?? consent.document_code ?? 'согласие')}
+                                {' · версия '}
+                                {String(consent.document_version ?? '—')}
+                                {' · принято '}
+                                {consent.accepted_at ? formatMoscowHuman(String(consent.accepted_at)) : '—'}
+                                {consent.revoked_at ? (
+                                  <span className="text-danger">
+                                    {' · отозвано '}
+                                    {formatMoscowHuman(String(consent.revoked_at))}
+                                  </span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+
+                      {details.distribution.length > 0 ? (
+                        <>
+                          <p className="mono-label mt-4 text-muted">Согласие на распространение (Приложение № 12)</p>
+                          <ul className="mt-2 flex flex-col gap-2 text-sm">
+                            {details.distribution.map((row, index) => (
+                              <li key={`distribution-${index}`} className="flex flex-wrap gap-3 border-b border-border pb-2">
+                                <span className="font-mono text-muted">{String(row.category_code ?? '—')}</span>
+                                <span>
+                                  {row.allowed === true
+                                    ? 'разрешено'
+                                    : row.allowed === false
+                                      ? 'не разрешено'
+                                      : 'не отмечено'}
+                                </span>
+                                {row.decided_at ? (
+                                  <span className="text-muted">{formatMoscowHuman(String(row.decided_at))}</span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+
+                      {details.materials.length > 0 ? (
+                        <>
+                          <p className="mono-label mt-4 text-muted">Конкурсные материалы</p>
+                          <ul className="mt-2 flex flex-col gap-2 text-sm">
+                            {details.materials.map((material, index) => (
+                              <li key={`material-${index}`}>
+                                {String(material.type ?? 'материал')}
+                                {material.status ? ` · ${String(material.status)}` : ''}
+                                {material.created_at ? ` · ${formatMoscowHuman(String(material.created_at))}` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+
                       <p className="mt-3 text-sm text-muted">
-                        Исправление данных выполняется в разделах «Заявки», «Команды» и «Участники»: правка здесь
+                        Исправление данных выполняется в разделах «Заявки», «Команды» и «Материалы»: правка здесь
                         запрещена, чтобы персональные данные не менялись в обход карточки заявки.
                       </p>
                     </div>
@@ -406,7 +489,7 @@ export function SubjectsPage() {
               label="Состояние"
               value={requestFilter}
               onChange={(event) => setRequestFilter(event.target.value)}
-              options={REQUEST_STATUSES}
+              options={REQUEST_FILTERS}
               placeholder="Все"
             />
           </div>

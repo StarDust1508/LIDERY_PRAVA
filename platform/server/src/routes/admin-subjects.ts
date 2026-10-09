@@ -391,7 +391,11 @@ router.get(
     const status = queryString(req.query.status);
     const params: unknown[] = [];
     let where = '';
-    if (status && (REQUEST_STATUSES as readonly string[]).includes(status)) {
+    if (status === 'overdue') {
+      // Нарушение срока ответа — отдельный фильтр: по ст. 20 152-ФЗ срок
+      // считается в 10 рабочих дней от получения обращения.
+      where = "WHERE r.due_at IS NOT NULL AND r.due_at < now() AND r.status IN ('new', 'in_progress')";
+    } else if (status && (REQUEST_STATUSES as readonly string[]).includes(status)) {
       params.push(status);
       where = 'WHERE r.status = $1';
     }
