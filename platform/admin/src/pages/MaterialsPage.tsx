@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
+import { CheckboxField,
   AdminApiError,
   type AdminMaterial,
   adminApi,
@@ -118,6 +118,10 @@ export function MaterialsPage() {
   // Блокировка содержания: причина вводится в форме — системное окно не
   // объясняет последствий и легко закрывается по Esc.
   const [blockTarget, setBlockTarget] = useState<AdminMaterial | null>(null);
+  // Группировка по заявке: сервер сортирует материалы по заявке, а панель
+  // показывала плоский список — непонятно, где заканчивается комплект одной
+  // команды и начинается другой.
+  const [groupByApplication, setGroupByApplication] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -379,6 +383,13 @@ export function MaterialsPage() {
         description={`Найдено материалов: ${total}. На странице: ${rows.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}); выбрано: ${selected.size}.`}
       >
         <form className="grid gap-4 md:grid-cols-[2fr,1fr,1fr,auto]" onSubmit={applySearch}>
+          <CheckboxField
+            id="materials-group"
+            label="Группировать по заявке"
+            checked={groupByApplication}
+            onChange={setGroupByApplication}
+            hint="Комплекты разных команд разделяются заголовками."
+          />
           <TextField
             id="materials-search"
             label="Поиск по команде или файлу"
@@ -616,12 +627,32 @@ export function MaterialsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((material) => {
+                  {visible.map((material, index) => {
                     const draft = fixFor(material);
                     const typeTitle = materialTypeTitle(material.type);
                     const deadlinePassed =
                       material.fix_deadline !== null && new Date(material.fix_deadline).getTime() < Date.now();
+                    // Заголовок группы: сервер сортирует материалы по заявке,
+                    // поэтому смена заявки в списке — граница комплекта.
+                    const previous = index > 0 ? (visible[index - 1] ?? null) : null;
+                    const startsGroup =
+                      groupByApplication && (previous === null || previous.application_id !== material.application_id);
                     return (
+                      <>
+                      {startsGroup ? (
+                        <tr key={`group-${material.application_id}`} className="bg-sand">
+                          <td colSpan={9} className="py-2 pr-4">
+                            <span className="mono-label text-muted">Заявка</span>{' '}
+                            <Link
+                              to={`/applications/${material.application_id}`}
+                              className="text-accent underline underline-offset-2"
+                            >
+                              {teamName(material.team_id)}
+                              {material.public_number ? ` · ${material.public_number}` : ''}
+                            </Link>
+                          </td>
+                        </tr>
+                      ) : null}
                       <tr key={material.id} className="border-b border-border align-top">
                         <td className="py-3 pr-3">
                           <input
@@ -790,6 +821,7 @@ export function MaterialsPage() {
                           ) : null}
                         </td>
                       </tr>
+                      </>
                     );
                   })}
                 </tbody>

@@ -826,6 +826,8 @@ export interface AdminStats {
   teams_by_status: Array<{ status: string; count: number }>;
   /** Команды по этапам: сколько дошло и сколько прошло дальше (ТЗ 07, п. 2.1). */
   teams_by_stage?: Array<{ stage: string; total: number; advanced: number }>;
+  /** Команды по направлениям конкурса: востребованность направлений. */
+  teams_by_direction?: Array<{ direction_title: string; total: number; advanced: number }>;
   applications_by_status: Array<{ tech_status: string; count: number }>;
   leads_by_status: Array<{ status: string; count: number }>;
   materials_by_status: Array<{ status: string; count: number }>;

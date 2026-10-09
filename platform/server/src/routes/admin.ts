@@ -3085,6 +3085,20 @@ router.get(
       `SELECT status, count(*)::int AS count FROM teams ${teamWhere} GROUP BY status ORDER BY status`,
       teamParams
     );
+    // Команды по направлениям: видно, какие направления востребованы, а какие
+    // остались без заявок (ТЗ 07, п. 2.1).
+    const teamsByDirection = await query(
+      `SELECT COALESCE(d.title, 'Направление не выбрано') AS direction_title,
+              count(*)::int AS total,
+              count(*) FILTER (WHERE t.status IN ('allowed', 'stage1', 'finalist', 'final', 'winner'))::int AS advanced
+         FROM teams t
+         LEFT JOIN directions d ON d.id = t.direction_id
+        WHERE $1::int IS NULL OR t.season_id = $1
+        GROUP BY COALESCE(d.title, 'Направление не выбрано')
+        ORDER BY total DESC, direction_title`,
+      [seasonId]
+    );
+
     // Команды по этапам (ТЗ 07, п. 2.1): сколько команд прошло отбор, первый
     // этап и финал. Раньше блок назывался «по этапам», а показывал статусы.
     const teamsByStage = await query(
@@ -3186,6 +3200,7 @@ router.get(
     res.json({
       teams_by_status: teamsByStatus.rows,
       teams_by_stage: teamsByStage.rows,
+      teams_by_direction: teamsByDirection.rows,
       applications_by_status: applications.rows,
       leads_by_status: leads.rows,
       materials_by_status: materials.rows,

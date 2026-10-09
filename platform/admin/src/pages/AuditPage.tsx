@@ -65,6 +65,30 @@ const ACTION_TITLES: Record<string, string> = {
   expert_access_revoked: 'Доступ эксперта отозван',
 };
 
+/**
+ * Действия, которые при разборе инцидента смотрят первыми: блокировки, отказы,
+ * обезличивание, смена паролей и настроек. Подсвечиваем их в списке — иначе
+ * важная запись теряется среди рутинных изменений.
+ */
+const SENSITIVE_ACTIONS = [
+  'disqualif',
+  'pdn_erase',
+  'pdn_export',
+  'password',
+  'blocked',
+  'reject',
+  'unpublish',
+  'revoke',
+  'role',
+  'setting_update',
+  'user_',
+];
+
+function isSensitive(action: unknown): boolean {
+  const code = String(action ?? '').toLowerCase();
+  return SENSITIVE_ACTIONS.some((marker) => code.includes(marker));
+}
+
 /** Подпись действия: известные коды переводим, остальные показываем как есть. */
 function actionTitle(action: unknown): string {
   const code = String(action ?? '');
@@ -168,7 +192,7 @@ export function AuditPage() {
 
       <SectionCard
         title="Фильтры"
-        description={`Найдено записей: ${total}. На странице: ${records.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}).`}
+        description={`Найдено записей: ${total}. На странице: ${records.length} (с ${total === 0 ? 0 : (page - 1) * perPage + 1} по ${Math.min(page * perPage, total)}). Записи с отметкой «●» стоит смотреть при разборе: блокировки, обезличивание, смена паролей, ролей и настроек.`}
       >
         <form
           className="grid gap-4 md:grid-cols-[1fr,1fr,auto]"
@@ -255,12 +279,22 @@ export function AuditPage() {
                 </thead>
                 <tbody>
                   {records.map((record) => (
-                    <tr key={record.id} className="border-b border-border align-top">
+                    <tr
+                      key={record.id}
+                      className={`border-b border-border align-top${
+                        isSensitive(record.action) ? ' bg-sand' : ''
+                      }`}
+                    >
                       <td className="py-2 pr-4">{formatMoscowHuman(record.created_at)}</td>
                       <td className="py-2 pr-4">
                         {record.user_name ?? record.actor_label ?? record.actor_type}
                       </td>
                       <td className="py-2 pr-4 text-sm" title={String(record.action ?? '')}>
+                        {isSensitive(record.action) ? (
+                          <span className="mr-2 text-warning" aria-label="Требует внимания при разборе">
+                            ●
+                          </span>
+                        ) : null}
                         {actionTitle(record.action)}
                       </td>
                       <td className="py-2 pr-4">

@@ -1329,6 +1329,19 @@ print('ok' if names == sorted(names) else 'no: ' + ' | '.join(names))
 [ "$APPLICATIONS_SORTED" = "ok" ] && ok "список заявок сортируется по названию команды" || bad "сортировка заявок: $APPLICATIONS_SORTED"
 
 
+# Сводка: распределение команд по направлениям и этапам (ТЗ 07, п. 2.1).
+STATS_BREAKDOWN=$(curl -s -H "$AUTH" "${BASE}/api/admin/stats" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+d = d.get('data', d)
+has_direction = isinstance(d.get('teams_by_direction'), list)
+has_stage = isinstance(d.get('teams_by_stage'), list)
+print('ok' if has_direction and has_stage else 'no')
+" 2>/dev/null || echo error)
+[ "$STATS_BREAKDOWN" = "ok" ] && ok "сводка отдаёт команды по направлениям и этапам" || bad "разрезы сводки: $STATS_BREAKDOWN"
+
+
+
 # Выгрузка всей выборки в универсальных разделах: список отдаёт страницу,
 # поэтому файл «по экрану» получался неполным (ТЗ 07, п. 1.8).
 EXPORT_ALL=$(curl -s -H "$AUTH" "${BASE}/api/admin/documents/export" | python3 -c "

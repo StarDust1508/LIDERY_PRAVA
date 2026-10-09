@@ -136,6 +136,7 @@ export function DashboardPage() {
 
   const teamsByStatus = stats?.teams_by_status ?? [];
   const teamsByStage = stats?.teams_by_stage ?? [];
+  const teamsByDirection = stats?.teams_by_direction ?? [];
   const teamsTotal = teamsByStatus.reduce((sum, row) => sum + row.count, 0);
 
   const rankingsByStage = stats?.rankings_by_stage ?? [];
@@ -177,6 +178,53 @@ export function DashboardPage() {
             ) : null}
             <Button variant="secondary" onClick={() => void load()} loading={loading}>
               Обновить
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={stats === null}
+              onClick={() => {
+                // Выгрузка сводки: цифры нужны для отчёта Оргкомитета, а не
+                // только для чтения на экране (ТЗ 07, п. 2.1).
+                const lines: string[][] = [['Раздел', 'Показатель', 'Значение']];
+                for (const row of stats?.teams_by_status ?? []) {
+                  lines.push(['Команды по статусам', teamStatusTitle(row.status), String(row.count)]);
+                }
+                for (const row of stats?.teams_by_stage ?? []) {
+                  lines.push([
+                    'Команды по этапам',
+                    evaluationStageTitle(row.stage),
+                    `${row.total}, прошло дальше ${row.advanced}`,
+                  ]);
+                }
+                for (const row of stats?.teams_by_direction ?? []) {
+                  lines.push(['Команды по направлениям', row.direction_title, `${row.total}, прошло дальше ${row.advanced}`]);
+                }
+                for (const row of stats?.applications_by_status ?? []) {
+                  lines.push([
+                    'Заявки по статусам',
+                    TECH_STATUS_TITLES[row.tech_status] ?? row.tech_status,
+                    String(row.count),
+                  ]);
+                }
+                for (const row of stats?.materials_by_status ?? []) {
+                  lines.push(['Материалы по статусам', row.status, String(row.count)]);
+                }
+                for (const row of stats?.leads_by_status ?? []) {
+                  lines.push(['Обращения по статусам', row.status, String(row.count)]);
+                }
+                const csv = lines
+                  .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(';'))
+                  .join('\n');
+                const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `svodka-${new Date().toISOString().slice(0, 10)}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Выгрузить сводку
             </Button>
           </div>
         }
@@ -424,6 +472,30 @@ export function DashboardPage() {
                         <span className="mono-label text-accent">{row.count}</span>
                       </span>
                     </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Команды по направлениям"
+            description="Востребованность направлений конкурса: сколько команд выбрало каждое и сколько прошло дальше."
+          >
+            {teamsByDirection.length === 0 ? (
+              <p className="text-sm text-muted">Команды ещё не выбрали направления.</p>
+            ) : (
+              <ul className="flex flex-col">
+                {teamsByDirection.map((row) => (
+                  <li
+                    key={row.direction_title}
+                    className="flex flex-wrap items-baseline justify-between gap-4 border-b border-border py-3 last:border-b-0"
+                  >
+                    <span className="max-w-measure">{row.direction_title}</span>
+                    <span className="flex items-center gap-4">
+                      <span className="mono-label text-muted">команд: {row.total}</span>
+                      <span className="mono-label text-accent">прошли дальше: {row.advanced}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
