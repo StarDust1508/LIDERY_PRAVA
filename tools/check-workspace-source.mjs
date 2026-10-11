@@ -63,10 +63,14 @@ const bundleIn = (html) => (html.match(/assets\/index-[A-Za-z0-9_-]+\.js/) || [n
 
 // 1. Каталог запуска совпадает с каталогом выпуска.
 const cwd = real(process.cwd());
-if (cwd !== real(ACTUAL_ROOT)) {
-  problems.push(`запуск из ${cwd}, а выпуск идёт из ${real(ACTUAL_ROOT)} — перейдите в каталог выпуска`);
+const root = real(ACTUAL_ROOT);
+// Запускать можно из корня выпуска или из любого его подкаталога (npm run
+// check:source из пакета). Любая другая копия проекта — ошибка.
+const insideRoot = cwd === root || (cwd !== null && cwd.startsWith(root + path.sep));
+if (!insideRoot) {
+  problems.push(`запуск из ${cwd}, а выпуск идёт из ${root} — перейдите в каталог выпуска`);
 } else {
-  notes.push(`каталог: ${cwd}`);
+  notes.push(`каталог: ${root}${cwd === root ? '' : ` (запуск из ${cwd})`}`);
 }
 const hasGit = fs.existsSync(path.join(ACTUAL_ROOT, '.git'));
 if (serverMode && !hasGit) notes.push('режим сервера: исходники из tar, git-проверки пропущены');
