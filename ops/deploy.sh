@@ -54,9 +54,15 @@ run() {
 step "0/5 Источник выпуска"
 if [ -f "$REPO_DIR/tools/check-workspace-source.mjs" ]; then
     if command -v node >/dev/null 2>&1; then
-        ( cd "$REPO_DIR" && node tools/check-workspace-source.mjs --allow-dirty ) || fail "проверка источника не пройдена"
+        # На сервере исходники распакованы из tar (нет .git и нет dist) —
+        # проверяем состав файлов; на рабочей машине — ещё ветку и сборку.
+        if [ -d "$REPO_DIR/.git" ]; then
+            ( cd "$REPO_DIR" && node tools/check-workspace-source.mjs --allow-dirty ) || fail "проверка источника не пройдена"
+        else
+            ( cd "$REPO_DIR" && node tools/check-workspace-source.mjs --server ) || fail "проверка источника не пройдена"
+        fi
     else
-        note "node не найден — проверку источника пропускаю (на сервере сборка из tar)"
+        note "node не найден — проверку источника пропускаю"
     fi
 else
     note "предохранитель tools/check-workspace-source.mjs не найден — пропускаю"

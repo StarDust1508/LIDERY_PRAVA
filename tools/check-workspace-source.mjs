@@ -11,6 +11,9 @@
 //   node tools/check-workspace-source.mjs                  — перед работой
 //   node tools/check-workspace-source.mjs --against-prod    — перед выпуском
 //   node tools/check-workspace-source.mjs --allow-dirty     — если правки ещё не в коммите
+//   node tools/check-workspace-source.mjs --server          — сборка на сервере из tar:
+//                                                             git-проверки и dist пропускаются,
+//                                                             ключевые файлы проверяются
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,6 +39,9 @@ const REQUIRED = [
 
 const problems = [];
 const notes = [];
+// Сервер собирает из распакованного tar: ни .git, ни готового dist там нет —
+// проверяем только состав исходников (он и ловит устаревшую версию).
+const serverMode = process.argv.includes('--server');
 const real = (p) => {
   try {
     return fs.realpathSync(p);
@@ -62,19 +68,19 @@ if (cwd !== real(ACTUAL_ROOT)) {
 } else {
   notes.push(`каталог: ${cwd}`);
 }
+const hasGit = fs.existsSync(path.join(ACTUAL_ROOT, '.git'));
+if (serverMode && !hasGit) notes.push('режим сервера: исходники из tar, git-проверки пропущены');
 
 // 2. Ветка и удалённый репозиторий.
-const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-const commit = git(['rev-parse', '--short', 'HEAD']);
-if (branch.out !== BRANCH) problems.push(`ветка ${branch.out || '(нет)'}, ожидается ${BRANCH}`);
-const remote = git(['remote', 'get-url', 'origin']);
-if (!remote.out.includes(REMOTE_MATCH)) problems.push(`origin = ${remote.out || '(нет)'}, ожидается репозиторий ${REMOTE_MATCH}`);
-notes.push(`ветка ${branch.out}, коммит ${commit.out}`);
-
-// 3. Это корень репозитория, а не вложенная копия.
-if (!fs.existsSync(path.join(ACTUAL_ROOT, '.git'))) problems.push('в каталоге выпуска нет .git — это не рабочая копия репозитория');
-if (real(path.join(process.cwd(), '.git')) === null && cwd === real(ACTUAL_ROOT)) {
-  problems.push('каталог запуска не является git-корнем');
+if (hasGit) {
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  const commit = git(['rev-parse', '--short', 'HEAD']);
+  if (branch.out !== BRANCH) problems.push(`ветка ${branch.out || '(нет)'}, ожидается ${BRANCH}`);
+  const remote = git(['remote', 'get-url', 'origin']);
+  if (!remote.out.includes(REMOTE_MATCH)) problems.push(`origin = ${remote.out || '(нет)'}, ожидается репозиторий ${REMOTE_MATCH}`);
+  notes.push(`ветка ${branch.out}, коммит ${commit.out}`);
+} else if (!serverMode) {
+  problems.push('в каталоге выпуска нет .git — это не рабочая копия репозитория (для сборки из tar запускайте с --server)');
 }
 
 // 4. Ключевые файлы текущей версии.
@@ -95,7 +101,7 @@ for (const { file, markers } of REQUIRED) {
 }
 
 // 5. Незакоммиченные правки: выпускать из рабочей копии нельзя.
-const status = git(['status', '--porcelain']);
+const status = hasGit ? git(['status', '--porcelain']) : { ok: true, out: '' };
 if (status.out && !process.argv.includes('--allow-dirty')) {
   problems.push(`в рабочей копии есть незакоммиченные изменения — закоммитьте или запустите с --allow-dirty:\n${status.out}`);
 } else if (status.out) {
@@ -105,8 +111,13 @@ if (status.out && !process.argv.includes('--allow-dirty')) {
 // 6. Сборка и (по флагу) сверка с продом.
 const indexHtml = path.join(ACTUAL_ROOT, DIST_INDEX);
 const localBundle = fs.existsSync(indexHtml) ? bundleIn(fs.readFileSync(indexHtml, 'utf8')) : null;
-if (!localBundle) problems.push(`нет ${DIST_INDEX} или в нём нет ссылки на бандл — сначала сборка web`);
-console.log(`  бандл локально: ${localBundle || '(нет)'}`);
+if (!localBundle && !serverMode) {
+  problems.push(`нет ${DIST_INDEX} или в нём нет ссылки на бандл — сначала сборка web`);
+} else if (!localBundle) {
+  notes.push('режим сервера: бандл собирается на месте, проверка dist пропущена');
+} else {
+  console.log(`  бандл локально: ${localBundle}`);
+}
 
 if (process.argv.includes('--against-prod')) {
   try {
