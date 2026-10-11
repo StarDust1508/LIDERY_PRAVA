@@ -164,27 +164,34 @@ export function CheckboxField({ id, label, checked, onChange, error, hint }: Che
   const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined;
   return (
     <div className="flex flex-col gap-2">
+      {/* Галочка выровнена по центру первой строки подписи: квадрат 24 px
+          (--s-5) стоит в строке такой же высоты, line-height подписи — те же
+          24 px. Раньше у квадрата стоял отступ mt-1, и рамка уезжала ниже
+          строки на 4–5 px, а подсказка начиналась под квадратом, а не под
+          текстом подписи (24 px квадрата + 12 px зазора = 36 px). */}
       <div className="flex items-start gap-3">
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-          className="mt-1 h-5 w-5 min-w-[20px] accent-[var(--accent-solid)]"
-        />
-        <label htmlFor={id} className="text-sm text-fg">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+          <input
+            id={id}
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => onChange(event.target.checked)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            className="h-5 w-5 min-w-[20px] accent-[var(--accent-solid)]"
+          />
+        </span>
+        <label htmlFor={id} className="text-sm leading-6 text-fg">
           {label}
         </label>
       </div>
       {hint ? (
-        <p id={`${id}-hint`} className="pl-8 text-sm text-muted">
+        <p id={`${id}-hint`} className="pl-[36px] text-sm text-muted">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="pl-8 text-sm text-danger">
+        <p id={`${id}-error`} role="alert" className="pl-[36px] text-sm text-danger">
           {error}
         </p>
       ) : null}

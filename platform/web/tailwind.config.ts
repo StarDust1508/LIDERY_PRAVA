@@ -5,7 +5,10 @@ import type { Config } from 'tailwindcss';
 // только даёт им имена: смена оформления — это замена значений переменных,
 // структура классов и компонентов при этом не меняется.
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}', '../shared/src/**/*.ts'],
+  // Разметка общей библиотеки лежит в .tsx: без этого расширения Tailwind не
+  // видел классы из shared/src/ui.tsx и утилиты вроде pl-8, h-5, w-5 в
+  // публичную сборку не попадали — отсюда съехавшие подписи и отступы.
+  content: ['./index.html', './src/**/*.{ts,tsx}', '../shared/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

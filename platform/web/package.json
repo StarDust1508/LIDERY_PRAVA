@@ -5,8 +5,10 @@
   "type": "module",
   "description": "Публичная сборка платформы конкурса «Лидеры права – 2027»: мастер подачи заявки и личный кабинет",
   "scripts": {
-    "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/prerender.mjs",
+    "check:release": "node ../../tools/check-workspace-source.mjs --against-prod",
+    "check:source": "node ../../tools/check-workspace-source.mjs",
+    "dev": "vite",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

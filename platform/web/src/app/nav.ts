@@ -104,6 +104,9 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       { title: 'Политика cookie', path: '/legal/cookies' },
       { title: 'Пользовательское соглашение', path: '/legal/terms' },
       { title: 'Регламент Жюри', path: '/legal/jury-regulations' },
+      // Полное название политики остаётся в юридической строке подвала; в
+      // колонке-карте сайта подпись короткая — иначе она рвётся на две строки
+      // и колонка выглядит неопрятно на фоне соседних.
     ],
   },
   {
@@ -241,7 +244,7 @@ export const FOOTER_GROUPS: readonly FooterGroup[] = [
     links: [
       { title: 'Документы и приложения', path: '/documents' },
       { title: 'Оферта', path: '/legal/offer' },
-      { title: 'Политика обработки персональных данных', path: '/legal/privacy' },
+      { title: 'Политика обработки данных', path: '/legal/privacy' },
       { title: 'Согласие на обработку данных', path: '/legal/pdn-consent' },
       { title: 'Согласие законного представителя', path: '/legal/pdn-consent-minor' },
       { title: 'Согласие на распространение', path: '/legal/distribution-consent' },
@@ -249,6 +252,9 @@ export const FOOTER_GROUPS: readonly FooterGroup[] = [
       { title: 'Политика cookie', path: '/legal/cookies' },
       { title: 'Пользовательское соглашение', path: '/legal/terms' },
       { title: 'Регламент Жюри', path: '/legal/jury-regulations' },
+      // Полное название политики остаётся в юридической строке подвала; в
+      // колонке-карте сайта подпись короткая — иначе она рвётся на две строки
+      // и колонка выглядит неопрятно на фоне соседних.
     ],
   },
 ] as const;

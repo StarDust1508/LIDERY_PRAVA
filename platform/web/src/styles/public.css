@@ -17,6 +17,20 @@
    остаются в силе, а эти их дополняют. Значения — из токенов прежнего сайта.
    ========================================================================== */
 
+/* Приглушённый текст: в прежней вёрстке последним объявлен --ink-60 с
+   прозрачностью 0.6 — на бумаге это 4,0:1, ниже нормы WCAG AA (4,5:1) для
+   кегля меньше 18 px. Возвращаем 0,7 — 5,2:1, как в первом объявлении. */
+.site {
+  --ink-60: rgba(44, 39, 34, 0.7);
+}
+
+/* Строки «подпись — значение» (критерии, документы, списки материалов): если
+   длинная подпись выталкивает значение на новую строку, оно остаётся в правой
+   колонке, а не прилипает к левому краю. */
+.site main [class*='justify-between'] > :last-child {
+  margin-left: auto;
+}
+
 /* ── 1. Каркас публичной страницы ───────────────────────────────────────────── */
 
 .site main {
@@ -1041,15 +1055,27 @@
   margin-top: 0;
 }
 
-/* Плитки преимуществ: пять карточек в трёх колонках оставляли пустую ячейку —
-   сетка сама подбирает число колонок и растягивает последний ряд. */
+/* Плитки преимуществ: сетка сама подбирает число колонок, а карточки больше
+   не наследуют легаси-раскладку из двенадцати колонок.
+   Раньше шаблон колонок здесь переопределялся на auto-fit, а `grid-column:
+   span 4` из прежней вёрстки оставался — при четырёх колонках карточка
+   занимала всю строку: блок «Что вы получите» выстраивался в один столбец, а
+   фотография наставника растягивалась на 1109 px. */
 .site .benefits-grid {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(0.9rem, 1.4vw, 1.2rem);
+  background: transparent;
+  border: 0;
 }
 
-/* В блоках этапов карточек три — им нужна ровная тройка на широком экране. */
-.site #stages .benefits-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+.site .benefits-grid > .bcard {
+  grid-column: auto;
+  border: 1px solid var(--line);
+}
+
+/* Числовые значения в строках-списках не переносятся по слогам. */
+.site main [class*='justify-between'] > .font-mono {
+  white-space: nowrap;
 }
 
 /* ── 6. Состояния загрузки и пустые списки ─────────────────────────────────── */
@@ -1437,14 +1463,20 @@
   aspect-ratio: 3 / 2;
 }
 
-.site .hero-photo-band .tag {
+/* Подпись кадра: вместо blend-mode difference (на красном фото контраст падал
+   до 1,3:1 и текст не читался) — тёмная подложка под подписью. */
+.site .hero-photo-band .tag,
+.site .hero-photo .tag {
   position: absolute;
   left: 0.6rem;
   bottom: 0.6rem;
   z-index: 3;
+  padding: 0.22rem 0.5rem;
+  background: rgba(20, 18, 15, 0.74);
   color: #fff;
-  font-size: 0.66rem;
-  mix-blend-mode: difference;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  mix-blend-mode: normal;
 }
 
 @media (max-width: 1024px) {
@@ -1498,7 +1530,8 @@
    Теперь пропорция рамки совпадает с пропорцией кадра — обрезки нет вовсе. */
 .site .pcard .duo,
 .site .s-a .duo,
-.site .bcard-photo .duo {
+.site .bcard-photo .duo,
+.site .duo.bcard-photo {
   aspect-ratio: 3 / 2;
 }
 
@@ -1510,7 +1543,10 @@
   max-height: 400px;
 }
 
-.site .bcard-photo .duo {
+/* Кадр в плитке преимуществ: фотография ограничена рамкой карточки и не
+   разворачивается на всю ширину блока. */
+.site .bcard-photo .duo,
+.site .duo.bcard-photo {
   min-height: 0;
   max-height: 260px;
 }
@@ -1520,10 +1556,17 @@
   object-position: center 42%;
 }
 
-/* Портрет — не групповой кадр: голову держим в верхней части рамки. */
+/* Портрет — не групповой кадр: голову держим в верхней части рамки, а сама
+   рамка ниже группового кадра: квадратный портрет не занимает всю карточку. */
 .site .bcard-photo.portrait .duo img,
+.site .duo.bcard-photo.portrait img,
 .site .duo.portrait img {
-  object-position: center 18%;
+  object-position: center 20%;
+}
+
+.site .duo.bcard-photo.portrait {
+  aspect-ratio: 4 / 5;
+  max-height: 220px;
 }
 
 /* Логотипы партнёров не обрезаются никогда. */
@@ -1542,9 +1585,18 @@
 
 /* ── 10. Подвал-карта сайта ────────────────────────────────────────────────── */
 
+/* Подвал-карта сайта: последняя колонка («Документы») несёт самые длинные
+   подписи, поэтому ей отдана большая доля ширины — иначе ссылки рвутся на две
+   строки и колонка выглядит съехавшей относительно соседних. */
 .site .foot-top {
-  grid-template-columns: 1.5fr repeat(4, minmax(0, 1fr));
-  gap: clamp(1.6rem, 3vw, 3rem);
+  grid-template-columns: 1.35fr 1fr 1.05fr 1.05fr 1.45fr;
+  gap: clamp(1.4rem, 2.4vw, 2.6rem);
+  align-items: start;
+}
+
+.site .foot-col a {
+  text-wrap: pretty;
+  overflow-wrap: break-word;
 }
 
 .site .foot-col h3 {
@@ -1554,6 +1606,9 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--red-deep);
+  /* Заголовки колонок стоят на одной линии: «Результаты и медиа» занимает две
+     строки, и без запаса по высоте ссылки соседних колонок уезжали вниз. */
+  min-height: 2.4em;
   margin-bottom: 1.1rem;
 }
 
@@ -1570,6 +1625,20 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--ink-70);
+}
+
+/* Ссылка на сообщество: подпись переносится по словам, а значок остаётся в
+   строке с текстом, а не уезжает в правый край второй строки. */
+.site .fb-contacts a.fb-vk {
+  display: inline;
+}
+
+.site .fb-contacts a.fb-vk svg {
+  /* Preflight Tailwind делает svg блочным — в строке текста возвращаем
+     значок в поток: подпись и стрелка стоят на одной линии. */
+  display: inline-block;
+  vertical-align: -0.18em;
+  margin-right: 0.35rem;
 }
 
 .site .fb-contacts a:hover {
@@ -1612,7 +1681,10 @@
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-decoration: none;
-  transition: background 0.25s, color 0.25s, border-color 0.25s;
+  /* Заливка меняется мгновенно, а цвет подписи — плавно: при наведении кнопка
+     закрашивается целиком, «полузалитого» состояния не бывает. */
+  background-clip: border-box;
+  transition: color 0.25s, border-color 0.25s;
 }
 
 .site main a.btn {
@@ -1639,9 +1711,12 @@
   color: #fff;
 }
 
+/* Тень повторяет рамку тем же цветом: даже при дробном масштабе экрана между
+   заливкой и рамкой не остаётся светлой щели. */
 .site .btn-ghost:hover {
   background: var(--ink);
   border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 .site main a.btn-ghost:hover {

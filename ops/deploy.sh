@@ -48,6 +48,20 @@ run() {
 
 [ -d "$REPO_DIR/platform/server" ] || fail "не найден каталог $REPO_DIR/platform/server"
 
+# Предохранитель источника: выпуск идёт только из каталога выпуска, из нужной
+# ветки и с собранным бандлом. Незакоммиченные правки допустимы (на сервере
+# сборка идёт из tar рабочей копии), поэтому проверяем с --allow-dirty.
+step "0/5 Источник выпуска"
+if [ -f "$REPO_DIR/tools/check-workspace-source.mjs" ]; then
+    if command -v node >/dev/null 2>&1; then
+        ( cd "$REPO_DIR" && node tools/check-workspace-source.mjs --allow-dirty ) || fail "проверка источника не пройдена"
+    else
+        note "node не найден — проверку источника пропускаю (на сервере сборка из tar)"
+    fi
+else
+    note "предохранитель tools/check-workspace-source.mjs не найден — пропускаю"
+fi
+
 step "0/5 Окружение"
 if [ -f "$ENV_FILE" ]; then
     # shellcheck disable=SC1090

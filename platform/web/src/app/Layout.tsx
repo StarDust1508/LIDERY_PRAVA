@@ -182,9 +182,14 @@ export function Layout() {
                       <Phone size={16} />
                       +7 (906) 074-73-13
                     </a>
-                    <a href="https://vk.com/lideri.prava2026" target="_blank" rel="noopener noreferrer">
-                      Сообщество во «ВКонтакте»
+                    <a
+                      href="https://vk.com/lideri.prava2026"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="fb-vk"
+                    >
                       <External size={14} />
+                      Сообщество во «ВКонтакте»
                     </a>
                   </div>
                 </div>
