@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ApiError,
   LINK_ONLY_MATERIAL_TYPES,
@@ -209,11 +208,6 @@ function MaterialsSection({ data, onReload }: { data: CabinetData; onReload: () 
               style={{ width: progress.total > 0 ? `${Math.round((progress.done / progress.total) * 100)}%` : '0%' }}
             />
           </div>
-          <p className="text-sm">
-            <Link to="/cabinet" className="text-accent underline underline-offset-2">
-              Вернуться к сводке личного кабинета
-            </Link>
-          </p>
         </div>
       </CabinetSection>
 

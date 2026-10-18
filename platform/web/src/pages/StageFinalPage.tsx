@@ -11,6 +11,7 @@ import { ActionLink, PageHeader, Prose, ResponsiveTable, Section } from '@/compo
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
 import { formatPeriod, useOrganizerText } from './StagesPage';
+import { NOMINATIONS } from '@/content/nominations';
 
 // Второй (финальный) этап (ТЗ 02, п. 3, 5.3 и 6.3; ТЗ 08, п. 2.1).
 //
@@ -137,10 +138,31 @@ export function StageFinalPage() {
             Участники выстраиваются перед Жюри, которые могут задать вопрос любому из участников.
           </li>
           <li>
-            Награждение: объявление победителей в номинациях «Лидеры права», «Наставник Лидеров права» и «Лучший
-            оратор».
+            Награждение: объявление победителей и призёров в номинациях, установленных пунктом 11.1 Положения, —
+            полный список в блоке «Номинации» ниже.
           </li>
         </ol>
+      </Section>
+
+      {/* Номинации — пункт 11.1 Положения. Раньше здесь были перечислены только
+          три номинации из шести: «Лидеры права», «Наставник Лидеров права» и
+          «Лучший оратор». Призовые места в командном зачёте и «Приз зрительских
+          симпатий» в списке отсутствовали. */}
+      <Section title="Номинации" description="Пункт 11.1 Положения: шесть номинаций конкурса.">
+        <ul className="flex flex-col gap-4 text-sm">
+          {NOMINATIONS.map((nomination, index) => (
+            <li
+              key={nomination.code}
+              className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0 md:flex-row md:items-baseline md:justify-between md:gap-6"
+            >
+              <span className="flex items-baseline gap-3">
+                <span className="mono-label text-muted">{String(index + 1).padStart(2, '0')}</span>
+                <span className="font-medium">«{nomination.title}»</span>
+              </span>
+              <span className="max-w-measure text-muted md:text-right">{nomination.condition}</span>
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section

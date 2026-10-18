@@ -92,7 +92,7 @@ export function Layout() {
         <header className="topbar">
           <div className="wrap topbar-inner">
             <Link to="/" className="topbar-mark" aria-label="Лидеры права, на главную">
-              <img src="/assets/logo.jpg" alt="" width={32} height={32} />
+              <img src="/assets/logo-mark.png" alt="" width={32} height={32} />
               <span className="topbar-word">Лидеры&nbsp;права</span>
             </Link>
 
@@ -165,7 +165,7 @@ export function Layout() {
               <div className="foot-top">
                 <div className="foot-brand">
                   <Link to="/" className="fb-mark">
-                    <img src="/assets/logo.jpg" alt="" width={36} height={36} />
+                    <img src="/assets/logo-mark.png" alt="" width={36} height={36} />
                     Лидеры&nbsp;права
                   </Link>
                   <p>

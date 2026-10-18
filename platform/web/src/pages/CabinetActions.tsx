@@ -720,7 +720,7 @@ function CabinetToolbar({
             </Button>
           </div>
           <p className="text-sm text-muted">
-            Если на сервере нет LibreOffice, PDF недоступен — появится сообщение выше, скачайте DOCX.
+            Если PDF не откроется, скачайте бланк в DOCX — данные в нём те же.
           </p>
         </div>
       </section>

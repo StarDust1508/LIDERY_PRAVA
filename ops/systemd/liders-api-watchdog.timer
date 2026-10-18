@@ -1,0 +1,11 @@
+[Unit]
+Description=Проверять API «Лидеры права» каждые 2 минуты
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Unit=liders-api-watchdog.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=Lidery Prava API watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/liders-api-watchdog.sh

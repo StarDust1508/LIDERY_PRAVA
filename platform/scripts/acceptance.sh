@@ -782,6 +782,76 @@ fi
 OFFER_CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE document_code = 'offer'")
 [ "${OFFER_CONSENTS:-0}" = "0" ] && ok "согласие с неопубликованной офертой не записывается" || bad "записано согласий с офертой: ${OFFER_CONSENTS:-0}"
 
+# ── Контент конкурса: сверка API с Положением ────────────────────────────────
+# Положение — источник истины; platform/content/regulation-2026.json — его
+# машиночитаемая проекция. Проверяем весь путь «документ → JSON → БД → API».
+step "Контент конкурса: критерии, направления и комплект по Положению"
+CONTENT_JSON="$ROOT/platform/content/regulation-2026.json"
+if [ -f "$CONTENT_JSON" ]; then
+    CONTENT_CHECK=$(python3 - "$CONTENT_JSON" "${BASE}" <<'CONTENT'
+import json, sys, urllib.request
+
+path, base = sys.argv[1], sys.argv[2]
+content = json.load(open(path))
+problems = []
+
+
+def get(url):
+    with urllib.request.urlopen(url, timeout=15) as response:
+        raw = json.load(response)
+    return raw.get('data', raw)
+
+
+for stage, group in content['criteria'].items():
+    items = get(f'{base}/api/criteria?stage={stage}')
+    if len(items) != len(group['items']):
+        problems.append(f'{stage}: в API {len(items)} критериев, в документе {len(group["items"])}')
+        continue
+    total = sum(int(round(float(item['max_score']))) for item in items)
+    if total != group['max_total']:
+        problems.append(f'{stage}: сумма баллов {total}, в документе {group["max_total"]}')
+    api_titles = {item['title'].strip() for item in items}
+    for expected in group['items']:
+        if expected['title'].strip() not in api_titles:
+            problems.append(f'{stage}: нет критерия «{expected["title"][:60]}»')
+
+directions = get(f'{base}/api/directions')
+if len(directions) != len(content['directions']['items']):
+    problems.append(f'направлений в API {len(directions)}, в документе {len(content["directions"]["items"])}')
+direction_titles = {item['title'].strip() for item in directions}
+for expected in content['directions']['items']:
+    if expected['title'].strip() not in direction_titles:
+        problems.append(f'нет направления «{expected["title"][:50]}»')
+
+requirements = get(f'{base}/api/applications/requirements?stage=selection')
+items = requirements.get('requirements', requirements) if isinstance(requirements, dict) else requirements
+required = {item['type'] for item in items if item.get('is_required')}
+for material in content['materials']['selection']:
+    if material['required'] and material['type'] not in required:
+        problems.append(f'в комплекте не обязателен «{material["type"]}»')
+
+print('OK' if not problems else '; '.join(problems))
+CONTENT
+    )
+    [ "$CONTENT_CHECK" = "OK" ] && ok "критерии, направления и комплект совпадают с Положением (JSON → БД → API)" || bad "$CONTENT_CHECK"
+else
+    bad "нет platform/content/regulation-2026.json — контент не сверен с Положением"
+fi
+
+# Номинации — пункт 11.1 Положения: шесть, включая призовые места в командном
+# зачёте (раньше на сайте были перечислены только три).
+NOMINATIONS_SRC="$ROOT/platform/web/src/content/nominations.ts"
+if [ -f "$NOMINATIONS_SRC" ]; then
+    NOM_COUNT=$(grep -c "code: '" "$NOMINATIONS_SRC" || true)
+    [ "${NOM_COUNT:-0}" = "6" ] && ok "номинаций шесть (п. 11.1)" || bad "номинаций: ${NOM_COUNT:-0} (ожидалось 6)"
+    for title in "Лидеры права" "Второе место в командном зачете" "Третье место в командном зачете" "Наставник Лидеров права" "Приз зрительских симпатий" "Лучший оратор"; do
+        if grep -q "$title" "$NOMINATIONS_SRC"; then :; else bad "нет номинации «${title}»"; fi
+    done
+    ok "все шесть номинаций на месте: призовые места, наставник, зрительские симпатии, оратор"
+else
+    bad "нет platform/web/src/content/nominations.ts"
+fi
+
 # ── Публичная часть: архив, согласия, карта сайта ────────────────────────────
 step "Публичная часть: архив инициатив, согласия и карта сайта"
 expect "критерии оценки отдаются публично" 200 "${BASE}/api/criteria?stage=selection"
