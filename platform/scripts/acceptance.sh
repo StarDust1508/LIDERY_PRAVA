@@ -747,6 +747,19 @@ if [ -z "$MISSING_FILES" ]; then
 else
     bad "нет файлов для ссылок:${MISSING_FILES}"
 fi
+# Персональные PDF приложений: у каждой строки свой файл, а не общий.
+PERSONAL_LINKS=0
+for number in $(seq 1 14); do
+    url="/docs/prilozhenie-$(printf '%02d' "$number").pdf"
+    if [ -f "$ROOT/platform/public${url}" ]; then PERSONAL_LINKS=$((PERSONAL_LINKS + 1)); else bad "нет файла platform/public${url}"; fi
+done
+[ "${PERSONAL_LINKS:-0}" = "14" ] && ok "14 персональных PDF приложений на месте" || bad "персональных PDF приложений: ${PERSONAL_LINKS:-0} из 14"
+LINKS_IN_DB=$(psql_db "SELECT count(*) FROM liders.documents WHERE type='appendix' AND is_active AND external_url LIKE '/docs/prilozhenie-%.pdf'")
+[ "${LINKS_IN_DB:-0}" = "14" ] && ok "в БД у приложений персональные ссылки" || bad "персональных ссылок в БД: ${LINKS_IN_DB:-0}"
+# Даты редакции документов — дата самого документа, а не дата пересборки PDF.
+REVISION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND type IN ('regulation','appendix') AND revision_date = DATE '2026-10-04'")
+[ "${REVISION_OK:-0}" = "15" ] && ok "у документов дата редакции 04.10.2026" || bad "документов с датой редакции 04.10.2026: ${REVISION_OK:-0} из 15"
+
 if head -c 5 "$ROOT/platform/public/docs/polozhenie-lidery-prava-2027.pdf" | grep -q '%PDF-'; then
     ok "PDF Положения — корректный PDF-файл"
 else
