@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // Анимированные числа для блока «Цифры сезона».
 //
@@ -24,9 +24,20 @@ function parse(value: string): { number: number; suffix: string } | null {
 }
 
 export function CountUp({ value, durationMs = 900 }: CountUpProps) {
-  const target = parse(value);
+  // Разбор значения мемоизирован по строке: без этого объект создавался заново на
+  // каждом рендере, эффект перезапускался вместе с наблюдателем, и число
+  // «набегало» бесконечно — заказчик видел плывущие цифры вместо итогового
+  // значения, а кадры анимации не прекращались.
+  const target = useMemo(() => parse(value), [value]);
   const ref = useRef<HTMLSpanElement>(null);
   const [shown, setShown] = useState(target ? target.number : null);
+
+  // Ширина значения зарезервирована под итоговое число: пока идёт «набегание»,
+  // блок не дёргается, потому что подпись под ним остаётся на месте. Расчёт в
+  // `ch` опирается на табличные цифры (заданы для `.stat .num`) и годится для
+  // значений из цифр и тире; для чисел с разделителями разрядов ширину нужно
+  // будет мерить отдельно.
+  const holdWidth = { display: 'inline-block', minWidth: `${value.length}ch` } as const;
 
   useEffect(() => {
     if (!target) return;
@@ -64,9 +75,14 @@ export function CountUp({ value, durationMs = 900 }: CountUpProps) {
     };
   }, [target, durationMs]);
 
-  if (!target) return <span ref={ref}>{value}</span>;
+  if (!target)
+    return (
+      <span ref={ref} style={holdWidth}>
+        {value}
+      </span>
+    );
   return (
-    <span ref={ref}>
+    <span ref={ref} style={holdWidth}>
       {shown ?? target.number}
       {target.suffix}
     </span>

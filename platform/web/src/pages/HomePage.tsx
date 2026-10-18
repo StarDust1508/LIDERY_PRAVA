@@ -319,7 +319,9 @@ export function HomePage() {
                   className="pcard"
                   style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
                 >
-                <div className={`duo${index % 3 === 2 ? ' ink' : ''}`}>
+                {/* Фотолента: кадры в естественном цвете — чернильная подложка
+                    «каждой третьей» карточки отменена правкой от 12.10.2026. */}
+                <div className="duo">
                   <img
                     src={item.image}
                     alt={`Участники конкурса «Лидеры права» в ${item.year} году`}
