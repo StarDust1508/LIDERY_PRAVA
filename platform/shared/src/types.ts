@@ -142,6 +142,19 @@ export interface TeamResponse {
   tech_status: string | null;
   participants: Participant[];
   mentors: Mentor[];
+  /** Сведения об инициативе из заявки: команда видит и правит их до отправки. */
+  initiative?: {
+    id: number;
+    law_title: string;
+    act_level: string | null;
+    proposed_initiator: string | null;
+    annotation: string | null;
+    ai_usage: boolean;
+    ai_usage_purpose: string | null;
+    is_solo: boolean;
+    solo_approved_at: string | null;
+    draft_updated_at: string | null;
+  } | null;
   /** Опубликованные результаты этапов: баллы, место и протокол (ТЗ 06, п. 2). */
   results?: Array<{
     stage: string;

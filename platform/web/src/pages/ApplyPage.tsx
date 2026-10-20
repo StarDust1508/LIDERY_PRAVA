@@ -250,6 +250,24 @@ export function ApplyPage() {
       setMaterials(materialsData);
       setRequirements(requirementsData.requirements);
       setMaxStep((value) => Math.max(value, teamData.participants.length > 0 ? 1 : 0));
+
+      // Возвращаясь в мастер, команда должна видеть свои же данные, а не пустые
+      // поля: иначе кажется, что заявка пропала, и её создают заново.
+      setTeamName(teamData.name ?? '');
+      setOrganization(teamData.organization ?? '');
+      setCity(teamData.city ?? '');
+      setDirectionId(teamData.direction ? String(teamData.direction.id) : '');
+      const initiative = teamData.initiative;
+      if (initiative) {
+        setLawTitle(initiative.law_title ?? '');
+        setActLevel((initiative.act_level as ActLevel) ?? 'federal');
+        setProposedInitiator(initiative.proposed_initiator ?? '');
+        setAnnotation(initiative.annotation ?? '');
+        setAiUsage(initiative.ai_usage === true);
+        setAiUsagePurpose(initiative.ai_usage_purpose ?? '');
+        setIsSolo(initiative.is_solo === true);
+        setSoloApprovedAt(initiative.solo_approved_at ? String(initiative.solo_approved_at).slice(0, 10) : '');
+      }
     },
     []
   );
@@ -459,6 +477,41 @@ export function ApplyPage() {
     setDetails([]);
     setFieldErrors({});
     setBusy(true);
+
+    // Заявка уже создана (команда вернулась в мастер): правку сведений об
+    // инициативе сохраняем в существующую заявку. Повторное создание упало бы
+    // с отказом «команда уже зарегистрирована» по пункту 4.4.
+    if (team) {
+      try {
+        await api.cabinetUpdateInitiative(
+          {
+            law_title: lawTitle.trim(),
+            act_level: actLevel,
+            proposed_initiator: proposedInitiator.trim() || null,
+            annotation: annotation.trim(),
+            ai_usage: aiUsage,
+            ai_usage_purpose: aiUsage ? aiUsagePurpose.trim() : null,
+            is_solo: isSolo,
+            solo_approved_at: isSolo ? soloApprovedAt : null,
+          },
+          draft?.access_token ?? null
+        );
+        markSaved();
+        await refreshCabinet(draft?.access_token ?? '');
+        goTo(1);
+      } catch (caught) {
+        if (caught instanceof ApiError) {
+          setError(caught.message);
+          setDetails(caught.details ?? []);
+        } else {
+          setError('Не удалось сохранить сведения об инициативе.');
+        }
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     try {
       const created = await api.createApplication(
         {
@@ -770,8 +823,14 @@ export function ApplyPage() {
           {step === 0 ? (
             <SectionCard title="Команда и законотворческая инициатива" description="Сведения по Приложению № 1 к Положению.">
               <form className="flex flex-col gap-6" onSubmit={createApplication} noValidate>
+                {team ? (
+                  <Alert tone="info" title="Заявка уже создана">
+                    Название команды, направление и город меняются в кабинете, раздел «Команда». Здесь можно
+                    исправить сведения об инициативе и продолжить заполнение.
+                  </Alert>
+                ) : null}
                 <div className="grid gap-5 md:grid-cols-2">
-                  <TextField id="team-name" error={fieldErrors['team-name']} label="Наименование команды" required value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={200} />
+                  <TextField id="team-name" error={fieldErrors['team-name']} label="Наименование команды" required disabled={Boolean(team)} value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={200} />
                   <SelectField
                     id="direction" error={fieldErrors['direction']}
                     label="Направление конкурса"
@@ -779,10 +838,11 @@ export function ApplyPage() {
                     value={directionId}
                     onChange={(e) => setDirectionId(e.target.value)}
                     placeholder="Выберите направление"
+                    disabled={Boolean(team)}
                     options={directions.map((direction) => ({ value: direction.id, title: direction.title }))}
                   />
-                  <TextField id="organization" label="Образовательная организация или место работы" value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={300} />
-                  <TextField id="city" label="Город" value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />
+                  <TextField id="organization" label="Образовательная организация или место работы" disabled={Boolean(team)} value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={300} />
+                  <TextField id="city" label="Город" disabled={Boolean(team)} value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />
                 </div>
 
                 <h3 className="text-h3 font-semibold">Законопроект</h3>

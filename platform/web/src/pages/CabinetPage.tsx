@@ -4,6 +4,7 @@ import {
   ApiError,
   type Material,
   StatusBadge,
+  actLevelTitle,
   formatMoscowHuman,
   materialTypeTitle,
   pluralize,
@@ -531,6 +532,28 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
         description="Название, направление конкурса, капитан команды, участники и наставники."
       >
         <div className="flex flex-col gap-4">
+          {team.initiative ? (
+            <div className="border border-border px-4 py-3">
+              <p className="mono-label text-muted">Законотворческая инициатива</p>
+              <p className="mt-2 font-medium">{team.initiative.law_title}</p>
+              <p className="mt-1 text-sm text-muted">
+                {actLevelTitle(team.initiative.act_level)}
+                {team.initiative.proposed_initiator
+                  ? ` · вносит: ${team.initiative.proposed_initiator}`
+                  : ''}
+              </p>
+              {team.initiative.annotation ? (
+                <p className="mt-2 max-w-measure text-sm">{team.initiative.annotation}</p>
+              ) : null}
+              {data.team.submitted_at === null ? (
+                <p className="mt-2 text-sm">
+                  <Link to="/apply" className="text-accent underline underline-offset-2">
+                    Изменить сведения об инициативе в мастере
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-sm text-muted">
             {pluralize(team.participants.length, ['участник', 'участника', 'участников'])} и{' '}
             {pluralize(team.mentors.length, ['наставник', 'наставника', 'наставников'])}

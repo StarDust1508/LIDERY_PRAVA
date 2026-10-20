@@ -311,6 +311,15 @@ PY
 )
 expect "состав 2 участника и наставник сохраняются" 200 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/team" -H 'Content-Type: application/json' -d "$TWO"
 
+# Инициатива: команда должна видеть и править сведения до отправки заявки.
+expect "сведения об инициативе отдаются в кабинете" 200 -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/team"
+INIT_TITLE=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/team" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print((d.get('initiative') or {}).get('law_title',''))" 2>/dev/null)
+[ "$INIT_TITLE" = "О правовом просвещении" ] && ok "кабинет отдаёт наименование законопроекта из заявки" || bad "наименование инициативы в кабинете: «${INIT_TITLE}»"
+expect "правка инициативы до отправки" 200 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/initiative" -H 'Content-Type: application/json' -d '{"initiative":{"law_title":"О правовом просвещении (правка)","act_level":"federal","proposed_initiator":"Правительство Российской Федерации","annotation":"Аннотация инициативы после правки в кабинете.","ai_usage":false,"is_solo":false}}'
+INIT_TITLE_2=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/team" | python3 -c "import sys,json;d=json.load(sys.stdin);d=d.get('data',d);print((d.get('initiative') or {}).get('law_title',''))" 2>/dev/null)
+[ "$INIT_TITLE_2" = "О правовом просвещении (правка)" ] && ok "правка инициативы сохранена" || bad "после правки наименование: «${INIT_TITLE_2}»"
+expect "пустое наименование законопроекта отклоняется" 422 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/initiative" -H 'Content-Type: application/json' -d '{"initiative":{"law_title":"","act_level":"federal","annotation":"Аннотация."}}'
+
 # Состав без идентификаторов участников: клиент может их не прислать, и сервер
 # обязан опознать людей по почте, а не вставлять дубли (иначе вставка второго
 # капитана нарушала уникальный индекс и запрос падал с 500).
@@ -411,6 +420,8 @@ expect "после скана заявка отправляется" 200 -b /tmp
 # ── Отправка основной заявки ─────────────────────────────────────────────────
 step "Согласия и отправка основной заявки"
 expect "отправка заявки" 200 -b /tmp/lp_acc_cookies.txt -X POST "${BASE}/api/cabinet/submit" -H 'Content-Type: application/json' -d '{"confirm_regulation":true,"image_license":true,"distribution":[{"participant_id":'"$CAPTAIN_ID"',"categories":{"full_name":true,"image_voice":true},"conditions":"Без населённого пункта"}]}'
+
+expect "после отправки правка инициативы запрещена" 409 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/initiative" -H 'Content-Type: application/json' -d '{"initiative":{"law_title":"Поздняя правка","act_level":"federal","annotation":"Поздняя правка после отправки."}}'
 CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE team_id=${TEAM_ID} AND revoked_at IS NULL")
 [ "${CONSENTS:-0}" -ge 5 ] && ok "согласий записано: $CONSENTS" || bad "согласий записано: ${CONSENTS:-0}"
 VERSIONED=$(psql_db "SELECT count(*) FROM liders.consents WHERE team_id=${TEAM_ID} AND document_version='2026-10-04' AND accepted_at IS NOT NULL AND ip IS NOT NULL")

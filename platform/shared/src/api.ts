@@ -322,6 +322,14 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  /** Правка сведений об инициативе до отправки заявки (мастер и кабинет). */
+  cabinetUpdateInitiative: (initiative: unknown, accessToken?: string | null) =>
+    request<{ success: true; initiative: unknown }>('/api/cabinet/initiative', {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify({ initiative }),
+    }),
+
   cabinetMaterials: (accessToken?: string | null) =>
     request<Material[]>('/api/cabinet/materials', { headers: authHeader(accessToken) }),
 

@@ -14,6 +14,7 @@ import {
   recordConsents,
   type SubmissionContext,
 } from '../lib/application-submission.js';
+import { parseInitiative } from './applications.js';
 import { buildApplicationFormDocx, loadApplicationFormData } from '../lib/application-form.js';
 import { buildConsentDocx, isConsentKind } from '../lib/consent-forms.js';
 import { clearTeamSessionCookie } from '../lib/team-session.js';
@@ -316,6 +317,19 @@ router.get(
       [context.teamId]
     );
 
+    // Сведения об инициативе хранятся в заявке: команда должна видеть, что
+    // именно она защищает (наименование, уровень акта, аннотацию), и может
+    // исправить это до отправки.
+    const initiativeRow = await query(
+      `SELECT id, law_title, act_level, proposed_initiator, annotation,
+              ai_usage, ai_usage_purpose, is_solo, solo_approved_at, draft_updated_at
+         FROM applications
+        WHERE team_id = $1
+        ORDER BY id DESC
+        LIMIT 1`,
+      [context.teamId]
+    );
+
     res.json({
       id: bundle.team.id,
       season_id: bundle.team.season_id,
@@ -338,10 +352,91 @@ router.get(
       tech_status: bundle.team.tech_status ?? null,
       participants: bundle.participants,
       mentors: bundle.mentors,
+      initiative: initiativeRow.rows[0]
+        ? {
+            id: Number(initiativeRow.rows[0].id),
+            law_title: initiativeRow.rows[0].law_title,
+            act_level: initiativeRow.rows[0].act_level,
+            proposed_initiator: initiativeRow.rows[0].proposed_initiator,
+            annotation: initiativeRow.rows[0].annotation,
+            ai_usage: initiativeRow.rows[0].ai_usage === true,
+            ai_usage_purpose: initiativeRow.rows[0].ai_usage_purpose,
+            is_solo: initiativeRow.rows[0].is_solo === true,
+            solo_approved_at: initiativeRow.rows[0].solo_approved_at,
+            draft_updated_at: initiativeRow.rows[0].draft_updated_at,
+          }
+        : null,
       // Опубликованные результаты: баллы, место и протокол этапа (ТЗ 06, п. 2;
       // ТЗ 07, п. 2.8 — протокол публикуется вместе с рейтингом).
       results: results.rows,
     });
+  })
+);
+
+// PATCH /api/cabinet/initiative — правка сведений об инициативе до отправки.
+//
+// Зачем: мастер создаёт заявку на первом шаге, но вернуться и исправить
+// наименование законопроекта или аннотацию до отправки было негде: PATCH /team
+// меняет только состав. Правка разрешена, пока заявка черновик и не истёк срок.
+router.patch(
+  '/initiative',
+  asyncHandler(async (req, res) => {
+    const context = teamContext(res);
+    const bundle = await loadTeamBundle(context.teamId);
+    if (!bundle) {
+      res.status(404).json({ error: 'Команда не найдена' });
+      return;
+    }
+    if (isDeadlinePassed(bundle.team.application_close_at)) {
+      res.status(403).json({
+        error: 'Срок приёма заявок истёк: изменение инициативы недоступно.',
+        contact_endpoint: '/api/cabinet/contact',
+      });
+      return;
+    }
+    if (!['draft', 'tech_rejected'].includes(String(bundle.team.status))) {
+      res.status(409).json({
+        error: `Инициативу нельзя изменить в статусе «${bundle.team.status}». Обратитесь в оргкомитет.`,
+        contact_endpoint: '/api/cabinet/contact',
+      });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const parsed = parseInitiative(body.initiative);
+    if (parsed.error || !parsed.value) {
+      res.status(400).json({ error: parsed.error ?? 'Некорректные сведения об инициативе.' });
+      return;
+    }
+    const input = parsed.value;
+
+    const updated = await query(
+      `UPDATE applications
+          SET law_title = $2, act_level = $3, proposed_initiator = $4, annotation = $5,
+              ai_usage = $6, ai_usage_purpose = $7, is_solo = $8, solo_approved_at = $9,
+              draft_updated_at = now(), updated_at = now()
+        WHERE team_id = $1
+          AND id = (SELECT id FROM applications WHERE team_id = $1 ORDER BY id DESC LIMIT 1)
+        RETURNING id, law_title, act_level, proposed_initiator, annotation,
+                  ai_usage, ai_usage_purpose, is_solo, solo_approved_at, draft_updated_at`,
+      [
+        context.teamId,
+        input.law_title,
+        input.act_level,
+        input.proposed_initiator,
+        input.annotation,
+        input.ai_usage,
+        input.ai_usage_purpose,
+        input.is_solo,
+        input.solo_approved_at,
+      ]
+    );
+    if (updated.rows.length === 0) {
+      res.status(404).json({ error: 'Заявка не найдена: начните подачу на странице /apply.' });
+      return;
+    }
+
+    res.json({ success: true, initiative: updated.rows[0] });
   })
 );
 

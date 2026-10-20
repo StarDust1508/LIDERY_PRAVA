@@ -40,7 +40,7 @@ interface SeasonRow {
   application_close_at: string | Date | null;
 }
 
-interface InitiativeInput {
+export interface InitiativeInput {
   law_title: string;
   act_level: ActLevel;
   proposed_initiator: string | null;
@@ -73,7 +73,7 @@ async function loadActiveSeason(): Promise<SeasonRow | null> {
 }
 
 /** Сведения о инициативе по Приложению № 1. */
-function parseInitiative(raw: unknown): { value?: InitiativeInput; error?: string } {
+export function parseInitiative(raw: unknown): { value?: InitiativeInput; error?: string } {
   if (typeof raw !== 'object' || raw === null) {
     return { error: 'Заполните сведения о законотворческой инициативе.' };
   }
