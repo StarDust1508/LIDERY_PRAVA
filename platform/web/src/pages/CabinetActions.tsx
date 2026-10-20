@@ -205,10 +205,20 @@ export interface KitItem {
 }
 
 /** Статус одного типа материала по правилам ТЗ 06, п. 2. */
+/**
+ * Состояние материала определяется последней версией, а не любой из загруженных.
+ * Иначе команда, перезагрузившая материал по замечанию, навсегда видела бы
+ * «нужны исправления» из-за старой версии, а принятая версия перекрывала бы
+ * новую, ещё не проверенную.
+ */
 function kitStateOf(versions: Material[]): KitState {
   if (versions.length === 0) return 'missing';
-  if (versions.some((material) => material.status === 'accepted')) return 'accepted';
-  if (versions.some((material) => material.status === 'needs_fix')) return 'needs_fix';
+  const latest = versions[0];
+  if (!latest) return 'missing';
+  if (latest.status === 'accepted') return 'accepted';
+  if (latest.status === 'needs_fix' || latest.status === 'rejected' || latest.status === 'blocked') {
+    return 'needs_fix';
+  }
   return 'in_review';
 }
 
