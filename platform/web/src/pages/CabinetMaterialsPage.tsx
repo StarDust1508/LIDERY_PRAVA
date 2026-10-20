@@ -21,6 +21,7 @@ import {
   CabinetSection,
   CabinetSessionLost,
   KIT_STATE_TITLES,
+  isAutoMaterial,
   KIT_STATE_TONES,
   MaterialFileLine,
   RequirementNotes,
@@ -385,7 +386,15 @@ function MaterialBlock({
           </ul>
         )}
 
-        {item.requirement === null ? (
+        {item.requirement !== null && isAutoMaterial(item.requirement.type) ? (
+          <Alert tone="info" title={item.state === 'accepted' ? 'Оформлено автоматически' : 'Оформляется в мастере подачи'}>
+            {item.requirement.type === 'application_form'
+              ? 'Заявка по Приложению № 1 формируется системой из данных команды — загружать её файлом не нужно. Бланк можно скачать в блоке «Бланк заявки».'
+              : item.requirement.type === 'consent_pdn'
+                ? 'Согласия на обработку персональных данных оформляются электронной отметкой в мастере подачи. Если согласие не отмечено, вернитесь к шагу «Согласия» в мастере.'
+                : 'Согласие законного представителя оформляется в мастере подачи; для участников младше 18 лет дополнительно загружается скан в этот комплект.'}
+          </Alert>
+        ) : item.requirement === null ? (
           <Alert tone="info" title="Загрузка для этого типа недоступна">
             Материал этого типа загружен ранее и сохраняется в комплекте для чтения. Добавить новую версию через личный кабинет
             нельзя: тип не входит в перечень конкурсных материалов отборочного этапа. Если материал нужно заменить,

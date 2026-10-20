@@ -22,6 +22,7 @@ import {
   CabinetSection,
   CabinetSessionLost,
   KIT_STATE_TITLES,
+  autoMaterialNote,
   KIT_STATE_TONES,
   applicationStatusText,
   buildKit,
@@ -462,7 +463,10 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
                 );
               }
               if (index === 2) {
-                if (!item.current) return <span className="text-muted">файл не загружен</span>;
+                if (!item.current) {
+                  const note = item.requirement ? autoMaterialNote(item.requirement.type) : null;
+                  return <span className="text-muted">{note ?? 'файл не загружен'}</span>;
+                }
                 return (
                   <span className="flex flex-col gap-1">
                     <span className="break-all">

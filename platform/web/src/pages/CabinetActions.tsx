@@ -213,6 +213,44 @@ function kitStateOf(versions: Material[]): KitState {
 }
 
 /**
+ * Материалы, которые система формирует сама (заявка по Приложению № 1 и
+ * согласия в мастере). Их нельзя загрузить файлом, поэтому в комплекте они
+ * не должны считаться «не сданными»: иначе прогресс навсегда замирает на
+ * «сдано 3 из 4», а команда ищет кнопку загрузки, которой нет.
+ */
+const AUTO_MATERIAL_TYPES = ['application_form', 'consent_pdn', 'consent_legal_rep'] as const;
+
+export function isAutoMaterial(type: string): boolean {
+  return (AUTO_MATERIAL_TYPES as readonly string[]).includes(type);
+}
+
+/** Автоматический материал уже выполнен по данным команды. */
+function autoMaterialSatisfied(data: CabinetData, type: string, hasMinor: boolean): boolean {
+  const participants = data.team.participants;
+  if (type === 'application_form') return Boolean(data.team.public_number || data.team.id);
+  if (type === 'consent_pdn') {
+    return participants.length > 0 && participants.every((participant) => participant.consent_pdn);
+  }
+  if (type === 'consent_legal_rep') {
+    return (
+      !hasMinor ||
+      participants
+        .filter((participant) => participant.is_minor)
+        .every((participant) => participant.consent_legal_representative)
+    );
+  }
+  return false;
+}
+
+/** Пояснение в таблице комплекта вместо «файл не загружен». */
+export function autoMaterialNote(type: string): string | null {
+  if (type === 'application_form') return 'формируется системой';
+  if (type === 'consent_pdn') return 'оформлены электронно';
+  if (type === 'consent_legal_rep') return 'оформляется в мастере';
+  return null;
+}
+
+/**
  * Комплект отборочного этапа: обязательные и условные материалы, статусы и
  * сроки. Материалы, загруженные вне списка требований, показываются отдельной
  * строкой — молча терять их нельзя.
@@ -222,8 +260,15 @@ export function buildKit(data: CabinetData, hasMinor: boolean): KitItem[] {
     const versions = data.materials
       .filter((material) => material.type === requirement.type)
       .sort((a, b) => b.version - a.version);
-    const required = requirement.is_required || (requirement.type === 'consent_legal_rep' && hasMinor);
-    const state = versions.length === 0 && !required ? 'optional' : kitStateOf(versions);
+    const auto = isAutoMaterial(requirement.type);
+    const satisfied = auto && autoMaterialSatisfied(data, requirement.type, hasMinor);
+    const required =
+      !satisfied && (requirement.is_required || (requirement.type === 'consent_legal_rep' && hasMinor));
+    const state = satisfied
+      ? 'accepted'
+      : versions.length === 0 && !required
+        ? 'optional'
+        : kitStateOf(versions);
     return {
       requirement,
       title: requirement.title,
@@ -261,7 +306,9 @@ export function buildKit(data: CabinetData, hasMinor: boolean): KitItem[] {
 export function kitProgress(items: KitItem[]): { done: number; total: number; needsFix: number } {
   const required = items.filter((item) => item.required);
   return {
-    done: required.filter((item) => item.state === 'accepted').length,
+    // «Сдано» — материал загружен и ждёт проверки или уже принят. Иначе после
+    // загрузки команда видела бы «0 из 4» до решения Оргкомитета.
+    done: required.filter((item) => item.state === 'accepted' || item.state === 'in_review').length,
     total: required.length,
     needsFix: required.filter((item) => item.state === 'needs_fix').length,
   };
