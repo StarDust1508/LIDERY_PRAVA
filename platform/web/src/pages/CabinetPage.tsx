@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ApiError,
   type Material,
@@ -86,6 +86,103 @@ function nearestStep(data: CabinetData, kit: KitItem[]): NextStep {
     deadline: data.deadlines.application_close_at,
     note: 'Следите за замечаниями и итогами этапа: они появляются на этой странице.',
   };
+}
+
+/** Состояние шага мастера: сделан, текущий (на него указывает «что делать») или впереди. */
+type StepState = 'done' | 'current' | 'todo';
+
+interface CabinetStep {
+  key: string;
+  title: string;
+  description: string;
+  state: StepState;
+  to: string;
+  action: string;
+}
+
+/**
+ * Пять шагов мастера в терминах кабинета. Людям нужен видимый путь: что уже
+ * сделано, где они сейчас и куда идти дальше, — а не список разделов.
+ */
+function cabinetSteps(data: CabinetData, kit: KitItem[], progress: { done: number; total: number }): CabinetStep[] {
+  const { team } = data;
+  const participants = team.participants;
+  const minors = participants.filter((participant) => participant.is_minor);
+  const consentsOk =
+    participants.length > 0 &&
+    participants.every((participant) => participant.consent_pdn) &&
+    minors.every((participant) => participant.consent_legal_representative);
+  const needsFix = kit.some((item) => item.required && item.state === 'needs_fix');
+
+  const raw: Array<Omit<CabinetStep, 'state'>> = [
+    {
+      key: 'team',
+      title: 'Команда и направление',
+      description: team.direction
+        ? `«${team.name}» · ${team.direction.title}`
+        : 'Название команды и направление конкурса из Приложения № 2.',
+      to: '/apply',
+      action: 'Заполнить',
+    },
+    {
+      key: 'participants',
+      title: 'Участники и наставники',
+      description:
+        participants.length >= 2
+          ? `${pluralize(participants.length, ['участник', 'участника', 'участников'])}, наставников: ${team.mentors.length}. Капитан указан первым.`
+          : `Сейчас ${pluralize(participants.length, ['участник', 'участника', 'участников'])}. В команде от 2 до 4 человек или единоличное участие по согласованию с Оргкомитетом.`,
+      to: '/cabinet/team',
+      action: 'Открыть состав',
+    },
+    {
+      key: 'materials',
+      title: 'Конкурсные материалы',
+      description: needsFix
+        ? 'Есть замечания Оргкомитета — исправьте их и загрузите новые версии файлов.'
+        : `Сдано ${progress.done} из ${progress.total}: заявка, законопроект, пояснительная записка, согласия.`,
+      to: '/cabinet/materials',
+      action: needsFix ? 'Исправить' : 'Загрузить',
+    },
+    {
+      key: 'consents',
+      title: 'Согласия',
+      description: consentsOk
+        ? 'Согласия на обработку персональных данных получены.'
+        : 'Нужны согласия участников; для участников младше 18 лет — согласие законного представителя.',
+      to: '/cabinet/team',
+      action: 'Проверить',
+    },
+    {
+      key: 'submit',
+      title: 'Проверка и отправка',
+      description: team.submitted_at
+        ? `Заявка отправлена ${formatMoscowHuman(team.submitted_at)}.`
+        : 'Проверьте данные и отправьте заявку — она уйдёт на техническую проверку.',
+      to: '/apply',
+      action: 'Отправить',
+    },
+  ];
+
+  const doneFlags = [
+    Boolean(team.name && team.direction),
+    participants.length >= 2,
+    progress.total > 0 && progress.done === progress.total && !needsFix,
+    consentsOk,
+    team.submitted_at !== null,
+  ];
+  const firstPending = doneFlags.findIndex((flag) => !flag);
+
+  return raw.map((step, index) => ({
+    ...step,
+    state: doneFlags[index] ? 'done' : index === firstPending ? 'current' : 'todo',
+  }));
+}
+
+/** Метка состояния шага: галочка, стрелка «сейчас», точка «дальше». */
+function stepMark(state: StepState): string {
+  if (state === 'done') return '✓';
+  if (state === 'current') return '→';
+  return '·';
 }
 
 export function CabinetPage() {
@@ -179,6 +276,42 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
   const progress = kitProgress(kit);
   const next = nearestStep(data, kit);
   const countdown = useCountdown(deadlines.milliseconds_left);
+  const navigate = useNavigate();
+  const steps = cabinetSteps(data, kit, progress);
+  const needsFix = kit.filter((item) => item.required && item.state === 'needs_fix');
+  const missingMaterials = kit.filter(
+    (item) => item.required && (item.state === 'missing' || item.state === 'in_review')
+  );
+
+  // Одно действие, которое человек должен сделать прямо сейчас. Порядок
+  // приоритетов: отправка черновика, замечания, недостающие материалы, покой.
+  const hero = needsFix.length
+    ? {
+        title: 'Исправьте замечания Оргкомитета',
+        note: next.note,
+        to: '/cabinet/materials',
+        action: 'Открыть материалы',
+      }
+    : team.submitted_at === null
+      ? {
+          title: 'Заполните и отправьте заявку',
+          note: 'Заявка ещё не отправлена: до отправки она остаётся черновиком и в техническую проверку не попадает.',
+          to: '/apply',
+          action: 'Продолжить заявку',
+        }
+      : missingMaterials.length
+        ? {
+            title: 'Сдайте обязательные материалы',
+            note: 'Без комплекта заявка не пройдёт техническую проверку: заявка, законопроект, пояснительная записка, согласия.',
+            to: '/cabinet/materials',
+            action: 'Загрузить материалы',
+          }
+        : {
+            title: 'Всё готово — следите за статусом',
+            note: next.note,
+            to: '/cabinet/materials',
+            action: 'Проверить комплект',
+          };
 
   const captain = team.participants.find((participant) => participant.role === 'captain');
   const remarks = kit.filter(
@@ -193,16 +326,59 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
       lead="Статус заявки, готовность комплекта конкурсных материалов, ближайший срок и замечания Оргкомитета."
       onReload={onReload}
     >
-      {data.team.submitted_at === null ? (
-        <Alert tone="info" title="Заявка ещё не отправлена">
-          Заполните оставшиеся шаги мастера и отправьте заявку: до отправки она остаётся черновиком и в
-          техническую проверку не попадает.{' '}
-          <Link to="/apply" className="text-accent underline underline-offset-2">
-            Продолжить заполнение
-          </Link>
-          .
-        </Alert>
-      ) : null}
+      {/* Герой-блок отвечает на главный вопрос человека: что делать сейчас.
+          Раньше здесь был только информационный алерт со ссылкой в тексте, и
+          непонятно было, куда нажимать. */}
+      <section className="border border-border bg-surface">
+        <div className="flex flex-col gap-4 px-5 py-5">
+          <p className="mono-label text-muted">Что делать сейчас</p>
+          <h2 className="text-h2 font-semibold">{hero.title}</h2>
+          <p className="max-w-measure text-sm text-muted">{hero.note}</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button onClick={() => navigate(hero.to)}>{hero.action}</Button>
+            {data.deadlines.is_application_open ? (
+              <span className="font-mono text-mono-sm text-muted">
+                {countdown.left > 0 ? countdown.text : 'срок истёк'}
+                {team.application_close_at ? ` · до ${formatMoscowHuman(team.application_close_at)}` : ''}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      {/* Пять шагов мастера: видно, что сделано, где человек сейчас и что дальше. */}
+      <CabinetSection title="Порядок заполнения" description="Пять шагов — от команды до отправки заявки.">
+        <ol className="flex flex-col gap-1">
+          {steps.map((step) => (
+            <li
+              key={step.key}
+              className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-border py-3 last:border-b-0 ${
+                step.state === 'todo' ? 'opacity-70' : ''
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`w-5 shrink-0 text-center font-mono ${
+                  step.state === 'done' ? 'text-success' : step.state === 'current' ? 'text-accent' : 'text-muted'
+                }`}
+              >
+                {stepMark(step.state)}
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="font-medium">{step.title}</span>
+                <span className="text-sm text-muted">{step.description}</span>
+              </span>
+              {step.state === 'done' ? (
+                <span className="text-sm text-muted">готово</span>
+              ) : (
+                <Link to={step.to} className="text-sm text-accent underline underline-offset-2">
+                  {step.action}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ol>
+      </CabinetSection>
 
       {!deadlines.is_application_open ? (
         <Alert tone="warning" title="Дедлайн пропущен: приём материалов отборочного этапа завершён">
@@ -213,7 +389,7 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
         </Alert>
       ) : null}
 
-      <CabinetSection title="Статус заявки" description="Одна понятная формулировка и что будет дальше.">
+      <CabinetSection title="Статус заявки" description="Что уже произошло и что будет дальше.">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={team.status} title={teamStatusTitle(team.status)} />
@@ -238,27 +414,6 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
               <dd>{formatMoscowHuman(team.application_close_at)}</dd>
             </div>
           </dl>
-        </div>
-      </CabinetSection>
-
-      <CabinetSection
-        title="Ближайший дедлайн"
-        description="Обратный отсчёт идёт по московскому времени."
-      >
-        <div className="flex flex-col gap-4 border-t-2 border-accent pt-4">
-          <p className="text-body font-medium">{next.title}</p>
-          <p className="font-mono text-mono-sm">
-            {countdown.left > 0 ? countdown.text : 'срок истёк'}
-            {next.deadline ? ` · до ${formatMoscowHuman(next.deadline)}` : ''}
-          </p>
-          <p className="text-sm text-muted">{next.note}</p>
-          <p className="text-sm text-muted">
-            Все сроки этапов — в разделе{' '}
-            <Link to="/cabinet/deadlines" className="text-accent underline underline-offset-2">
-              «Дедлайны»
-            </Link>
-            .
-          </p>
         </div>
       </CabinetSection>
 

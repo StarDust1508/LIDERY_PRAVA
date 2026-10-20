@@ -481,27 +481,31 @@ function CabinetNav({
 
   return (
     <nav aria-label="Разделы личного кабинета" className="border border-border bg-surface">
-      <p className="mono-label border-b border-border px-5 py-3 text-muted">Разделы личного кабинета</p>
-      <ul className="flex flex-col">
+      <p className="mono-label hidden border-b border-border px-5 py-3 text-muted lg:block">Разделы личного кабинета</p>
+      {/* На телефоне — горизонтальная лента: список с подписями занимал почти
+          весь первый экран, и до содержимого раздела было не добраться. */}
+      <ul className="flex flex-wrap gap-2 p-2 lg:flex-col lg:flex-nowrap lg:gap-0 lg:p-0">
         {sections.map((section) => (
-          <li key={section.to} className="border-b border-border last:border-b-0">
+          <li key={section.to} className="shrink-0 border-b-0 lg:border-b lg:border-border lg:last:border-b-0">
             {section.lockedReason === null ? (
               <NavLink
                 to={section.to}
                 end={section.to === '/cabinet'}
                 className={({ isActive }) =>
-                  `flex flex-col gap-1 px-5 py-3 text-sm hover:bg-raised ${
-                    isActive ? 'border-l-2 border-accent bg-raised font-medium text-fg' : 'text-muted'
+                  `flex flex-col gap-1 whitespace-nowrap border px-3 py-2 text-sm lg:whitespace-normal lg:border-0 lg:px-5 lg:py-3 lg:hover:bg-raised ${
+                    isActive
+                      ? 'border-accent bg-raised font-medium text-fg lg:border-l-2 lg:border-l-accent lg:border-y-0 lg:border-r-0'
+                      : 'border-transparent text-muted'
                   }`
                 }
               >
                 <span>{section.title}</span>
-                <span className="text-sm text-muted">{section.hint}</span>
+                <span className="hidden text-sm text-muted lg:block">{section.hint}</span>
               </NavLink>
             ) : (
-              <div aria-disabled="true" className="flex flex-col gap-1 px-5 py-3 text-sm">
+              <div aria-disabled="true" className="flex flex-col gap-1 px-3 py-2 text-sm lg:px-5 lg:py-3">
                 <span className="text-muted">{section.title}</span>
-                <span className="text-sm text-muted">
+                <span className="hidden text-sm text-muted lg:block">
                   {section.hint} — {section.lockedReason}
                 </span>
               </div>
@@ -556,8 +560,11 @@ export function CabinetLayout({
     data.team.status === 'finalist' || data.team.status === 'final' || data.team.status === 'winner';
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <div className="flex flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
+    // Кабинет живёт вне общей обёртки сайта: без контейнера содержимое
+    // прилипало к краям экрана, а на телефоне уезжало за вьюпорт.
+    <div className="mx-auto w-full max-w-container px-5 py-8 lg:px-8 lg:py-10">
+      <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <CabinetNav
           isFinalist={isFinalist}
           finalLockedReason={finalLockedText(data)}
@@ -583,6 +590,7 @@ export function CabinetLayout({
         ) : null}
         {children}
       </main>
+      </div>
     </div>
   );
 }
@@ -694,14 +702,13 @@ function CabinetToolbar({
       {formError ? <Alert tone="warning">{formError}</Alert> : null}
       {extra}
 
-      <section className="border border-border bg-surface">
-        <h2 className="mono-label border-b border-border px-5 py-3 text-muted">Бланк заявки</h2>
-        <div className="flex flex-col gap-3 px-5 py-4">
+      <details className="border border-border bg-surface">
+        <summary className="mono-label cursor-pointer px-4 py-3 text-muted">Бланк заявки</summary>
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-3">
           <p className="text-sm text-muted">
-            Приложение №&nbsp;1 формируется системой: бланк заполнен данными команды. Скачайте его для своего
-            архива — загружать бланк в комплект не нужно.
+            Приложение №&nbsp;1 заполнено данными команды: скачайте для архива, загружать в комплект не нужно.
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
               loading={formBusy === 'docx'}
@@ -719,24 +726,20 @@ function CabinetToolbar({
               Скачать PDF
             </Button>
           </div>
-          <p className="text-sm text-muted">
-            Если PDF не откроется, скачайте бланк в DOCX — данные в нём те же.
-          </p>
         </div>
-      </section>
+      </details>
 
       {/* Бланки согласий (Приложения № 10–13): согласия даны электронно, но
           команда может скачать заполненные бланки для архива или подписания
           (ТЗ 06, п. 1.3). */}
-      <section className="border border-border bg-surface">
-        <h2 className="mono-label border-b border-border px-5 py-3 text-muted">Бланки согласий</h2>
-        <div className="flex flex-col gap-3 px-5 py-4">
+      <details className="border border-border bg-surface">
+        <summary className="mono-label cursor-pointer px-4 py-3 text-muted">Бланки согласий</summary>
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-3">
           <p className="text-sm text-muted">
-            Согласия оформлены электронно при подаче заявки. Бланки заполнены данными участников — их можно
-            скачать для архива или подписать по требованию организации. Для участников младше 18 лет подписанный
-            бланк Приложения&nbsp;№&nbsp;11 загружается сканом.
+            Согласия оформлены электронно; бланки заполнены данными участников — можно скачать для архива или
+            подписать. Для участников младше 18 лет скан Приложения&nbsp;№&nbsp;11 загружается в комплект.
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
               loading={consentBusy === 'pdn'}
@@ -771,11 +774,11 @@ function CabinetToolbar({
             </Button>
           </div>
         </div>
-      </section>
+      </details>
 
-      <section className="border border-border bg-surface">
-        <h2 className="mono-label border-b border-border px-5 py-3 text-muted">Доступ и участие</h2>
-        <div className="flex flex-col gap-4 px-5 py-4">
+      <details className="border border-border bg-surface">
+        <summary className="mono-label cursor-pointer px-4 py-3 text-muted">Доступ и участие</summary>
+        <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
           <div className="flex flex-col gap-2">
             <Button variant="secondary" onClick={() => setRevokeOpen(true)}>
               Завершить все сеансы
@@ -811,7 +814,7 @@ function CabinetToolbar({
             </div>
           )}
         </div>
-      </section>
+      </details>
 
       <ConfirmDialog
         open={revokeOpen}
