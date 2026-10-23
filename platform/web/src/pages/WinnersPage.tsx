@@ -8,6 +8,14 @@ import { breadcrumbs, useSeo } from '@/lib/seo';
 // Победители по годам и номинациям (ТЗ 08, п. 5). Публикуются только записи,
 // открытые Оргкомитетом; фото — при наличии согласия, иначе выводится заглушка.
 
+
+/** Монограмма команды для карточки без фотографии: до двух первых букв слов. */
+function monogram(teamName: string | null): string {
+  const words = (teamName ?? '').trim().split(/\s+/).filter(Boolean);
+  const letters = words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? '');
+  return letters.join('') || 'ЛП';
+}
+
 const PLACE_TITLES: Record<number, string> = { 1: 'I место', 2: 'II место', 3: 'III место' };
 
 /** Годы, для которых есть кадр в /assets/history (присланы заказчиком 23.10.2026). */
@@ -145,11 +153,16 @@ export function WinnersPage() {
                     />
                   ) : (
                     <div
-                      className="flex h-32 w-32 items-center justify-center border border-border bg-surface text-sm text-muted"
+                      className="winner-monogram-card"
                       role="img"
-                      aria-label="Фотография не опубликована"
+                      aria-label={`Фотография команды ${winner.team_name ?? ''} готовится к публикации`}
                     >
-                      фото не опубликовано
+                      <span className="winner-monogram" aria-hidden="true">
+                        {monogram(winner.team_name)}
+                      </span>
+                      <span className="winner-monogram-year" aria-hidden="true">
+                        {winner.season_year}
+                      </span>
                     </div>
                   )}
                   <div className="min-w-[240px] flex-1">

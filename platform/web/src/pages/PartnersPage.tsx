@@ -24,6 +24,7 @@ const PARTNER_TYPE_TITLES: Record<string, string> = {
 /** Логотипы партнёров, подготовленные как статические файлы (23.10.2026). */
 const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> = [
   { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
+  { match: /^ФЭС\b|ФЭС/i, src: '/assets/partners/fes.svg', alt: 'Логотип ФЭС' },
 ];
 
 function partnerLogoSrc(name: string): string | null {

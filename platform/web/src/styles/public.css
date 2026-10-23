@@ -2151,3 +2151,171 @@
   width: auto;
   object-fit: contain;
 }
+
+/* Канонический шрифт Uncage — на всей публичной части, включая легаси-слой
+   («печатная машинка» отменена: моноширинный JetBrains Mono больше не
+   используется). */
+.site,
+.site .mono,
+.site .mono-label,
+.site .sec-label,
+.site .tag,
+.site .pdesc,
+.site .faq-num,
+.site .bcard-num,
+.site .stat .lbl,
+.site .hero-topmeta,
+.site .decade figcaption,
+.site .decade-year,
+.site .story-link,
+.site .pc-btn,
+.site .nav-cta,
+.site .foot-col h4,
+.site .fb-copy,
+.site .foot-req,
+.site .nav-links a,
+.site button,
+.site input,
+.site select,
+.site textarea {
+  font-family: var(--font-text);
+}
+
+/* «Пустой кадр» ленты сезонов: поляроид с крупным годом вместо пропуска. */
+.site .timeline-photo.timeline-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: clamp(240px, 34vw, 420px);
+  padding: clamp(1.4rem, 3vw, 2.6rem);
+  background: var(--sand);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+.site .timeline-photo.timeline-empty:hover { background: #e8dfd0; }
+/* Внутри «пустого кадра» текст не должен наследовать подчёркивание ссылки. */
+.site .timeline-photo.timeline-empty,
+.site .timeline-photo.timeline-empty * { text-decoration: none; }
+.site .timeline-photo.timeline-empty:hover .timeline-empty-link { text-decoration: underline; }
+.site .timeline-empty-year {
+  font-size: clamp(3.4rem, 11vw, 8rem);
+  font-weight: 700;
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  color: var(--red);
+}
+.site .timeline-empty-title {
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.site .timeline-empty-note {
+  max-width: 34ch;
+  text-transform: none;
+  font-size: clamp(0.9rem, 1.2vw, 1rem);
+  line-height: 1.45;
+  color: var(--ink-60);
+}
+.site .timeline-empty-link {
+  font-size: 0.9rem;
+  text-transform: none;
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Монограмма команды там, где фотографии пока нет. */
+.site .winner-monogram-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 8rem;
+  height: 8rem;
+  background: var(--ink);
+  color: var(--paper);
+  flex-shrink: 0;
+}
+.site .winner-monogram {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.site .winner-monogram-year {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.4rem;
+  font-size: 0.72rem;
+  color: rgba(245, 241, 233, 0.6);
+}
+
+/* Uncage — метрики выше Inter: герой перестал помещаться и заголовок
+   наезжал на верхнюю строку. Выравниваем по верху и прижимаем низ блока
+   к нижней границе экрана. */
+.site .hero-left {
+  justify-content: flex-start;
+  gap: clamp(0.8rem, 2vh, 1.6rem);
+  padding-top: clamp(1.6rem, 5vh, 3.4rem);
+}
+.site .hero-topmeta {
+  position: static;
+  margin-bottom: 0;
+}
+.site .hero-title-row { margin-top: clamp(0.4rem, 2.4vh, 1.4rem); }
+.site .hero h1 { line-height: 0.9; letter-spacing: -0.035em; }
+.site .hero-bottom { margin-top: auto; }
+@media (max-width: 1024px) {
+  .site .hero { min-height: auto; }
+}
+
+/* Легаси-правило `.site main a:not(...)` рисует подчёркивание через всю
+   «карточку» пустого кадра, а наследуемый text-transform делает подписи
+   капсом. Для осознанной типографики карточки гасим оба эффекта точечно. */
+.site main .timeline-photo.timeline-empty,
+.site main .timeline-photo.timeline-empty * {
+  text-decoration: none !important;
+  text-transform: none !important;
+}
+.site main .timeline-photo.timeline-empty .timeline-empty-title {
+  text-transform: uppercase !important;
+}
+.site main .timeline-photo.timeline-empty:hover .timeline-empty-link {
+  text-decoration: underline !important;
+}
+
+
+/* Дисплейные роли публичной части — канонический Uncage.
+   Основной текст — Inter: Uncage уницейз, абзацы в нём набираются капсом. */
+.site h1,
+.site h2,
+.site h3,
+.site h4,
+.site .hero h1,
+.site .cta-big,
+.site .marquee-track,
+.site .mono,
+.site .mono-label,
+.site .sec-label,
+.site .tag,
+.site .bcard-num,
+.site .stat .num,
+.site .stat .lbl,
+.site .hero-topmeta,
+.site .decade figcaption,
+.site .decade-year,
+.site .story-link,
+.site .nav-links a,
+.site .nav-cta,
+.site .btn,
+.site .foot-col h4,
+.site .fb-mark,
+.site .timeline-year,
+.site .timeline-empty-year,
+.site .timeline-empty-title,
+.site .timeline-empty-link {
+  font-family: var(--font-display);
+}

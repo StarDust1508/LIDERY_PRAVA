@@ -29,9 +29,14 @@
     outline: none;
   }
 
+  /* Заголовки — канонический Uncage (см. tokens.css: universal-case шрифт). */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+
   /* Служебная подпись: капс с трекингом, как в дизайн-системе. */
   .mono-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--fs-mono);
     font-weight: var(--fw-medium);
     letter-spacing: var(--tr-mono);

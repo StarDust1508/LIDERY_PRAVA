@@ -68,24 +68,54 @@ const BENEFITS = [
 
 const TIMELINE = [
   {
+    year: '2017',
+    image: null,
+    text: 'Первый сезон конкурса: заявки студентов и первые законотворческие инициативы.',
+  },
+  {
     year: '2018',
     image: '/assets/history/history-2018.jpg',
     text: 'Второй сезон: первые команды из Саратовской области, защита инициатив перед экспертным сообществом.',
   },
   {
+    year: '2019',
+    image: null,
+    text: 'Конкурс выходит за пределы одного региона, появляются наставники-практики.',
+  },
+  {
+    year: '2020',
+    image: null,
+    text: 'Дистанционный формат этапов и работа команд из разных субъектов Российской Федерации.',
+  },
+  {
     year: '2021',
     image: '/assets/history/history-2021.jpg',
-    text: 'Пятый сезон: конкурс выходит за пределы одного региона, появляются наставники-практики.',
+    text: 'Пятый сезон: в конкурсе 19 команд, финал в СГЮА, победитель — команда «СССР».',
+  },
+  {
+    year: '2022',
+    image: null,
+    text: 'Инициативы участников направляются субъектам права законодательной инициативы.',
   },
   {
     year: '2023',
     image: '/assets/history/history-2023.jpg',
-    text: 'Седьмой сезон: финал в Москве, групповые выступления, дебаты и Гранд-финал.',
+    text: 'Седьмой сезон: 98 заявок, 20 команд из 16 регионов, победитель — Юридическая школа ДВФУ.',
+  },
+  {
+    year: '2024',
+    image: null,
+    text: 'Финал в Москве: групповые выступления, дебаты и Гранд-финал.',
+  },
+  {
+    year: '2025',
+    image: null,
+    text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.',
   },
   {
     year: '2026',
     image: '/assets/history/history-2026.jpg',
-    text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.',
+    text: 'Десятый, юбилейный сезон: победитель — команда «КиберЪОко» (ДВЮИ Университета прокуратуры).',
   },
 ];
 
@@ -147,6 +177,7 @@ function FaqRow({ item, index }: { item: { question: string; answer: string; pat
 /** Логотипы партнёров, подготовленные как статические файлы (23.10.2026). */
 const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> = [
   { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
+  { match: /^ФЭС\b|ФЭС/i, src: '/assets/partners/fes.svg', alt: 'Логотип ФЭС' },
 ];
 
 function partnerLogoSrc(name: string): string | null {
@@ -358,17 +389,33 @@ export function HomePage() {
             ))}
           </ol>
           <div className="timeline-stage reveal">
-            <Link to={`/winners/${activeFrame.year}`} className="timeline-photo">
-              <img
-                key={activeFrame.year}
-                src={activeFrame.image}
-                alt={`Участники и организаторы конкурса «Лидеры права» в ${activeFrame.year} году`}
-                width={1600}
-                height={1067}
-                loading="lazy"
-              />
-              <span className="timeline-hint">Победители {activeFrame.year} года — команды, фото и видео →</span>
-            </Link>
+            {activeFrame.image ? (
+              <Link to={`/winners/${activeFrame.year}`} className="timeline-photo">
+                <img
+                  key={activeFrame.year}
+                  src={activeFrame.image}
+                  alt={`Участники и организаторы конкурса «Лидеры права» в ${activeFrame.year} году`}
+                  width={1600}
+                  height={1067}
+                  loading="lazy"
+                />
+                <span className="timeline-hint">Победители {activeFrame.year} года — команды, фото и видео →</span>
+              </Link>
+            ) : (
+              /* Кадр сезона ещё в архиве: вместо пустого места — поляроид
+                 с крупным годом и прямой просьбой прислать фотографию. */
+              <Link to={`/winners/${activeFrame.year}`} className="timeline-photo timeline-empty">
+                <span className="timeline-empty-year" aria-hidden="true">
+                  {activeFrame.year}
+                </span>
+                <span className="timeline-empty-title">Кадр сезона ещё в архиве</span>
+                <span className="timeline-empty-note">
+                  Фотография {activeFrame.year} года появится здесь, как только её пришлёт Оргкомитет. Итоги
+                  сезона — на странице победителей.
+                </span>
+                <span className="timeline-empty-link">Открыть страницу {activeFrame.year} года →</span>
+              </Link>
+            )}
             <p className="timeline-text">{activeFrame.text}</p>
           </div>
           <div className="story-cta reveal">
