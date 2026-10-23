@@ -144,6 +144,15 @@ function FaqRow({ item, index }: { item: { question: string; answer: string; pat
   );
 }
 
+/** Логотипы партнёров, подготовленные как статические файлы (23.10.2026). */
+const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> = [
+  { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
+];
+
+function partnerLogoSrc(name: string): string | null {
+  return PARTNER_LOGOS.find((item) => item.match.test(name))?.src ?? null;
+}
+
 export function HomePage() {
   const [season, setSeason] = useState<SeasonResponse | null>(null);
   const [masterclasses, setMasterclasses] = useState<PublicMasterclass[]>([]);
@@ -429,9 +438,13 @@ export function HomePage() {
             <div className="partners-grid reveal">
               {partners.map((partner) => (
                 <article key={partner.id} className="bcard">
-                  {partner.logo_url ? (
-                    <div className="duo bcard-photo">
-                      <img src={partner.logo_url} alt={`Логотип: ${partner.name}`} loading="lazy" />
+                  {partner.logo_url || partnerLogoSrc(partner.name) ? (
+                    <div className="partner-logo">
+                      <img
+                        src={partner.logo_url ?? partnerLogoSrc(partner.name) ?? ''}
+                        alt={`Логотип: ${partner.name}`}
+                        loading="lazy"
+                      />
                     </div>
                   ) : null}
                   <h3>{partner.name}</h3>

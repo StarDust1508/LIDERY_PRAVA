@@ -2138,3 +2138,16 @@
 }
 .site .foot-req li { max-width: 92ch; }
 .site .foot-bottom .fb-copy { font-family: var(--font-text); }
+
+/* Логотипы партнёров: спокойная полоса без рамок. */
+.site .partner-logo {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  margin-bottom: 0.6rem;
+}
+.site .partner-logo img {
+  max-height: 56px;
+  width: auto;
+  object-fit: contain;
+}

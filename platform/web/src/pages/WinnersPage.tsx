@@ -10,6 +10,18 @@ import { breadcrumbs, useSeo } from '@/lib/seo';
 
 const PLACE_TITLES: Record<number, string> = { 1: 'I место', 2: 'II место', 3: 'III место' };
 
+/** Годы, для которых есть кадр в /assets/history (присланы заказчиком 23.10.2026). */
+const ALL_YEARS = [2018, 2021, 2023, 2026];
+
+const YEAR_PHOTOS: Record<number, string> = {
+  2018: '/assets/history/history-2018.jpg',
+  2021: '/assets/history/history-2021.jpg',
+  2023: '/assets/history/history-2023.jpg',
+  2026: '/assets/history/history-2026.jpg',
+};
+
+
+
 export function WinnersPage() {
   const params = useParams();
   const year = params.year ? Number(params.year) : undefined;
@@ -72,14 +84,36 @@ export function WinnersPage() {
           Команды и номинации по годам. Фотографии и видеосюжеты публикуются только при наличии согласий участников и
           законных представителей.
         </p>
-        {!year && years.length > 0 ? (
-          <nav aria-label="Годы конкурса" className="mt-4 flex flex-wrap gap-3 text-sm">
-            {years.map((value) => (
-              <Link key={value} to={`/winners/${value}`} className="text-accent underline underline-offset-2">
+        <nav aria-label="Годы конкурса" className="mt-4 flex flex-wrap gap-3 text-sm">
+          {[...new Set([...years, ...ALL_YEARS])]
+            .sort((a, b) => b - a)
+            .map((value) => (
+              <Link
+                key={value}
+                to={`/winners/${value}`}
+                aria-current={year === value ? 'page' : undefined}
+                className={
+                  year === value
+                    ? 'border border-accent px-3 py-1 text-accent'
+                    : 'border border-border px-3 py-1 text-accent hover:border-accent'
+                }
+              >
                 {value}
               </Link>
             ))}
-          </nav>
+        </nav>
+        {year && YEAR_PHOTOS[year] ? (
+          <figure className="mt-6">
+            <img
+              src={YEAR_PHOTOS[year]!}
+              alt={`Участники и организаторы конкурса «Лидеры права» в ${year} году`}
+              className="w-full max-w-3xl border border-border object-cover"
+              loading="lazy"
+            />
+            <figcaption className="mt-2 text-sm text-muted">
+              Кадр конкурса {year} года. Команды-победители — ниже.
+            </figcaption>
+          </figure>
         ) : null}
       </header>
 
@@ -88,9 +122,13 @@ export function WinnersPage() {
       {loading ? (
         <p role="status">Загружаем список…</p>
       ) : winners.length === 0 ? (
-        <Alert tone="info" title="Список пока не опубликован">
-          Победители публикуются Оргкомитетом после подведения итогов сезона. Итоги прошлых лет вносятся вручную и
-          появятся по мере подтверждения согласий участников.
+        <Alert tone="info" title={year ? `Итоги ${year} года ещё не внесены` : 'Список пока не опубликован'}>
+          Победители публикуются Оргкомитетом после подведения итогов сезона. Итоги прошлых лет вносятся вручную —
+          выберите год выше.{' '}
+          <Link to="/about/history" className="text-accent underline underline-offset-2">
+            История проекта по годам
+          </Link>
+          .
         </Alert>
       ) : (
         byNomination.map(([nomination, items]) => (
