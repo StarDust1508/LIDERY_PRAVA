@@ -310,14 +310,15 @@ export function HomePage() {
             <div className="stat">
               <div className="num">
                 <span className="red">
-                  <CountUp value="10" />
+                  <CountUp value="1000" />
+                  <span>+</span>
                 </span>
               </div>
-              <div className="lbl mono">Сезон конкурса</div>
+              <div className="lbl mono">Участников за все годы</div>
             </div>
             <div className="stat">
-              <div className="num"><CountUp value="70" /></div>
-              <div className="lbl mono">Баллов отборочного этапа</div>
+              <div className="num"><CountUp value="30" /></div>
+              <div className="lbl mono">Регионов России</div>
             </div>
             <div className="stat">
               <div className="num"><CountUp value="2–4" /></div>
