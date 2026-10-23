@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink , Navigate } from 'react-router-dom';
 import {
   APPEAL_GROUNDS,
   APPEAL_STATUS_TITLES,
@@ -396,20 +396,9 @@ export function CabinetLoading({ label = 'Загружаем данные ком
 
 /** Сессия недействительна: объяснение и способ получить доступ заново. */
 export function CabinetSessionLost() {
-  return (
-    <Alert tone="warning" title="Сессия личного кабинета не действует">
-      <p>
-        Данные команды недоступны: сессия закончилась или ссылка доступа больше не действует. Это не ошибка
-        заявки — заявка сохранена. Войдите заново по номеру заявки и почте капитана команды или запросите
-        ссылку у Оргкомитета.
-      </p>
-      <p className="mt-3">
-        <Link to="/cabinet/access" className="text-accent underline underline-offset-2">
-          Перейти ко входу в личный кабинет
-        </Link>
-      </p>
-    </Alert>
-  );
+  // Требование заказчика от 23.10.2026: по кнопке «Личный кабинет» человек
+  // попадает сразу на вход, а не на страницу «сессия недействительна».
+  return <Navigate to="/cabinet/access" replace />;
 }
 
 /** Ошибка загрузки данных, не связанная с сессией: текст и повтор. */

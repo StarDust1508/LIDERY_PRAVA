@@ -11,7 +11,6 @@ import {
 import { Alert } from '@shared/index';
 import { DecadeScale } from '@/components/DecadeScale';
 import { CountUp } from '@/components/CountUp';
-import { SpotlightCard } from '@/components/SpotlightCard';
 import { Arc, ArrowRight, ArrowUpRight } from '@/components/Icon';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 
@@ -40,7 +39,7 @@ const STAGES = [
   },
   {
     title: 'Второй (финальный) этап',
-    text: 'Очно в Москве: групповые выступления, дебаты и Гранд-финал перед Жюри.',
+    text: 'Очно в Москве (ул. Садовая-Спасская, 21/1): групповые выступления, дебаты и Гранд-финал перед Жюри.',
   },
 ];
 
@@ -48,7 +47,6 @@ const BENEFITS = [
   {
     title: 'Наставничество',
     text: 'Работа с экспертами: преподаватели, практикующие юристы, представители органов власти и бизнеса.',
-    image: '/assets/benefits-person.jpg',
   },
   {
     title: 'Стажировки',
@@ -68,13 +66,27 @@ const BENEFITS = [
   },
 ];
 
-const HISTORY = [
-  { year: '2017', image: '/assets/timeline-2017.jpg', text: 'Первый сезон конкурса: заявки студентов и первые законотворческие инициативы.' },
-  { year: '2019', image: '/assets/timeline-2019.jpg', text: 'Конкурс выходит за пределы одного региона, появляются наставники-практики.' },
-  { year: '2020', image: '/assets/timeline-2020.jpg', text: 'Дистанционный формат этапов и работа команд из разных субъектов Российской Федерации.' },
-  { year: '2022', image: '/assets/timeline-2022.jpg', text: 'Инициативы участников направляются субъектам права законодательной инициативы.' },
-  { year: '2024', image: '/assets/timeline-2024.jpg', text: 'Финал в Москве: групповые выступления, дебаты и Гранд-финал.' },
-  { year: '2025', image: '/assets/timeline-2025.jpg', text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.' },
+const TIMELINE = [
+  {
+    year: '2018',
+    image: '/assets/history/history-2018.jpg',
+    text: 'Второй сезон: первые команды из Саратовской области, защита инициатив перед экспертным сообществом.',
+  },
+  {
+    year: '2021',
+    image: '/assets/history/history-2021.jpg',
+    text: 'Пятый сезон: конкурс выходит за пределы одного региона, появляются наставники-практики.',
+  },
+  {
+    year: '2023',
+    image: '/assets/history/history-2023.jpg',
+    text: 'Седьмой сезон: финал в Москве, групповые выступления, дебаты и Гранд-финал.',
+  },
+  {
+    year: '2026',
+    image: '/assets/history/history-2026.jpg',
+    text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.',
+  },
 ];
 
 const FAQ = [
@@ -118,12 +130,6 @@ function FaqRow({ item, index }: { item: { question: string; answer: string; pat
       >
         <span className="faq-num">{String(index + 1).padStart(2, '0')}</span>
         <span className="faq-q-text">{item.question}</span>
-        <span className="faq-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" strokeWidth={2.5} strokeLinecap="round">
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-        </span>
       </button>
       <div className="faq-answer" style={{ maxHeight: open ? '24rem' : 0 }}>
         <p>{item.answer}</p>
@@ -143,6 +149,9 @@ export function HomePage() {
   const [masterclasses, setMasterclasses] = useState<PublicMasterclass[]>([]);
   const [partners, setPartners] = useState<PublicPartner[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Хронологическая лента: выбранный год меняет кадр под лентой.
+  const [activeYear, setActiveYear] = useState('2026');
+  const activeFrame = TIMELINE.find((item) => item.year === activeYear) ?? TIMELINE[TIMELINE.length - 1]!;
 
   useSeo({
     title: 'Конкурс для студентов и молодых юристов',
@@ -205,24 +214,35 @@ export function HomePage() {
         <div className="hero-left">
           <div className="hero-topmeta mono">
             <span>Юридический конкурс — Россия</span>
-            <span>2017—2027</span>
+            <span>10 юбилейный сезон</span>
           </div>
           {/* Заголовок по словам: каждое появляется со своей задержкой (приём
               SplitText из reactbits.dev). Текст остаётся обычным текстом в DOM:
               поиск и скринридеры видят «Лидеры права» целиком. */}
-          <h1 aria-label="Лидеры права">
-            <span className="hero-word" style={{ '--d': '0ms' } as React.CSSProperties}>
-              Лидеры
-            </span>
-            <br />
-            <span className="hero-word red" style={{ '--d': '120ms' } as React.CSSProperties}>
-              права
-            </span>
-          </h1>
+          <div className="hero-title-row">
+            <h1 aria-label="Лидеры права">
+              <span className="hero-word" style={{ '--d': '0ms' } as React.CSSProperties}>
+                Лидеры
+              </span>
+              <br />
+              <span className="hero-word red" style={{ '--d': '120ms' } as React.CSSProperties}>
+                права
+              </span>
+            </h1>
+            {/* «Десятка» — справа от названия, классический знак остаётся сверху. */}
+            <div className="hero-ten" aria-label="Десятый юбилейный сезон">
+              <span className="hero-ten-num">10</span>
+              <span className="hero-ten-note">юбилейный сезон</span>
+            </div>
+          </div>
           <div className="hero-bottom">
             <p className="hero-statement">
               Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
               стажировки и публикацию законотворческих инициатив.
+            </p>
+            <p className="hero-pmuf">
+              Победители и финалисты представляют инициативы на Петербургском международном юридическом форуме
+              (ПМЮФ).
             </p>
             <div className="hero-actions">
               <Link to="/apply" className="btn btn-solid mono">
@@ -249,7 +269,7 @@ export function HomePage() {
                 loading="eager"
               />
             </div>
-            <div className="tag mono">[ Финал · 2024 ]</div>
+            <div className="tag mono">[ 10 юбилейный сезон ]</div>
           </div>
         </div>
       </header>
@@ -310,37 +330,44 @@ export function HomePage() {
       {/* История проекта: фотолента по годам. */}
       <section className="block" id="story">
         <div className="wrap">
-          <div className="sec-label mono">(История проекта / 2017—2025)</div>
-          <div className="story-grid">
-            {HISTORY.map((item, index) => (
-              <SpotlightCard key={item.year} className="reveal">
-                <Link
-                  to="/about/history"
-                  className="pcard"
-                  style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
+          <div className="sec-label mono">(История проекта / по годам)</div>
+          {/* Хронологическая лента: год — кнопка, кадр под ней меняется.
+              Нажатие на кадр ведёт на страницу победителей этого года. */}
+          <ol className="timeline-years reveal" aria-label="Годы конкурса">
+            {TIMELINE.map((item) => (
+              <li key={item.year}>
+                <button
+                  type="button"
+                  className={`timeline-year${item.year === activeYear ? ' is-active' : ''}`}
+                  aria-pressed={item.year === activeYear}
+                  onClick={() => setActiveYear(item.year)}
                 >
-                {/* Фотолента: кадры в естественном цвете — чернильная подложка
-                    «каждой третьей» карточки отменена правкой от 12.10.2026. */}
-                <div className="duo">
-                  <img
-                    src={item.image}
-                    alt={`Участники конкурса «Лидеры права» в ${item.year} году`}
-                    width={1280}
-                    height={854}
-                    loading="lazy"
-                  />
-                </div>
-                <div className="meta">
-                  <span className="pyear">{item.year}</span>
-                  <span className="pdesc mono">{item.text}</span>
-                </div>
-                </Link>
-              </SpotlightCard>
+                  {item.year}
+                </button>
+              </li>
             ))}
+          </ol>
+          <div className="timeline-stage reveal">
+            <Link to={`/winners/${activeFrame.year}`} className="timeline-photo">
+              <img
+                key={activeFrame.year}
+                src={activeFrame.image}
+                alt={`Участники и организаторы конкурса «Лидеры права» в ${activeFrame.year} году`}
+                width={1600}
+                height={1067}
+                loading="lazy"
+              />
+              <span className="timeline-hint">Победители {activeFrame.year} года — команды, фото и видео →</span>
+            </Link>
+            <p className="timeline-text">{activeFrame.text}</p>
           </div>
           <div className="story-cta reveal">
             <Link to="/winners" className="story-link mono">
               Победители прошлых сезонов
+              <ArrowRight size={15} />
+            </Link>
+            <Link to="/about/history" className="story-link mono">
+              История проекта
               <ArrowRight size={15} />
             </Link>
           </div>
@@ -384,19 +411,7 @@ export function HomePage() {
                 className="bcard reveal"
                 style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
               >
-                {benefit.image ? (
-                  <div className="duo bcard-photo portrait">
-                    <img
-                      src={benefit.image}
-                      alt="Наставник конкурса «Лидеры права»"
-                      width={640}
-                      height={640}
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
-                  <span className="bcard-num mono">{String(index + 1).padStart(2, '0')}</span>
-                )}
+                <span className="bcard-num mono">{String(index + 1).padStart(2, '0')}</span>
                 <h3>{benefit.title}</h3>
                 <p>{benefit.text}</p>
               </article>

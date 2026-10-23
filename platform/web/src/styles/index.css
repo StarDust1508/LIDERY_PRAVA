@@ -402,3 +402,26 @@
   padding: 0;
   border-bottom: 0;
 }
+
+/* Галочка: мягкая анимация при выборе (запрос заказчика от 23.10.2026).
+   Движение уважает prefers-reduced-motion. */
+input[type='checkbox'] {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+input[type='checkbox']:checked {
+  transform: scale(1.08);
+}
+input[type='checkbox']:active {
+  transform: scale(0.92);
+}
+input[type='checkbox']:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 35%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  input[type='checkbox'],
+  input[type='checkbox']:checked,
+  input[type='checkbox']:active {
+    transition: none;
+    transform: none;
+  }
+}

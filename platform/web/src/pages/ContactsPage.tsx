@@ -38,7 +38,7 @@ export function ContactsPage() {
   const contactEmail =
     typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'lidery.prava@mail.ru';
   const contactPhone =
-    typeof settings['site.contact_phone'] === 'string' ? settings['site.contact_phone'] : '+7 (906) 074-73-13';
+    typeof settings['site.contact_phone'] === 'string' ? settings['site.contact_phone'] : '8 (966) 789-76-05';
   const vk = typeof settings['site.vk_community'] === 'string' ? settings['site.vk_community'] : 'https://vk.com/lideri.prava2026';
 
   useSeo({
@@ -100,6 +100,13 @@ export function ContactsPage() {
         title="Контакты"
         lead="Оргкомитет отвечает по вопросам участия, материалов, доступа в личный кабинет и сроков этапов."
       />
+
+      <Section title="Место проведения финала" description="Второй (финальный) этап и Гранд-финал проходят очно.">
+        <p>
+          Москва, ул. Садовая-Спасская, 21/1. Точное время и схему прохода Оргкомитет сообщает финалистам
+          в личном кабинете.
+        </p>
+      </Section>
 
       <Section title="Оргкомитет конкурса" description="Разъяснения по вопросам проведения конкурса.">
         <dl className="grid gap-6 text-sm md:grid-cols-2">

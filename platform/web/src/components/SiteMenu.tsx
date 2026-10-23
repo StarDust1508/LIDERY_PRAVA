@@ -129,9 +129,9 @@ export function SiteMenu({ open, onClose, applyLabel, returnFocusTo }: SiteMenuP
                 <Mail size={16} />
                 lidery.prava@mail.ru
               </a>
-              <a href="tel:+79060747313">
+              <a href="tel:+79667897605">
                 <Phone size={16} />
-                +7 (906) 074-73-13
+                +7 (966) 789-76-05
               </a>
               <a href="https://vk.com/lideri.prava2026" target="_blank" rel="noreferrer noopener">
                 Сообщество во «ВКонтакте»

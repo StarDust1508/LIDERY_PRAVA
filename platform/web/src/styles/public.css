@@ -1960,3 +1960,181 @@
 .site .sec-label {
   justify-content: flex-start;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Финальная правка заказчика от 23.10.2026
+   1) прямые линии и рамки в оформлении убираем — информация живёт на фоне;
+   2) красный на тёмном фоне не используем;
+   3) единый шрифт: печатную машинку (моноширинный) убираем отовсюду;
+   4) хронологическая лента по годам; «десятка» справа от названия;
+   5) подвал: реквизиты столбиком, адрес финала.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Никаких «квадратов» и линий вокруг информации. */
+.site section.block { border-bottom: 0; }
+.site .hero-bottom { border-top: 0; }
+.site .stats {
+  background: transparent;
+  border: 0;
+  gap: clamp(1.2rem, 3vw, 3rem);
+}
+.site .stat { background: transparent; padding: clamp(1rem, 2vw, 1.6rem) 0; }
+.site .bcard { background: transparent; }
+.site .bcard:hover { background: transparent; color: inherit; }
+.site .partner, .site .partners-grid > *, .site .benefits-grid > * { background: transparent; border: 0; }
+.site .partners-grid { border: 0; background: transparent; }
+.site .pcard .meta, .site .duo + .tag { border-top: 0; }
+.site .faq-item { border-bottom: 0; }
+.site .faq-icon { display: none !important; }
+.site table, .site .calendar-table { border-color: var(--line); }
+
+/* 2. Красный на тёмном фоне (блок «Подать заявку») — убираем. */
+.site .apply .sec-label,
+.site .apply .apply-info h2 .red,
+.site .apply .red { color: var(--paper); }
+.site .apply-info .badge { border-color: rgba(245, 241, 233, 0.5); }
+
+/* 3. Единый шрифт: моноширинные подписи больше не «печатная машинка». */
+.site .mono,
+.site .mono-label,
+.site .sec-label,
+.site .tag,
+.site .pdesc,
+.site .faq-num,
+.site .bcard-num,
+.site .stat .lbl,
+.site .hero-topmeta,
+.site .decade figcaption,
+.site .decade-year,
+.site .story-link,
+.site .pc-btn,
+.site .nav-cta,
+.site .foot-col h4,
+.site .fb-copy,
+.site .foot-req,
+.site .nav-links a {
+  font-family: var(--font-text);
+}
+.site .mono,
+.site .mono-label,
+.site .sec-label {
+  letter-spacing: 0.04em;
+}
+
+/* 4. «Десятка» справа от названия и строка про ПМЮФ. */
+.site .hero-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(1rem, 3vw, 3rem);
+}
+.site .hero-ten {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-bottom: 0.5em;
+  flex-shrink: 0;
+}
+.site .hero-ten-num {
+  font-weight: 900;
+  font-size: clamp(2.6rem, 7vw, 6.2rem);
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  color: var(--red);
+}
+.site .hero-ten-note {
+  margin-top: 0.5rem;
+  font-size: clamp(0.7rem, 1vw, 0.9rem);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-60);
+}
+.site .hero-pmuf {
+  max-width: 36rem;
+  margin-top: 1.1rem;
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+  line-height: 1.45;
+  color: var(--ink-60);
+}
+
+/* 5. Хронологическая лента: годы-кнопки, кадр под ними, переход к победителям. */
+.site .timeline-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem clamp(1rem, 2.4vw, 2.6rem);
+  list-style: none;
+  margin: 0 0 clamp(1.2rem, 2.6vw, 2.2rem);
+  padding: 0;
+}
+.site .timeline-year {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0.1em 0;
+  font-weight: 900;
+  font-size: clamp(1.7rem, 4.6vw, 3.8rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink-35);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+.site .timeline-year:hover { color: var(--ink); }
+.site .timeline-year.is-active { color: var(--red); }
+.site .timeline-year:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+.site .timeline-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(1.2rem, 3vw, 3rem);
+  align-items: end;
+}
+.site .timeline-photo { position: relative; display: block; overflow: hidden; }
+.site .timeline-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.5s ease;
+}
+.site .timeline-photo:hover img { transform: scale(1.02); }
+.site .timeline-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.7rem 1rem;
+  color: #fff;
+  font-size: clamp(0.78rem, 1vw, 0.95rem);
+  background: rgba(20, 18, 15, 0.66);
+}
+.site .timeline-text {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  line-height: 1.5;
+  color: var(--ink-60);
+}
+@media (max-width: 760px) {
+  .site .timeline-stage { grid-template-columns: 1fr; }
+  .site .timeline-hint { position: static; background: none; color: var(--ink-60); padding: 0; margin-top: 0.6rem; }
+  .site .hero-title-row { align-items: flex-start; }
+}
+
+/* 6. Подвал: адрес финала и реквизиты столбиком; ничего не выходит за край. */
+.site .fb-venue {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ink-60);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.site .fb-contacts a, .site .fb-venue { overflow-wrap: anywhere; }
+.site .foot-req {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-60);
+}
+.site .foot-req li { max-width: 92ch; }
+.site .foot-bottom .fb-copy { font-family: var(--font-text); }

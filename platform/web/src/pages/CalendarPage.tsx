@@ -110,7 +110,7 @@ export function CalendarPage() {
           id: 'final',
           period: formatPeriod(season.final_from, season.final_to),
           event: 'Второй (финальный) этап: групповые выступления, дебаты, Гранд-финал, награждение',
-          form: 'Очно, Москва',
+          form: 'Очно, Москва, ул. Садовая-Спасская, 21/1',
         },
         {
           id: 'appeals',
@@ -122,7 +122,7 @@ export function CalendarPage() {
           id: 'post-final',
           period: formatPeriod(season.post_final_from ?? null, season.post_final_to ?? null),
           event: 'Открытая дискуссия с депутатами Государственной Думы, стажировки',
-          form: 'Очно, Москва',
+          form: 'Очно, Москва, ул. Садовая-Спасская, 21/1',
         },
       ]
         // Строки, для которых в сезоне нет дат, не показываем: пустой прочерк в

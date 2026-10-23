@@ -63,7 +63,7 @@
 
   /* 2.4 Типографика */
   --font-text: "Inter", "Inter var", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: "Inter", "Inter var", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --fs-display: clamp(34px, 4.6vw, 56px);
   --fs-h1: clamp(27px, 3.2vw, 38px);
@@ -101,7 +101,7 @@
   --lh-body: 1.55;
   --tr-display: -0.03em;
   --tr-heading: -0.02em;
-  --tr-mono: 0.085em;
+  --tr-mono: 0.035em;
 
   /* 2.5 Ритм и отступы */
   --s-1: 4px;

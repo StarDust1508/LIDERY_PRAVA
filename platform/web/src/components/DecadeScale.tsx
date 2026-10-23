@@ -13,7 +13,7 @@ const CURRENT_YEAR = 2027;
 
 const YEARS = Array.from({ length: CURRENT_YEAR - FIRST_YEAR + 1 }, (_, index) => FIRST_YEAR + index);
 
-export function DecadeScale({ caption = 'Десять сезонов · 2017—2027' }: { caption?: string }) {
+export function DecadeScale({ caption = '10 юбилейный сезон' }: { caption?: string }) {
   return (
     <figure className="decade reveal">
       <figcaption className="mono">{caption}</figcaption>
