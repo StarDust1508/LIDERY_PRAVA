@@ -142,7 +142,7 @@ export const ADMIN_LOGIN: string | undefined = readRaw('ADMIN_LOGIN');
 export const ADMIN_PASSWORD: string = requireString('ADMIN_PASSWORD', 8);
 
 // ── Файлы ────────────────────────────────────────────────────────────────────
-export const MAX_FILE_SIZE: number = optionalInt('MAX_FILE_SIZE', 25 * 1024 * 1024, 1024, 100 * 1024 * 1024);
+export const MAX_FILE_SIZE: number = optionalInt('MAX_FILE_SIZE', 50 * 1024 * 1024, 1024, 100 * 1024 * 1024);
 export const MEDIA_PUBLIC_CACHE_SECONDS: number = optionalInt(
   'MEDIA_PUBLIC_CACHE_SECONDS',
   31_536_000,

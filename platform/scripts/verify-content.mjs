@@ -122,7 +122,7 @@ if (content.nominations.items.length !== 6) problems.push('номинаций д
 
 // ── приложения ─────────────────────────────────────────────────────────────
 for (const item of content.appendices.items) expectIn(app, `Приложение № ${item.number}`, `приложение ${item.number}`, 'Приложения');
-if (content.appendices.items.length !== 14) problems.push('приложений должно быть 14');
+if (content.appendices.items.length !== 17) problems.push('приложений должно быть 17 (редакция 21.10.2026)');
 
 // ── материалы: обязательные позиции п. 7.2 ─────────────────────────────────
 for (const item of content.materials.selection) {

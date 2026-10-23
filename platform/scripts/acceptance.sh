@@ -424,7 +424,7 @@ expect "отправка заявки" 200 -b /tmp/lp_acc_cookies.txt -X POST "$
 expect "после отправки правка инициативы запрещена" 409 -b /tmp/lp_acc_cookies.txt -X PATCH "${BASE}/api/cabinet/initiative" -H 'Content-Type: application/json' -d '{"initiative":{"law_title":"Поздняя правка","act_level":"federal","annotation":"Поздняя правка после отправки."}}'
 CONSENTS=$(psql_db "SELECT count(*) FROM liders.consents WHERE team_id=${TEAM_ID} AND revoked_at IS NULL")
 [ "${CONSENTS:-0}" -ge 5 ] && ok "согласий записано: $CONSENTS" || bad "согласий записано: ${CONSENTS:-0}"
-VERSIONED=$(psql_db "SELECT count(*) FROM liders.consents WHERE team_id=${TEAM_ID} AND document_version='2026-10-04' AND accepted_at IS NOT NULL AND ip IS NOT NULL")
+VERSIONED=$(psql_db "SELECT count(*) FROM liders.consents WHERE team_id=${TEAM_ID} AND document_version='2026-10-21' AND accepted_at IS NOT NULL AND ip IS NOT NULL")
 [ "${VERSIONED:-0}" -ge 5 ] && ok "у согласий есть версия текста, время и сетевой адрес: $VERSIONED" || bad "неполные согласия: ${VERSIONED:-0}"
 MATRIX=$(psql_db "SELECT count(*) FROM liders.participant_distribution_consents WHERE participant_id=${CAPTAIN_ID}")
 [ "${MATRIX:-0}" = "6" ] && ok "матрица Приложения № 12: 6 категорий" || bad "матрица Приложения № 12: ${MATRIX:-0} строк"
@@ -742,11 +742,11 @@ RETENTION_TABLE=$(psql_db "SELECT count(*) FROM information_schema.tables WHERE 
 # ── Публикация редакции 04.10.2026 ───────────────────────────────────────────
 step "Публикация Положения и Приложений редакции 04.10.2026"
 DOC_COUNT=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active")
-[ "${DOC_COUNT:-0}" = "15" ] && ok "в таблице documents 15 активных документов (Положение и Приложения № 1–14)" || bad "активных документов: ${DOC_COUNT:-0} (ожидалось 15)"
+[ "${DOC_COUNT:-0}" = "18" ] && ok "в таблице documents 18 активных документов (Положение и Приложения № 1–17)" || bad "активных документов: ${DOC_COUNT:-0} (ожидалось 18)"
 APPENDICES=$(psql_db "SELECT count(*) FROM liders.documents WHERE type='appendix' AND is_active")
-[ "${APPENDICES:-0}" = "14" ] && ok "приложений № 1–14 опубликовано: $APPENDICES" || bad "приложений в таблице: ${APPENDICES:-0}"
-VERSION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND version='2026-10-04'")
-[ "${VERSION_OK:-0}" = "15" ] && ok "у всех документов версия 2026-10-04" || bad "документов с версией 2026-10-04: ${VERSION_OK:-0}"
+[ "${APPENDICES:-0}" = "17" ] && ok "приложений № 1–17 опубликовано: $APPENDICES" || bad "приложений в таблице: ${APPENDICES:-0}"
+VERSION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND version='2026-10-21'")
+[ "${VERSION_OK:-0}" = "18" ] && ok "у всех документов версия 2026-10-21" || bad "документов с версией 2026-10-21: ${VERSION_OK:-0}"
 # Ссылки на PDF должны вести на файлы, которые выкат кладёт в корень сайта
 # (ops/deploy.sh копирует platform/public в /var/www/lideryprava/public).
 MISSING_FILES=""
@@ -760,16 +760,16 @@ else
 fi
 # Персональные PDF приложений: у каждой строки свой файл, а не общий.
 PERSONAL_LINKS=0
-for number in $(seq 1 14); do
+for number in $(seq 1 17); do
     url="/docs/prilozhenie-$(printf '%02d' "$number").pdf"
     if [ -f "$ROOT/platform/public${url}" ]; then PERSONAL_LINKS=$((PERSONAL_LINKS + 1)); else bad "нет файла platform/public${url}"; fi
 done
-[ "${PERSONAL_LINKS:-0}" = "14" ] && ok "14 персональных PDF приложений на месте" || bad "персональных PDF приложений: ${PERSONAL_LINKS:-0} из 14"
+[ "${PERSONAL_LINKS:-0}" = "17" ] && ok "17 персональных PDF приложений на месте" || bad "персональных PDF приложений: ${PERSONAL_LINKS:-0} из 17"
 LINKS_IN_DB=$(psql_db "SELECT count(*) FROM liders.documents WHERE type='appendix' AND is_active AND external_url LIKE '/docs/prilozhenie-%.pdf'")
-[ "${LINKS_IN_DB:-0}" = "14" ] && ok "в БД у приложений персональные ссылки" || bad "персональных ссылок в БД: ${LINKS_IN_DB:-0}"
+[ "${LINKS_IN_DB:-0}" = "17" ] && ok "в БД у приложений персональные ссылки" || bad "персональных ссылок в БД: ${LINKS_IN_DB:-0}"
 # Даты редакции документов — дата самого документа, а не дата пересборки PDF.
-REVISION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND type IN ('regulation','appendix') AND revision_date = DATE '2026-10-04'")
-[ "${REVISION_OK:-0}" = "15" ] && ok "у документов дата редакции 04.10.2026" || bad "документов с датой редакции 04.10.2026: ${REVISION_OK:-0} из 15"
+REVISION_OK=$(psql_db "SELECT count(*) FROM liders.documents WHERE is_active AND type IN ('regulation','appendix') AND revision_date = DATE '2026-10-21'")
+[ "${REVISION_OK:-0}" = "18" ] && ok "у документов дата редакции 21.10.2026" || bad "документов с датой редакции 21.10.2026: ${REVISION_OK:-0} из 18"
 
 if head -c 5 "$ROOT/platform/public/docs/polozhenie-lidery-prava-2027.pdf" | grep -q '%PDF-'; then
     ok "PDF Положения — корректный PDF-файл"

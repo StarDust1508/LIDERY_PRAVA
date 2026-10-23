@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Разбивает единый PDF Приложений на 14 файлов — по одному на приложение.
+"""Разбивает единый PDF Приложений на файлы — по одному на приложение.
 
 Зачем: на странице «Документы» у каждого приложения своя строка. Раньше все
-14 строк открывали один общий файл — человек искал своё приложение вручную.
+строки открывали один общий файл — человек искал своё приложение вручную.
 Скрипт находит страницу-заголовок «Приложение № N к Положению…» и режет PDF по
 границам приложений, проверяя, что все страницы вошли ровно в одну часть.
 
 Запуск: python3 platform/scripts/split-appendices.py [путь к общему PDF]
-Результат: platform/public/docs/prilozhenie-01.pdf … prilozhenie-14.pdf
+Результат: platform/public/docs/prilozhenie-01.pdf … prilozhenie-NN.pdf
+
+Редакция от 21.10.2026: приложений 17 (добавлены протокол Оргкомитета,
+протокол Конкурсной комиссии и бюллетень тайного голосования).
 """
 
 import re
@@ -22,6 +25,9 @@ OUT_DIR = SOURCE.parent
 
 HEADER = re.compile(r"Приложение\s*№\s*(\d+)\s*к\s*Положению", re.IGNORECASE)
 
+# Количество приложений в действующей редакции (21.10.2026 — 17).
+APPENDICES = 17
+
 
 def main() -> None:
     reader = PdfReader(str(SOURCE))
@@ -32,10 +38,10 @@ def main() -> None:
         match = HEADER.search(text)
         if match:
             number = int(match.group(1))
-            if 1 <= number <= 14 and number not in starts:
+            if 1 <= number <= 17 and number not in starts:
                 starts[number] = index
 
-    if sorted(starts) != list(range(1, 15)):
+    if sorted(starts) != list(range(1, APPENDICES + 1)):
         raise SystemExit(f"не найдены заголовки всех приложений: {sorted(starts)}")
 
     ordered = sorted(starts.items())
