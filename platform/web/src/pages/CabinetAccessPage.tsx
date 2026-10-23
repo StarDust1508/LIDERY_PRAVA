@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '@shared/index';
-import { Alert, Button, PageHeader, SectionCard, TextField } from '@shared/index';
+import { Alert, Button, SectionCard, TextField } from '@shared/index';
 
 // Вход в личный кабинет. Пароля у команды нет: вход по ссылке-доступа либо по
 // номеру заявки и адресу электронной почты капитана (решение Р7: письма не
@@ -94,12 +94,21 @@ export function CabinetAccessPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-container flex-col gap-8 px-6 py-12">
-      <PageHeader
-        eyebrow="Личный кабинет"
-        title="Вход в кабинет команды"
-        lead="Капитан команды входит по номеру заявки и адресу электронной почты, указанному при подаче. Пароль не нужен."
-      />
+    <main className="mx-auto flex min-h-screen max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
+      {/* Вход оформлен в языке главной: тёмная плашка, крупный заголовок,
+          красный акцент. Страница не должна выглядеть «страшной» формой. */}
+      <header className="bg-ink px-6 py-10 text-paper sm:px-10 sm:py-14">
+        <p className="text-sm uppercase tracking-[0.14em] text-paper/70">Личный кабинет · 10 юбилейный сезон</p>
+        <h1 className="mt-4 text-4xl font-extrabold uppercase leading-[0.92] tracking-[-0.03em] sm:text-6xl">
+          Вход
+          <br />
+          <span className="text-red">в кабинет</span>
+        </h1>
+        <p className="mt-5 max-w-xl text-base leading-relaxed text-paper/80">
+          Капитан команды входит по номеру заявки и почте, указанной при подаче. Пароль не нужен — это безопаснее
+          и быстрее.
+        </p>
+      </header>
 
       {error ? <Alert tone="danger" title="Войти не удалось">{error}</Alert> : null}
 
