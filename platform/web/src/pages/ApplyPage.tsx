@@ -26,7 +26,6 @@ import {
   Alert,
   Button,
   CheckboxField,
-  PageHeader,
   SectionCard,
   SelectField,
   StatusBadge,
@@ -732,13 +731,24 @@ export function ApplyPage() {
   const applicationNotStarted = season?.application_not_started === true;
 
   return (
-    <main className="mx-auto flex max-w-container flex-col gap-8 px-6 py-12">
-      <PageHeader
-        eyebrow={draft ? `Заявка ${draft.public_number}` : 'Подать заявку'}
-        title={season?.title ?? 'Лидеры права – 2027'}
-        lead="Заявка подаётся только на сайте конкурса. Мастер проведёт по шагам: команда и инициатива, участники, наставники, материалы, согласия, отправка."
-        aside={savedAt ? <p className="mono-label text-muted">Черновик сохранён, {formatSavedAt(savedAt)}</p> : null}
-      />
+    <main className="mx-auto flex max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
+      {/* Подача заявки в языке главной: постерная плашка вместо канцелярской
+          шапки, дальше — спокойный мастер по шагам. */}
+      <header className="bg-ink px-6 py-10 text-paper sm:px-10 sm:py-12">
+        <p className="text-sm uppercase tracking-[0.14em] text-paper/70">
+          {draft ? `Заявка ${draft.public_number}` : 'Подать заявку · 10 юбилейный сезон'}
+        </p>
+        <h1 className="mt-4 text-4xl font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-5xl">
+          {season?.title ?? 'Лидеры права – 2027'}
+        </h1>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-paper/80">
+          Заявка подаётся только на сайте конкурса. Мастер проведёт по шагам: команда и инициатива, участники,
+          наставники, материалы, согласия, отправка. Черновик сохраняется — заполнение можно прервать.
+        </p>
+        {savedAt ? (
+          <p className="mt-3 text-sm text-paper/60">Черновик сохранён, {formatSavedAt(savedAt)}</p>
+        ) : null}
+      </header>
 
       {season ? (
         <p className="text-sm text-muted">
