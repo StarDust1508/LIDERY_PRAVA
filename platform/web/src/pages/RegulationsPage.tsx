@@ -5,7 +5,7 @@ import { Alert } from '@shared/index';
 import { ActionLink, PageHeader, Prose, ResponsiveTable, TableOfContents, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 
-// Положение о конкурсе: действующая редакция и Приложения № 1–14
+// Положение о конкурсе: действующая редакция и Приложения № 1–17
 // (ТЗ 08, п. 2.1 и 3.7; ТЗ 02, п. 12–13).
 //
 // PDF не только скачивается, но и открывается отдельно: у каждого документа есть
@@ -14,7 +14,7 @@ import { breadcrumbs, useSeo } from '@/lib/seo';
 
 const TOC_ITEMS = [
   { id: 'regulation', title: 'Действующая редакция' },
-  { id: 'appendices', title: 'Приложения № 1–14' },
+  { id: 'appendices', title: 'Приложения № 1–17' },
 ];
 
 interface AppendixRow {
@@ -42,7 +42,7 @@ export function RegulationsPage() {
     title: page?.seo_title ?? 'Положение о конкурсе',
     description:
       page?.seo_description ??
-      'Положение о конкурсе «Лидеры\u00A0права\u00A0– 2027» и Приложения № 1–14: действующая редакция, версия, просмотр и скачивание PDF.',
+      'Положение о конкурсе «Лидеры\u00A0права\u00A0– 2027» и Приложения № 1–17: действующая редакция, версия, просмотр и скачивание PDF.',
     path: '/about/regulations',
     jsonLd: breadcrumbs([
       { name: 'Главная', path: '/' },
@@ -113,7 +113,7 @@ export function RegulationsPage() {
       <PageHeader
         eyebrow="О конкурсе"
         title={page?.title ?? 'Положение о конкурсе'}
-        lead="Действующая редакция Положения и Приложения № 1–14. PDF открывается в новой вкладке и скачивается файлом."
+        lead="Действующая редакция Положения и Приложения № 1–17. PDF открывается в новой вкладке и скачивается файлом."
       />
 
       {page?.body ? (
@@ -201,7 +201,7 @@ export function RegulationsPage() {
 
           <div id="appendices" className="scroll-mt-24">
             <Section
-              title={`Приложения № 1–14${appendices.length > 0 ? ` (${appendices.length})` : ''}`}
+              title={`Приложения № 1–17${appendices.length > 0 ? ` (${appendices.length})` : ''}`}
               description="Формы заявки и согласий, требования к тексту законопроекта, пояснительной записке и видеоролику, регламент дебатов, форма апелляционного заявления."
             >
               {loading ? (

@@ -137,7 +137,7 @@ export function AboutPage() {
       <p className="text-sm text-muted">
         Правовая основа:{' '}
         <Link to="/documents" className="text-accent underline underline-offset-2">
-          Положение о конкурсе и Приложения № 1–14
+          Положение о конкурсе и Приложения № 1–17
         </Link>
         .
       </p>

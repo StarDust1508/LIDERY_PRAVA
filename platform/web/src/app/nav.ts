@@ -94,7 +94,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     path: '/documents',
     children: [
       { title: 'Положение', path: '/about/regulations' },
-      { title: 'Приложения № 1–14', path: '/documents#appendices' },
+      { title: 'Приложения № 1–17', path: '/documents#appendices' },
       { title: 'Оферта', path: '/legal/offer' },
       { title: 'Политика обработки персональных данных', path: '/legal/privacy' },
       { title: 'Согласие на обработку персональных данных', path: '/legal/pdn-consent' },
@@ -187,7 +187,7 @@ export const MENU_COLUMNS: readonly MenuColumn[] = [
     path: '/documents',
     links: [
       { title: 'Все документы и приложения', path: '/documents' },
-      { title: 'Приложения № 1–14', path: '/documents#appendices' },
+      { title: 'Приложения № 1–17', path: '/documents#appendices' },
       { title: 'Положение (PDF)', path: '/about/regulations' },
       { title: 'Оферта', path: '/legal/offer' },
       { title: 'Политика обработки данных', path: '/legal/privacy' },

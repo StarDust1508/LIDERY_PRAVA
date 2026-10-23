@@ -145,7 +145,7 @@ export function VideoRequirementsPage() {
               </ul>
               <p className="mt-4 text-sm">
                 <Link to="/documents" className="text-accent underline underline-offset-2">
-                  Открыть Приложения № 1–14
+                  Открыть Приложения № 1–17
                 </Link>
               </p>
             </Section>
