@@ -2458,3 +2458,234 @@
 @media (max-width: 1024px) {
   .site .hero-side { display: none; }
 }
+
+/* ── Типографическая ревизия 24.10.2026 ──────────────────────────────────── */
+/* Герой: убираем «дыру» между подписью поддержки и текстом, выравниваем ритм. */
+.site .hero {
+  min-height: auto;
+  padding-top: 88px;
+  padding-bottom: clamp(2rem, 5vh, 3.5rem);
+}
+.site .hero-left {
+  justify-content: flex-start;
+  gap: clamp(0.9rem, 2vh, 1.5rem);
+  padding-top: clamp(1.2rem, 3.5vh, 2.4rem);
+}
+.site .hero-title-row {
+  margin-top: clamp(1.4rem, 4vh, 3rem);
+  margin-bottom: clamp(1.2rem, 3.5vh, 2.2rem);
+}
+.site .hero-topmeta { margin-bottom: 0; }
+.site .hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.1rem, 2.4vh, 1.8rem);
+  margin-top: clamp(1rem, 2.6vh, 2rem);
+}
+.site .hero-support {
+  margin-top: 0;
+  gap: 0.75rem;
+}
+.site .hero-support-logo {
+  height: 44px;
+  width: auto;
+}
+.site .hero-support-text {
+  font-size: clamp(0.86rem, 1.1vw, 1rem);
+  color: var(--ink-60);
+}
+.site .hero-bottom {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: clamp(0.9rem, 1.8vh, 1.4rem);
+}
+.site .hero-copy { gap: clamp(0.9rem, 2vh, 1.4rem); }
+.site .hero-statement { max-width: 36rem; }
+.site .hero-pmuf { margin-top: 0; max-width: 40rem; }
+.site .hero-actions { margin-top: 0.2rem; }
+
+/* Правая колонка героя: знак и подпись в едином ритме со шкалой. */
+.site .hero-side {
+  gap: clamp(1.2rem, 2.6vh, 2rem);
+}
+.site .hero-side .hero-ten-logo {
+  width: clamp(220px, 19vw, 360px);
+}
+.site .hero-ten-note {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-60);
+}
+.site .hero-side .decade { margin-top: 0.2rem; }
+
+/* Шапка: знак не «плющится» в 32 px. */
+.site .topbar-mark img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.site .topbar-word {
+  letter-spacing: -0.01em;
+}
+
+/* Партнёры — сеткой, а не бесконечным столбиком. */
+.site .partners-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: clamp(1.6rem, 3vw, 2.8rem);
+  align-items: start;
+}
+.site .partners-grid .bcard { padding: 0; }
+
+/* Медиалента: стрелки по бокам кадра, подпись снизу по центру. */
+.site .history-stage-wrap { position: relative; }
+.site .history-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+.site .history-nav.is-prev { left: 0.8rem; }
+.site .history-nav.is-next { right: 0.8rem; }
+.site .history-nav .history-arrow {
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(2px);
+}
+.site .history-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+}
+.site .history-hint { font-size: 0.9rem; color: var(--ink-60); }
+.site .history-dots { margin-top: 0.6rem; }
+
+/* Заголовки: Uncage широкий — чуть плотнее трекинг и line-height. */
+.site h1, .site .hero h1 { letter-spacing: -0.03em; }
+.site h2, .site h3 { letter-spacing: -0.02em; }
+.site .sec-label { letter-spacing: 0.12em; }
+
+/* Подпись поддержки: логотип и текст по одной оси. */
+.site .hero-support { align-items: center; }
+.site .hero-support-text { line-height: 1.3; }
+
+/* Медиалента: кадр во всю ширину, годы — аккуратные вкладки, текст под кадром. */
+.site .timeline-years {
+  gap: 0.5rem clamp(0.9rem, 2.2vw, 2.2rem);
+  margin-bottom: clamp(1.4rem, 3vw, 2.4rem);
+}
+.site .timeline-year {
+  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink-35);
+}
+.site .timeline-stage {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.9rem, 2vw, 1.4rem);
+  align-items: stretch;
+}
+.site .history-stage { width: 100%; }
+.site .history-frame { background: var(--sand); }
+.site .history-frame img,
+.site .history-video {
+  width: 100%;
+  max-height: min(62vh, 620px);
+  object-fit: contain;
+}
+.site .timeline-text {
+  max-width: 74ch;
+  font-size: clamp(0.95rem, 1.3vw, 1.1rem);
+  color: var(--ink-60);
+}
+.site .history-dots span { width: 22px; }
+
+/* Кадр ленты: фото заполняет ширину без чёрных полей; видео — с чёрной
+   подложкой (так видео читается как видео). */
+.site .history-frame { background: transparent; }
+.site .history-frame img.history-photo-img,
+.site .history-photo img {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  background: transparent;
+}
+.site .history-video {
+  max-height: min(68vh, 660px);
+  background: #14120f;
+}
+.site .timeline-year { color: var(--ink-60); }
+.site .timeline-year:hover { color: var(--ink); }
+.site .timeline-year.is-active { color: var(--red); }
+
+/* Стрелки ленты — явные цвета: на тёмной подложке кадра иначе не видны. */
+.site .history-nav .history-arrow,
+.site .history-nav .history-arrow:hover:not(:disabled) {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: 0 2px 10px rgba(20, 18, 15, 0.18);
+}
+.site .history-nav .history-arrow:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+.site .history-nav .history-arrow:disabled { opacity: 0.4; }
+@media (max-width: 760px) {
+  .site .history-nav.is-prev { left: 0.4rem; }
+  .site .history-nav.is-next { right: 0.4rem; }
+  .site .history-nav .history-arrow { width: 40px; height: 40px; }
+}
+
+/* Селектор-опечатка: классы history-arrow и history-nav стоят на одной кнопке,
+   поэтому правило-потомок не срабатывало. Явные цвета стрелок: */
+.site .history-arrow.history-nav,
+.site .history-arrow.history-nav:hover:not(:disabled) {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: 0 2px 10px rgba(20, 18, 15, 0.18);
+}
+.site .history-arrow.history-nav:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+.site .history-arrow.history-nav:disabled { opacity: 0.45; }
+
+/* ── Мобильная типографика и шапка (ревизия 24.10.2026) ──────────────────── */
+.site .hero-ten-mobile { display: none; }
+
+@media (max-width: 620px) {
+  .site .topbar-inner { gap: 0.5rem; min-height: 62px; }
+  .site .topbar-mark img { width: 34px; height: 34px; }
+  .site .topbar-word { font-size: 0.82rem; letter-spacing: -0.02em; }
+  .site .topbar-apply { padding: 0.5rem 0.85rem; font-size: 0.78rem; }
+  .site .burger { padding: 0.45rem 0.55rem; }
+  .site .burger-icon { width: 18px; }
+  .site .hero-support { flex-wrap: nowrap; align-items: center; }
+  .site .hero-support-text { flex: 1; font-size: 0.82rem; }
+  .site .hero-support-logo { height: 30px; flex-shrink: 0; }
+}
+@media (max-width: 1024px) {
+  .site .hero-ten-mobile {
+    display: block;
+    width: clamp(96px, 26vw, 150px);
+    height: auto;
+    margin: 0.2rem 0 0.4rem;
+  }
+  .site .hero-title-row { flex-wrap: wrap; }
+}
+/* Партнёры: карточки не должны наследовать span 4 из старой сетки. */
+.site .partners-grid .bcard { grid-column: auto; }
+.site .partners-grid .partner-logo { min-height: 56px; }
+.site .partners-grid .partner-logo img { max-height: 48px; }

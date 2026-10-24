@@ -205,7 +205,7 @@ export function HomePage() {
         <div className="hero-left">
           <div className="hero-topmeta mono">
             <span>Юридический конкурс — Россия</span>
-            <span>10 юбилейный сезон</span>
+            <span>Москва · 2027</span>
           </div>
           {/* Заголовок по словам: каждое появляется со своей задержкой (приём
               SplitText из reactbits.dev). Текст остаётся обычным текстом в DOM:
@@ -220,16 +220,25 @@ export function HomePage() {
                 права
               </span>
             </h1>
-
+            {/* На телефоне правой колонки нет — юбилейный знак показываем под
+                названием, чтобы он не терялся. */}
+            <img
+              className="hero-ten-mobile"
+              src="/assets/logo-ten-paper-700.png"
+              alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
+              width={700}
+              height={726}
+            />
           </div>
+          <div className="hero-copy">
           <p className="hero-support">
             <span className="hero-support-text">при поддержке Ассоциации юристов России</span>
             <img
               className="hero-support-logo"
-              src="/assets/partners/ayur.png"
+              src="/assets/partners/ayur-cropped.png"
               alt="Ассоциация юристов России"
-              width={120}
-              height={48}
+              width={111}
+              height={96}
               loading="eager"
               onError={(event) => {
                 event.currentTarget.style.display = 'none';
@@ -256,14 +265,15 @@ export function HomePage() {
               </Link>
             </div>
           </div>
+          </div>
         </div>
 
-        {/* Правая колонка: шкала «2017—2027» и кадр финала в родной пропорции. */}
+        {/* Правая колонка: юбилейный знак, шкала «2017—2027» и кадр финала. */}
         <div className="hero-side">
           <div className="hero-ten">
             <img
               className="hero-ten-logo"
-              src="/assets/logo-ten-600.png"
+              src="/assets/logo-ten-paper-700.png"
               alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
               width={600}
               height={432}
@@ -426,7 +436,11 @@ export function HomePage() {
                       />
                     </div>
                   ) : null}
-                  <h3>{partner.name}</h3>
+                  {partner.logo_url || partnerLogoSrc(partner.name) ? (
+                    <span className="sr-only-text">{partner.name}</span>
+                  ) : (
+                    <h3>{partner.name}</h3>
+                  )}
                   {partner.description ? <p>{partner.description}</p> : null}
                   {partner.url ? (
                     <a href={partner.url} target="_blank" rel="noopener noreferrer">

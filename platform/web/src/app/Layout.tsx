@@ -92,7 +92,7 @@ export function Layout() {
         <header className="topbar">
           <div className="wrap topbar-inner">
             <Link to="/" className="topbar-mark" aria-label="Лидеры права, на главную">
-              <img src="/assets/logo-classic-128.png" alt="" width={32} height={32} />
+              <img src="/assets/logo-classic-128.png" alt="" width={40} height={40} />
               <span className="topbar-word">Лидеры&nbsp;права</span>
             </Link>
 

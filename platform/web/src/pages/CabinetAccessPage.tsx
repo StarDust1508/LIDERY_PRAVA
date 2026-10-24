@@ -97,9 +97,9 @@ export function CabinetAccessPage() {
     <main className="mx-auto flex min-h-screen max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
       {/* Шапка входа: юбилейный логотип слева, «Лидеры права» и подпись
           «Вход в личный кабинет» справа (правка заказчика от 24.10.2026). */}
-      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-7">
+      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-6">
         <img
-          src="/assets/logo-ten-600.png"
+          src="/assets/logo-ten-paper-700.png"
           alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
           className="h-20 w-auto sm:h-24"
           width={600}
@@ -109,7 +109,7 @@ export function CabinetAccessPage() {
           <span className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-4xl">
             Лидеры права
           </span>
-          <span className="text-sm text-muted sm:text-base">Вход в личный кабинет</span>
+          <span className="text-xs uppercase tracking-[0.14em] text-muted sm:text-[13px]">Вход в личный кабинет</span>
         </div>
       </header>
 

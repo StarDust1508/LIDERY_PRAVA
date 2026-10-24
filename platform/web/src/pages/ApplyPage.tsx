@@ -766,9 +766,9 @@ export function ApplyPage() {
     <main className="mx-auto flex max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
       {/* Шапка мастера: юбилейный логотип слева, «Лидеры права» и подпись
           «Мастер подачи заявок» справа (правка заказчика от 24.10.2026). */}
-      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-7">
+      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-6">
         <img
-          src="/assets/logo-ten-600.png"
+          src="/assets/logo-ten-paper-700.png"
           alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
           className="h-20 w-auto sm:h-24"
           width={600}
@@ -778,7 +778,7 @@ export function ApplyPage() {
           <span className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-4xl">
             Лидеры права
           </span>
-          <span className="text-sm text-muted sm:text-base">Мастер подачи заявок</span>
+          <span className="text-xs uppercase tracking-[0.14em] text-muted sm:text-[13px]">Мастер подачи заявок</span>
         </div>
         {savedAt ? (
           <span className="ml-auto text-sm text-muted">Черновик сохранён, {formatSavedAt(savedAt)}</span>

@@ -645,20 +645,23 @@ export function CabinetLayout({
       </div>
 
       <main className="flex min-w-0 flex-col gap-8">
-        <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-          <p className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-3xl">Личный кабинет</p>
+        <header className="border-b border-border pb-6">
+        <div className="flex items-center justify-between gap-4 mb-5 border-b border-border pb-4">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-3xl">Личный кабинет</p>
+            {data.team.public_number ? (
+              <span className="text-sm text-muted">заявка {data.team.public_number}</span>
+            ) : null}
+          </div>
           <img
-            src="/assets/logo-ten-600.png"
+            src="/assets/logo-ten-paper-700.png"
             alt="Юбилейный знак конкурса"
-            className="h-10 w-auto sm:h-12"
+            className="h-12 w-auto sm:h-16"
             width={600}
             height={432}
           />
-        </div>
-        <header className="border-b border-border pb-6">
-          <p className="mono-label text-muted">
-            {data.team.public_number ? `Заявка ${data.team.public_number}` : 'Личный кабинет'}
-          </p>
+          </div>
+
           <h1 className="mt-2 max-w-measure text-h1 font-semibold tracking-[var(--tr-heading)]">{title}</h1>
           {lead ? <p className="mt-4 max-w-measure text-lead text-muted">{lead}</p> : null}
         </header>

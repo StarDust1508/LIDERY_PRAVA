@@ -161,14 +161,15 @@ export function PartnersPage() {
               <li key={partner.id} className="flex flex-col gap-3 border border-border p-5">
                 <p className="mono-label text-muted">{PARTNER_TYPE_TITLES[partner.partner_type] ?? 'Партнёр'}</p>
                 {partner.logo_url || partnerLogoSrc(partner.name) ? (
-              <img
-                src={partner.logo_url ?? partnerLogoSrc(partner.name) ?? ''}
-                alt={`Логотип: ${partner.name}`}
-                className="h-16 w-auto object-contain"
-                loading="lazy"
-              />
-            ) : null}
-                <p className="font-medium">{partner.name}</p>
+                  <img
+                    src={partner.logo_url ?? partnerLogoSrc(partner.name) ?? ''}
+                    alt={`Логотип: ${partner.name}`}
+                    className="h-16 w-auto object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <p className="font-medium">{partner.name}</p>
+                )}
                 {partner.description ? <p className="text-sm text-muted">{partner.description}</p> : null}
                 {partner.url ? (
                   <a

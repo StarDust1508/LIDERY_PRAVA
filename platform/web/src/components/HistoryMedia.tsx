@@ -74,57 +74,60 @@ export function HistoryMedia({ items, initialYear }: { items: YearMedia[]; initi
         <div className="history-stage">
           {hasMedia ? (
             <>
-              <div className="history-frame">
-                {hasVideo && slide === 0 ? (
-                  <video
-                    key={`video-${active.year}`}
-                    className="history-video"
-                    src={active.video ?? undefined}
-                    poster={active.poster ?? undefined}
-                    controls
-                    preload="metadata"
-                    playsInline
-                  />
-                ) : currentPhoto ? (
-                  <Link to={`/winners/${active.year}`} className="timeline-photo history-photo">
-                    <img
-                      key={currentPhoto}
-                      src={currentPhoto}
-                      alt={`Участники конкурса «Лидеры права» в ${active.year} году`}
-                      loading="lazy"
-                      width={1600}
-                      height={1067}
-                    />
-                    <span className="timeline-hint">Победители {active.year} года — команды, фото и видео →</span>
-                  </Link>
-                ) : null}
-              </div>
-
-              <div className="history-controls">
+              <div className="history-stage-wrap">
                 <button
                   type="button"
-                  className="history-arrow"
+                  className="history-arrow history-nav is-prev"
                   onClick={() => go(-1)}
                   aria-label="Предыдущий кадр"
                   disabled={total < 2}
                 >
                   ←
                 </button>
-                <p className="history-counter" role="status">
-                  {hasVideo && slide === 0
-                    ? `Видео ${active.year}`
-                    : `Фото ${photoIndex + 1} из ${active.photos.length}`}
-                  <span className="history-total"> · {active.year}</span>
-                </p>
+                <div className="history-frame">
+                  {hasVideo && slide === 0 ? (
+                    <video
+                      key={`video-${active.year}`}
+                      className="history-video"
+                      src={active.video ?? undefined}
+                      poster={active.poster ?? undefined}
+                      controls
+                      preload="metadata"
+                      playsInline
+                    />
+                  ) : currentPhoto ? (
+                    <Link to={`/winners/${active.year}`} className="timeline-photo history-photo">
+                      <img
+                        key={currentPhoto}
+                        src={currentPhoto}
+                        alt={`Участники конкурса «Лидеры права» в ${active.year} году`}
+                        loading="lazy"
+                        width={1600}
+                        height={1067}
+                      />
+                    </Link>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="history-arrow"
+                  className="history-arrow history-nav is-next"
                   onClick={() => go(1)}
                   aria-label="Следующий кадр"
                   disabled={total < 2}
                 >
                   →
                 </button>
+              </div>
+              <div className="history-meta">
+                <p className="history-counter" role="status">
+                  {hasVideo && slide === 0
+                    ? `Видео ${active.year}`
+                    : `Фото ${photoIndex + 1} из ${active.photos.length}`}
+                  <span className="history-total"> · {active.year}</span>
+                </p>
+                <Link to={`/winners/${active.year}`} className="history-hint">
+                  Победители {active.year} года →
+                </Link>
               </div>
               <div className="history-dots" aria-hidden="true">
                 {Array.from({ length: total }).map((_, index) => (
