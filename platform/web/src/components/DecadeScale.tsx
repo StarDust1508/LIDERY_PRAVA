@@ -16,7 +16,7 @@ const YEARS = Array.from({ length: CURRENT_YEAR - FIRST_YEAR + 1 }, (_, index) =
 export function DecadeScale({ caption = '10 юбилейный сезон' }: { caption?: string }) {
   return (
     <figure className="decade reveal">
-      <figcaption className="mono">{caption}</figcaption>
+      {caption ? <figcaption className="mono">{caption}</figcaption> : null}
       <ol className="decade-track">
         {YEARS.map((year, index) => (
           <li

@@ -120,7 +120,7 @@ function DeadlinesSection({ data, onReload }: { data: CabinetData; onReload: () 
 
   const reachedFinal = ['finalist', 'final', 'winner'].includes(team.status);
 
-  const stage1State: StageState = reachedFinal ? 'done' : stateOf(null, deadlines.stage1_to, now);
+  const stage1State: StageState = reachedFinal ? 'done' : stateOf(deadlines.stage1_from, deadlines.stage1_to, now);
   const finalState: StageState = team.status === 'winner' ? 'done' : reachedFinal ? 'active' : 'upcoming';
 
   const stages: StageRow[] = [
@@ -147,7 +147,11 @@ function DeadlinesSection({ data, onReload }: { data: CabinetData; onReload: () 
     {
       id: 'stage-1',
       title: 'Первый этап',
-      period: deadlines.stage1_to ? `до ${formatMoscowHuman(deadlines.stage1_to)}` : 'даты уточняет Оргкомитет',
+      period: deadlines.stage1_from
+        ? `с ${formatMoscowDate(deadlines.stage1_from)} до ${formatMoscowHuman(deadlines.stage1_to)}`
+        : deadlines.stage1_to
+          ? `до ${formatMoscowHuman(deadlines.stage1_to)}`
+          : 'даты уточняет Оргкомитет',
       state: stage1State,
       meaning:
         'Эксперты оценивают законотворческую инициативу и видеоролик по критериям конкурса; публикуется протокол первого этапа.',
@@ -165,8 +169,11 @@ function DeadlinesSection({ data, onReload }: { data: CabinetData; onReload: () 
     {
       id: 'final',
       title: 'Второй (финальный) этап',
-      period: 'дату финала объявляет Оргкомитет',
-      state: finalState,
+      period:
+        deadlines.final_from && deadlines.final_to
+          ? `с ${formatMoscowDate(deadlines.final_from)} до ${formatMoscowHuman(deadlines.final_to)}`
+          : 'дату финала объявляет Оргкомитет',
+      state: deadlines.final_from ? stateOf(deadlines.final_from, deadlines.final_to, now) : finalState,
       meaning:
         'Команды-финалисты подтверждают состав выступающих и представляют презентационные материалы не позднее чем за 7 календарных дней до финала (п. 9.2 Положения).',
       action: 'Подтверждение участия и состав выступающих — в разделе «Финал»; презентация — в конкурсных материалах.',

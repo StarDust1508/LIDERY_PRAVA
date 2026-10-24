@@ -606,9 +606,34 @@ export function CabinetLayout({
     data.team.status === 'finalist' || data.team.status === 'final' || data.team.status === 'winner';
 
   return (
-    // Кабинет живёт вне общей обёртки сайта: без контейнера содержимое
-    // прилипало к краям экрана, а на телефоне уезжало за вьюпорт.
-    <div className="mx-auto w-full max-w-container px-5 py-8 lg:px-8 lg:py-10">
+    <>
+      {/* Шапка сайта внутри кабинета: человек не должен чувствовать, что
+          попал на другой сайт (просьба заказчика от 24.10.2026). */}
+      <div className="site cabinet-topbar">
+        <header className="topbar">
+          <div className="topbar-inner wrap">
+            <Link to="/" className="topbar-mark">
+              <img src="/assets/logo-classic-128.png" alt="" width={32} height={32} />
+              <span className="topbar-word">Лидеры&nbsp;права</span>
+            </Link>
+            <nav className="topbar-links" aria-label="Ключевые разделы">
+              <Link to="/">Главная</Link>
+              <Link to="/about">О конкурсе</Link>
+              <Link to="/stages">Этапы</Link>
+              <Link to="/documents">Документы</Link>
+            </nav>
+            <div className="topbar-actions">
+              <Link to="/apply" className="topbar-apply">
+                <span>Подать заявку</span>
+              </Link>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      {/* Кабинет живёт вне общей обёртки сайта: без контейнера содержимое
+          прилипало к краям экрана, а на телефоне уезжало за вьюпорт. */}
+      <div className="mx-auto w-full max-w-container px-5 py-8 lg:px-8 lg:py-10">
       <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
       <div className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <CabinetNav
@@ -620,6 +645,16 @@ export function CabinetLayout({
       </div>
 
       <main className="flex min-w-0 flex-col gap-8">
+        <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+          <p className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-3xl">Личный кабинет</p>
+          <img
+            src="/assets/logo-ten-600.png"
+            alt="Юбилейный знак конкурса"
+            className="h-10 w-auto sm:h-12"
+            width={600}
+            height={432}
+          />
+        </div>
         <header className="border-b border-border pb-6">
           <p className="mono-label text-muted">
             {data.team.public_number ? `Заявка ${data.team.public_number}` : 'Личный кабинет'}
@@ -637,7 +672,8 @@ export function CabinetLayout({
         {children}
       </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

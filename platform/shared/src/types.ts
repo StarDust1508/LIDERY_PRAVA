@@ -194,7 +194,10 @@ export interface Material {
 export interface DeadlinesResponse {
   timezone: string;
   application_close_at: string | null;
+  stage1_from: string | null;
   stage1_to: string | null;
+  final_from: string | null;
+  final_to: string | null;
   appeal_window_days: number;
   is_application_open: boolean;
   milliseconds_left: number;

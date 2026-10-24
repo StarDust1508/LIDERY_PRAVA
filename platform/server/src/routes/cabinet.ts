@@ -138,7 +138,7 @@ interface MentorInput {
 /** Загружает команду вместе с сезоном, составом и сведениями о заявке. */
 async function loadTeamBundle(teamId: number) {
   const teamResult = await query(
-    `SELECT t.*, s.title AS season_title, s.application_close_at, s.stage1_to,
+    `SELECT t.*, s.title AS season_title, s.application_close_at, s.stage1_from, s.stage1_to, s.final_from, s.final_to,
             s.appeal_window_days, s.timezone AS season_timezone,
             d.code AS direction_code, d.title AS direction_title,
             -- Номер заявки нужен команде для входа в кабинет и для обращения
@@ -1164,7 +1164,10 @@ router.get(
     res.json({
       timezone: bundle.team.season_timezone,
       application_close_at: bundle.team.application_close_at,
+      stage1_from: bundle.team.stage1_from ?? null,
       stage1_to: bundle.team.stage1_to,
+      final_from: bundle.team.final_from ?? null,
+      final_to: bundle.team.final_to ?? null,
       appeal_window_days: bundle.team.appeal_window_days,
       is_application_open:
         applicationWindowState(bundle.team.application_open_at, bundle.team.application_close_at) === 'open',

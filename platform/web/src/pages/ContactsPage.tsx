@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, api } from '@shared/index';
-import { Alert, Button, TextAreaField, TextField } from '@shared/index';
+import { Alert, Button, CheckboxField, TextAreaField, TextField } from '@shared/index';
 import { PageHeader, Prose, Section } from '@/components/PageBlocks';
 import { breadcrumbs, useSeo } from '@/lib/seo';
 import { useSeason } from '@/lib/season';
@@ -37,8 +37,6 @@ export function ContactsPage() {
   const settings = (data?.settings ?? {}) as Record<string, unknown>;
   const contactEmail =
     typeof settings['site.contact_email'] === 'string' ? settings['site.contact_email'] : 'lidery.prava@mail.ru';
-  const contactPhone =
-    typeof settings['site.contact_phone'] === 'string' ? settings['site.contact_phone'] : '8 (966) 789-76-05';
   const vk = typeof settings['site.vk_community'] === 'string' ? settings['site.vk_community'] : 'https://vk.com/lideri.prava2026';
 
   useSeo({
@@ -136,12 +134,6 @@ export function ContactsPage() {
                 {contactEmail}
               </a>
             </dd>
-            <dt className="mono-label mt-4 text-muted">Телефон Ассоциации</dt>
-            <dd className="mt-1">
-              <a href={`tel:${contactPhone.replace(/[^\d+]/g, '')}`} className="text-accent underline underline-offset-2">
-                {contactPhone}
-              </a>
-            </dd>
           </div>
           <div>
             <dt className="mono-label text-muted">Сообщество конкурса</dt>
@@ -226,18 +218,18 @@ export function ContactsPage() {
             />
           </div>
 
-          <div className="flex items-start gap-3 md:col-span-2">
-            <input
+          <div className="md:col-span-2">
+            <CheckboxField
               id="lead-consent"
-              type="checkbox"
               checked={consent}
-              onChange={(event) => setConsent(event.target.checked)}
-              className="mt-1 h-5 w-5"
+              onChange={setConsent}
+              label={
+                <>
+                  Согласен на обработку персональных данных для ответа на обращение. Согласие можно отозвать письмом на{' '}
+                  {contactEmail}.
+                </>
+              }
             />
-            <label htmlFor="lead-consent" className="max-w-measure text-sm">
-              Согласен на обработку персональных данных для ответа на обращение. Согласие можно отозвать письмом на{' '}
-              {contactEmail}.
-            </label>
           </div>
 
           {/* Ловушка для автоматических отправителей: человек это поле не видит. */}

@@ -2319,3 +2319,142 @@
 .site .timeline-empty-link {
   font-family: var(--font-display);
 }
+
+/* ── Правка от 24.10.2026: юбилейный логотип и поддержка АЮР ─────────────── */
+.site .hero-ten {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding-bottom: 0.4rem;
+}
+.site .hero-ten-logo {
+  width: clamp(150px, 21vw, 330px);
+  height: auto;
+  display: block;
+  animation: ten-in 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes ten-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.site .hero-ten-note {
+  font-family: var(--font-display);
+  font-size: clamp(0.72rem, 1.1vw, 0.95rem);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-60);
+  animation: note-in 0.9s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes note-in {
+  from { opacity: 0; letter-spacing: 0.3em; }
+  to { opacity: 1; letter-spacing: 0.12em; }
+}
+.site .hero-support {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  color: var(--ink-60);
+  font-size: clamp(0.82rem, 1.05vw, 0.95rem);
+}
+.site .hero-support-logo {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site .hero-ten-logo,
+  .site .hero-ten-note { animation: none; }
+}
+@media (max-width: 760px) {
+  .site .hero-ten-logo { width: clamp(110px, 30vw, 150px); }
+  .site .hero-support { flex-wrap: wrap; }
+}
+
+/* Отступы в подвале: подписи колонок не должны прилипать к ссылкам. */
+.site .foot-col h4 { margin-bottom: 1.5rem; }
+.site .foot-col { padding-bottom: 0.4rem; }
+
+/* Бегущая строка на телефоне: статичный текст без обрезки по краям. */
+@media (max-width: 760px) {
+  .site .marquee-track { animation: none; flex-wrap: wrap; white-space: normal; }
+  .site .marquee-track span { padding: 0.2rem 0.9rem; }
+}
+
+/* ── Медиалента сезонов: видео + фото со стрелками (24.10.2026) ───────────── */
+.site .history-stage { min-width: 0; }
+.site .history-frame {
+  position: relative;
+  background: var(--sand);
+  overflow: hidden;
+}
+.site .history-frame img,
+.site .history-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #14120f;
+}
+.site .history-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.8rem;
+}
+.site .history-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ink);
+  border-radius: 100px;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.site .history-arrow:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+.site .history-arrow:disabled { opacity: 0.35; cursor: default; }
+.site .history-counter { font-size: 0.95rem; color: var(--ink-60); }
+.site .history-total { color: var(--ink-35); }
+.site .history-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.8rem; }
+.site .history-dots span {
+  width: 26px;
+  height: 2px;
+  background: var(--line-strong, rgba(44, 39, 34, 0.2));
+  transition: background 0.2s;
+}
+.site .history-dots span.is-active { background: var(--red); }
+.site .history-photo { cursor: pointer; }
+
+
+/* Правая колонка героя: юбилейный логотип, шкала и кадр финала. */
+.site .hero-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(1rem, 2.4vh, 1.8rem);
+  padding-right: var(--gutter, 2rem);
+  padding-bottom: clamp(1.5rem, 4vh, 3rem);
+}
+.site .hero-side .hero-ten {
+  align-items: flex-start;
+  padding-bottom: 0;
+}
+.site .hero-side .hero-ten-logo { width: clamp(160px, 15vw, 260px); }
+.site .hero-side .hero-photo-band { margin-top: 0; }
+/* Плавные края бегущей строки: текст не выглядит обрезанным «в никуда». */
+.site .marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+}
+@media (max-width: 1024px) {
+  .site .hero-side { display: none; }
+}

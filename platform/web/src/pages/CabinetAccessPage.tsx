@@ -95,19 +95,22 @@ export function CabinetAccessPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
-      {/* Вход оформлен в языке главной: тёмная плашка, крупный заголовок,
-          красный акцент. Страница не должна выглядеть «страшной» формой. */}
-      <header className="bg-ink px-6 py-10 text-paper sm:px-10 sm:py-14">
-        <p className="text-sm uppercase tracking-[0.14em] text-paper/70">Личный кабинет · 10 юбилейный сезон</p>
-        <h1 className="mt-4 text-4xl font-extrabold uppercase leading-[0.92] tracking-[-0.03em] sm:text-6xl">
-          Вход
-          <br />
-          <span className="text-red">в кабинет</span>
-        </h1>
-        <p className="mt-5 max-w-xl text-base leading-relaxed text-paper/80">
-          Капитан команды входит по номеру заявки и почте, указанной при подаче. Пароль не нужен — это безопаснее
-          и быстрее.
-        </p>
+      {/* Шапка входа: юбилейный логотип слева, «Лидеры права» и подпись
+          «Вход в личный кабинет» справа (правка заказчика от 24.10.2026). */}
+      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-7">
+        <img
+          src="/assets/logo-ten-600.png"
+          alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
+          className="h-20 w-auto sm:h-24"
+          width={600}
+          height={432}
+        />
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-4xl">
+            Лидеры права
+          </span>
+          <span className="text-sm text-muted sm:text-base">Вход в личный кабинет</span>
+        </div>
       </header>
 
       {error ? <Alert tone="danger" title="Войти не удалось">{error}</Alert> : null}

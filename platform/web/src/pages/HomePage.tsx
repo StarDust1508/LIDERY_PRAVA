@@ -10,6 +10,8 @@ import {
 } from '@shared/index';
 import { Alert } from '@shared/index';
 import { DecadeScale } from '@/components/DecadeScale';
+import { HistoryMedia } from '@/components/HistoryMedia';
+import { HISTORY_MEDIA } from '@/content/history-media';
 import { CountUp } from '@/components/CountUp';
 import { Arc, ArrowRight, ArrowUpRight } from '@/components/Icon';
 import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
@@ -66,58 +68,9 @@ const BENEFITS = [
   },
 ];
 
-const TIMELINE = [
-  {
-    year: '2017',
-    image: null,
-    text: 'Первый сезон конкурса: заявки студентов и первые законотворческие инициативы.',
-  },
-  {
-    year: '2018',
-    image: '/assets/history/history-2018.jpg',
-    text: 'Второй сезон: первые команды из Саратовской области, защита инициатив перед экспертным сообществом.',
-  },
-  {
-    year: '2019',
-    image: null,
-    text: 'Конкурс выходит за пределы одного региона, появляются наставники-практики.',
-  },
-  {
-    year: '2020',
-    image: null,
-    text: 'Дистанционный формат этапов и работа команд из разных субъектов Российской Федерации.',
-  },
-  {
-    year: '2021',
-    image: '/assets/history/history-2021.jpg',
-    text: 'Пятый сезон: в конкурсе 19 команд, финал в СГЮА, победитель — команда «СССР».',
-  },
-  {
-    year: '2022',
-    image: null,
-    text: 'Инициативы участников направляются субъектам права законодательной инициативы.',
-  },
-  {
-    year: '2023',
-    image: '/assets/history/history-2023.jpg',
-    text: 'Седьмой сезон: 98 заявок, 20 команд из 16 регионов, победитель — Юридическая школа ДВФУ.',
-  },
-  {
-    year: '2024',
-    image: null,
-    text: 'Финал в Москве: групповые выступления, дебаты и Гранд-финал.',
-  },
-  {
-    year: '2025',
-    image: null,
-    text: 'Девятый сезон: расширение состава Конкурсной комиссии и партнёрской программы.',
-  },
-  {
-    year: '2026',
-    image: '/assets/history/history-2026.jpg',
-    text: 'Десятый, юбилейный сезон: победитель — команда «КиберЪОко» (ДВЮИ Университета прокуратуры).',
-  },
-];
+// Медиалента сезонов собирается скриптом scripts/build-history-manifest.mjs
+// из файлов public/assets/history и public/assets/videos.
+
 
 const FAQ = [
   {
@@ -178,6 +131,7 @@ function FaqRow({ item, index }: { item: { question: string; answer: string; pat
 const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> = [
   { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
   { match: /^ФЭС\b|ФЭС/i, src: '/assets/partners/fes.svg', alt: 'Логотип ФЭС' },
+  { match: /ТехнологИИ Права|Технологии Права/i, src: '/assets/partners/techpravo-light.png', alt: 'Логотип «Технологии Права»' },
 ];
 
 function partnerLogoSrc(name: string): string | null {
@@ -189,9 +143,6 @@ export function HomePage() {
   const [masterclasses, setMasterclasses] = useState<PublicMasterclass[]>([]);
   const [partners, setPartners] = useState<PublicPartner[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Хронологическая лента: выбранный год меняет кадр под лентой.
-  const [activeYear, setActiveYear] = useState('2026');
-  const activeFrame = TIMELINE.find((item) => item.year === activeYear) ?? TIMELINE[TIMELINE.length - 1]!;
 
   useSeo({
     title: 'Конкурс для студентов и молодых юристов',
@@ -269,12 +220,23 @@ export function HomePage() {
                 права
               </span>
             </h1>
-            {/* «Десятка» — справа от названия, классический знак остаётся сверху. */}
-            <div className="hero-ten" aria-label="Десятый юбилейный сезон">
-              <span className="hero-ten-num">10</span>
-              <span className="hero-ten-note">юбилейный сезон</span>
-            </div>
+
           </div>
+          <p className="hero-support">
+            <span className="hero-support-text">при поддержке Ассоциации юристов России</span>
+            <img
+              className="hero-support-logo"
+              src="/assets/partners/ayur.png"
+              alt="Ассоциация юристов России"
+              width={120}
+              height={48}
+              loading="eager"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          </p>
+
           <div className="hero-bottom">
             <p className="hero-statement">
               Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
@@ -298,7 +260,17 @@ export function HomePage() {
 
         {/* Правая колонка: шкала «2017—2027» и кадр финала в родной пропорции. */}
         <div className="hero-side">
-          <DecadeScale />
+          <div className="hero-ten">
+            <img
+              className="hero-ten-logo"
+              src="/assets/logo-ten-600.png"
+              alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
+              width={600}
+              height={432}
+            />
+            <span className="hero-ten-note">юбилейный сезон</span>
+          </div>
+          <DecadeScale caption="" />
           <div className="hero-photo-band">
             <div className="duo">
               <img
@@ -357,12 +329,15 @@ export function HomePage() {
               <div className="lbl mono">Участников за все годы</div>
             </div>
             <div className="stat">
-              <div className="num"><CountUp value="30" /></div>
+              <div className="num"><CountUp value="50" /></div>
               <div className="lbl mono">Регионов России</div>
             </div>
             <div className="stat">
-              <div className="num"><CountUp value="2–4" /></div>
-              <div className="lbl mono">Человека в команде</div>
+              <div className="num">
+                <CountUp value="800" />
+                <span>+</span>
+              </div>
+              <div className="lbl mono">Законотворческих инициатив</div>
             </div>
           </div>
         </div>
@@ -372,52 +347,9 @@ export function HomePage() {
       <section className="block" id="story">
         <div className="wrap">
           <div className="sec-label mono">(История проекта / по годам)</div>
-          {/* Хронологическая лента: год — кнопка, кадр под ней меняется.
-              Нажатие на кадр ведёт на страницу победителей этого года. */}
-          <ol className="timeline-years reveal" aria-label="Годы конкурса">
-            {TIMELINE.map((item) => (
-              <li key={item.year}>
-                <button
-                  type="button"
-                  className={`timeline-year${item.year === activeYear ? ' is-active' : ''}`}
-                  aria-pressed={item.year === activeYear}
-                  onClick={() => setActiveYear(item.year)}
-                >
-                  {item.year}
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div className="timeline-stage reveal">
-            {activeFrame.image ? (
-              <Link to={`/winners/${activeFrame.year}`} className="timeline-photo">
-                <img
-                  key={activeFrame.year}
-                  src={activeFrame.image}
-                  alt={`Участники и организаторы конкурса «Лидеры права» в ${activeFrame.year} году`}
-                  width={1600}
-                  height={1067}
-                  loading="lazy"
-                />
-                <span className="timeline-hint">Победители {activeFrame.year} года — команды, фото и видео →</span>
-              </Link>
-            ) : (
-              /* Кадр сезона ещё в архиве: вместо пустого места — поляроид
-                 с крупным годом и прямой просьбой прислать фотографию. */
-              <Link to={`/winners/${activeFrame.year}`} className="timeline-photo timeline-empty">
-                <span className="timeline-empty-year" aria-hidden="true">
-                  {activeFrame.year}
-                </span>
-                <span className="timeline-empty-title">Кадр сезона ещё в архиве</span>
-                <span className="timeline-empty-note">
-                  Фотография {activeFrame.year} года появится здесь, как только её пришлёт Оргкомитет. Итоги
-                  сезона — на странице победителей.
-                </span>
-                <span className="timeline-empty-link">Открыть страницу {activeFrame.year} года →</span>
-              </Link>
-            )}
-            <p className="timeline-text">{activeFrame.text}</p>
-          </div>
+          {/* Медиалента: год — кнопка, внутри года сначала видео, затем фото
+              со стрелками. Пустые годы честно показывают, что кадры в архиве. */}
+          <HistoryMedia items={HISTORY_MEDIA} initialYear="2026" />
           <div className="story-cta reveal">
             <Link to="/winners" className="story-link mono">
               Победители прошлых сезонов

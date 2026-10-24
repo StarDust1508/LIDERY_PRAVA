@@ -33,6 +33,7 @@ import {
   TextAreaField,
   TextField,
 } from '@shared/index';
+import { UniversityField } from '@/components/UniversityField';
 import { clearDraft, createIdempotencyKey, loadDraft, saveDraft, type ApplicationDraftRef } from '@/lib/session';
 
 // Мастер подачи заявки: шесть шагов от сведений о команде до отправки.
@@ -373,6 +374,9 @@ export function ApplyPage() {
       if (isSolo && !soloApprovedAt) {
         errors['solo-approved-at'] = 'Единоличное участие допускается по согласованию с Оргкомитетом: нужна дата.';
       }
+      if (!organization.trim()) {
+        errors.organization = 'Укажите образовательную организацию (вуз) — начните вводить название и выберите из списка.';
+      }
       if (!captainName.trim()) errors['captain-name'] = 'Укажите фамилию, имя и отчество капитана команды.';
       if (!captainBirthDate) {
         errors['captain-birth'] = 'Укажите дату рождения капитана команды.';
@@ -384,6 +388,9 @@ export function ApplyPage() {
       }
       if (!emailOk(captainEmail)) {
         errors['captain-email'] = 'Укажите корректный адрес электронной почты: по нему команда входит в личный кабинет.';
+      }
+      if (captainPhone.replace(/\D/g, '').length < 10) {
+        errors['captain-phone'] = 'Укажите контактный телефон капитана: не менее 10 цифр.';
       }
     }
 
@@ -399,6 +406,24 @@ export function ApplyPage() {
           }
         }
         if (!emailOk(participant.email)) errors[`p-email-${index}`] = 'Укажите корректный адрес электронной почты.';
+        if (participant.phone.replace(/\D/g, '').length < 10) {
+          errors[`p-phone-${index}`] = 'Укажите контактный телефон: не менее 10 цифр.';
+        }
+        if (!participant.region.trim()) {
+          errors[`p-region-${index}`] = 'Укажите субъект Российской Федерации.';
+        }
+        if (!participant.vk_url.trim()) {
+          errors[`p-vk-${index}`] = 'Укажите ссылку на страницу «ВКонтакте».';
+        }
+        if (!participant.organization.trim()) {
+          errors[`p-organization-${index}`] = 'Укажите образовательную организацию (вуз) из списка.';
+        }
+        if (!participant.faculty.trim()) {
+          errors[`p-faculty-${index}`] = 'Укажите факультет.';
+        }
+        if (!participant.course.trim()) {
+          errors[`p-course-${index}`] = 'Укажите курс обучения.';
+        }
         if (!participant.consent_pdn) {
           errors[`p-consent-pdn-${index}`] = 'Без согласия на обработку персональных данных участник не может быть заявлен.';
         }
@@ -421,6 +446,13 @@ export function ApplyPage() {
     }
 
     if (current === 3) {
+      // Два верхних согласия обязательны (правка заказчика от 24.10.2026).
+      if (!confirmRegulation) {
+        errors['confirm-regulation'] = 'Подтвердите ознакомление с Положением о конкурсе.';
+      }
+      if (!imageLicense) {
+        errors['image-license'] = 'Без согласия на использование изображения заявка не может быть отправлена.';
+      }
       for (const requirement of requiredMaterials) {
         const uploaded = materials.some(
           (material) => material.type === requirement.type && material.status !== 'rejected'
@@ -732,21 +764,26 @@ export function ApplyPage() {
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-8 px-5 py-8 sm:px-6 sm:py-12">
-      {/* Подача заявки в языке главной: постерная плашка вместо канцелярской
-          шапки, дальше — спокойный мастер по шагам. */}
-      <header className="bg-ink px-6 py-10 text-paper sm:px-10 sm:py-12">
-        <p className="text-sm uppercase tracking-[0.14em] text-paper/70">
-          {draft ? `Заявка ${draft.public_number}` : 'Подать заявку · 10 юбилейный сезон'}
-        </p>
-        <h1 className="mt-4 text-4xl font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-5xl">
-          {season?.title ?? 'Лидеры права – 2027'}
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-paper/80">
-          Заявка подаётся только на сайте конкурса. Мастер проведёт по шагам: команда и инициатива, участники,
-          наставники, материалы, согласия, отправка. Черновик сохраняется — заполнение можно прервать.
-        </p>
+      {/* Шапка мастера: юбилейный логотип слева, «Лидеры права» и подпись
+          «Мастер подачи заявок» справа (правка заказчика от 24.10.2026). */}
+      <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-7">
+        <img
+          src="/assets/logo-ten-600.png"
+          alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
+          className="h-20 w-auto sm:h-24"
+          width={600}
+          height={432}
+        />
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="text-2xl font-extrabold uppercase tracking-[-0.02em] sm:text-4xl">
+            Лидеры права
+          </span>
+          <span className="text-sm text-muted sm:text-base">Мастер подачи заявок</span>
+        </div>
         {savedAt ? (
-          <p className="mt-3 text-sm text-paper/60">Черновик сохранён, {formatSavedAt(savedAt)}</p>
+          <span className="ml-auto text-sm text-muted">Черновик сохранён, {formatSavedAt(savedAt)}</span>
+        ) : draft ? (
+          <span className="ml-auto text-sm text-muted">Заявка {draft.public_number}</span>
         ) : null}
       </header>
 
@@ -851,7 +888,7 @@ export function ApplyPage() {
                     disabled={Boolean(team)}
                     options={directions.map((direction) => ({ value: direction.id, title: direction.title }))}
                   />
-                  <TextField id="organization" label="Образовательная организация или место работы" disabled={Boolean(team)} value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={300} />
+                  <UniversityField id="organization" error={fieldErrors.organization} label="Образовательная организация или место работы" required disabled={Boolean(team)} value={organization} onChange={setOrganization} hint="Начните вводить название вуза и выберите из списка; можно ввести и вручную." />
                   <TextField id="city" label="Город" disabled={Boolean(team)} value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />
                 </div>
 
@@ -905,7 +942,7 @@ export function ApplyPage() {
                     options={PARTICIPANT_CATEGORIES.map((category) => ({ value: category.value, title: category.title }))}
                   />
                   <TextField id="captain-email" error={fieldErrors['captain-email']} label="Адрес электронной почты" type="email" required value={captainEmail} onChange={(e) => setCaptainEmail(e.target.value)} hint="По этой почте команда входит в личный кабинет." />
-                  <TextField id="captain-phone" label="Контактный телефон" type="tel" value={captainPhone} onChange={(e) => setCaptainPhone(e.target.value)} maxLength={32} />
+                  <TextField id="captain-phone" error={fieldErrors['captain-phone']} label="Контактный телефон" type="tel" required value={captainPhone} onChange={(e) => setCaptainPhone(e.target.value)} maxLength={32} hint="Обязательное поле: по нему Оргкомитет связывается с капитаном." />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
@@ -976,14 +1013,14 @@ export function ApplyPage() {
                         options={PARTICIPANT_CATEGORIES.map((category) => ({ value: category.value, title: category.title }))}
                       />
                       <TextField id={`p-email-${index}`} error={fieldErrors[`p-email-${index}`]} label="Адрес электронной почты" type="email" required value={participant.email} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, email: e.target.value } : row)))} />
-                      <TextField id={`p-phone-${index}`} label="Контактный телефон" type="tel" value={participant.phone} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
+                      <TextField id={`p-phone-${index}`} error={fieldErrors[`p-phone-${index}`]} label="Контактный телефон" type="tel" required value={participant.phone} onChange={(e) => setParticipants((rows) => rows.map((row, i) => (i === index ? { ...row, phone: e.target.value } : row)))} />
                       <TextField id={`p-citizenship-${index}`} label="Гражданство" value={participant.citizenship} onChange={(e) => patchParticipant(index, { citizenship: e.target.value })} maxLength={120} />
-                      <TextField id={`p-region-${index}`} label="Субъект Российской Федерации" value={participant.region} onChange={(e) => patchParticipant(index, { region: e.target.value })} maxLength={200} />
+                      <TextField id={`p-region-${index}`} error={fieldErrors[`p-region-${index}`]} label="Субъект Российской Федерации" required value={participant.region} onChange={(e) => patchParticipant(index, { region: e.target.value })} maxLength={200} />
                       <TextField id={`p-settlement-${index}`} label="Населённый пункт" value={participant.settlement} onChange={(e) => patchParticipant(index, { settlement: e.target.value })} maxLength={200} />
-                      <TextField id={`p-vk-${index}`} label="Ссылка на страницу «ВКонтакте»" value={participant.vk_url} onChange={(e) => patchParticipant(index, { vk_url: e.target.value })} maxLength={300} placeholder="https://vk.com/…" />
+                      <TextField id={`p-vk-${index}`} error={fieldErrors[`p-vk-${index}`]} label="Ссылка на страницу «ВКонтакте»" required value={participant.vk_url} onChange={(e) => patchParticipant(index, { vk_url: e.target.value })} maxLength={300} placeholder="https://vk.com/…" />
                       <TextField id={`p-education-org-${index}`} label="Образовательная организация (место работы)" value={participant.organization} onChange={(e) => patchParticipant(index, { organization: e.target.value })} maxLength={300} />
-                      <TextField id={`p-faculty-${index}`} label="Факультет" value={participant.faculty} onChange={(e) => patchParticipant(index, { faculty: e.target.value })} maxLength={300} />
-                      <TextField id={`p-course-${index}`} error={fieldErrors[`p-course-${index}`]} label="Курс" type="number" min={1} max={6} value={participant.course} onChange={(e) => patchParticipant(index, { course: e.target.value })} hint="От 1 до 6; для работающих участников оставьте пустым." />
+                      <TextField id={`p-faculty-${index}`} error={fieldErrors[`p-faculty-${index}`]} label="Факультет" required value={participant.faculty} onChange={(e) => patchParticipant(index, { faculty: e.target.value })} maxLength={300} />
+                      <TextField id={`p-course-${index}`} error={fieldErrors[`p-course-${index}`]} label="Курс" type="number" min={1} max={6} required value={participant.course} onChange={(e) => patchParticipant(index, { course: e.target.value })} hint="От 1 до 6." />
                       <TextField id={`p-program-${index}`} label="Направление подготовки (должность)" value={participant.study_program} onChange={(e) => patchParticipant(index, { study_program: e.target.value })} maxLength={300} />
                     </div>
                     <TextAreaField

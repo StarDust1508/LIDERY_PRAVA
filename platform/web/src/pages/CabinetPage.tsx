@@ -281,9 +281,8 @@ function CabinetSummary({ data, onReload }: { data: CabinetData; onReload: () =>
   const navigate = useNavigate();
   const steps = cabinetSteps(data, kit, progress);
   const needsFix = kit.filter((item) => item.required && item.state === 'needs_fix');
-  const missingMaterials = kit.filter(
-    (item) => item.required && (item.state === 'missing' || item.state === 'in_review')
-  );
+  // «Не сданы» — только отсутствующие: материалы на проверке уже сданы.
+  const missingMaterials = kit.filter((item) => item.required && item.state === 'missing');
 
   // Одно действие, которое человек должен сделать прямо сейчас. Порядок
   // приоритетов: отправка черновика, замечания, недостающие материалы, покой.
