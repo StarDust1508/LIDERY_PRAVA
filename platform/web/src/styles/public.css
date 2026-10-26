@@ -2689,3 +2689,328 @@
 .site .partners-grid .bcard { grid-column: auto; }
 .site .partners-grid .partner-logo { min-height: 56px; }
 .site .partners-grid .partner-logo img { max-height: 48px; }
+
+/* ── Правки заказчика от 26.10.2026 ─────────────────────────────────────── */
+
+/* 1. Фон — белый на всём сайте. */
+:root {
+  --paper: #ffffff;
+  --bg: #ffffff;
+  --sand: #f6f6f4;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+}
+.site,
+.site .block,
+.site .foot,
+.site .stats,
+.site .stat,
+.site .bcard {
+  background-color: #ffffff;
+}
+.site section.sand { background: var(--sand); }
+
+/* 2. Красные буквы на тёмном блоке «Подать заявку» — белые. */
+.site .apply,
+.site .apply a,
+.site .apply .sec-label,
+.site .apply .red,
+.site .apply .sec-label::before {
+  color: #ffffff;
+}
+.site .apply a { text-decoration-color: rgba(255, 255, 255, 0.55); }
+.site .apply .badge { color: #ffffff; border-color: rgba(255, 255, 255, 0.5); }
+
+/* 3. «Десятка» справа от названия, кадр — на её месте. */
+.site .hero-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(0.6rem, 2vw, 2rem);
+}
+.site .hero-ten-inline {
+  width: clamp(104px, 15vw, 240px);
+  height: auto;
+  margin-top: 0.2em;
+  flex-shrink: 0;
+}
+.site .hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.2vh, 1.6rem);
+  justify-content: flex-start;
+  padding-top: clamp(1.2rem, 3vh, 2.2rem);
+}
+.site .hero-side .hero-photo-band { margin: 0; }
+.site .hero-photo-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  background: var(--sand);
+  color: var(--ink-60);
+  font-size: 0.95rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* 4. Кликабельная шкала: годы-кнопки, под красной линией — три кадра. */
+.site .decade-gallery { margin: 0; }
+.site .decade-gallery .decade-track {
+  border-bottom: 1px solid var(--line);
+  padding: 0.4rem 0 0;
+}
+.site .decade-gallery .decade-track li {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+.site .decade-year-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.2rem 0.3rem;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: var(--ink-60);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.site .decade-year-button:hover,
+.site .decade-year-button:focus-visible { color: var(--ink); }
+.site .decade-gallery li.is-active .decade-year-button { color: var(--red); }
+.site .decade-gallery li.is-active .decade-tick { background: var(--red); }
+.site .decade-gallery .decade-tick { width: 1px; height: 14px; background: var(--line-strong); }
+.site .decade-gallery .decade-year { font-size: 0.66rem; letter-spacing: 0.02em; }
+.site .decade-photos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.2vw, 0.9rem);
+  margin-top: clamp(0.7rem, 1.6vh, 1.1rem);
+}
+.site .decade-photo {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  background: var(--sand);
+}
+.site .decade-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+.site .decade-photo:hover img { transform: scale(1.04); }
+.site .decade-empty {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: var(--ink-60);
+}
+
+/* 5. Кнопки «Победители прошлых сезонов» и «История проекта» — разнести. */
+.site .story-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(0.8rem, 2vw, 1.4rem);
+}
+.site .story-cta .story-link { margin-right: 0; }
+
+/* 6. Плюс у цифры ближе к числу. */
+.site .stat .num > span:last-child:not(:only-child) {
+  margin-left: 0.04em;
+  font-size: 0.62em;
+  vertical-align: super;
+  line-height: 1;
+}
+
+/* 7. Партнёры: сетка ровная, ФЭС компактнее, АЮР — с логотипом. */
+.site .partners-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+.site .partners-grid .partner-logo {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+}
+.site .partners-grid .partner-logo img { max-height: 48px; width: auto; max-width: 240px; }
+.site .partners-grid .partner-logo--fes img { max-height: 40px; max-width: 170px; }
+@media (max-width: 900px) {
+  .site .partners-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site .hero-ten-inline { width: clamp(92px, 24vw, 150px); }
+  .site .decade-photos { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .site .partners-grid { grid-template-columns: 1fr; }
+  .site .decade-photos { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* 8. Переполнение длинных слов и символов на любых ширинах. */
+.site h1, .site h2, .site h3, .site p, .site li, .site dd, .site dt {
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+.site .hero h1 { overflow-wrap: normal; }
+
+/* 9. Симметричные стрелки в переходах «назад/далее». */
+.site .pagenav-arrow svg,
+.site .history-arrow svg { display: block; }
+
+/* Симметричные круглые стрелки переходов: иконка строго по центру круга. */
+.site .pagenav-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.site .pagenav-arrow svg { display: block; margin: 0 auto; }
+.site .pagenav-link { align-items: center; }
+
+/* Герой: «десятка» рядом с названием, но заголовок не должен ломаться по слогам. */
+.site .hero {
+  grid-template-columns: 1.25fr 0.75fr;
+}
+.site .hero h1 {
+  hyphens: none;
+  overflow-wrap: normal;
+  font-size: clamp(2.8rem, 9vw, 8rem);
+  line-height: 0.9;
+}
+.site .hero-title-row {
+  align-items: center;
+  gap: clamp(0.5rem, 1.4vw, 1.2rem);
+}
+.site .hero-ten-inline {
+  width: clamp(84px, 10vw, 168px);
+  margin-top: 0;
+}
+/* Красная линия шкалы и активный год. */
+.site .decade-gallery .decade-track {
+  border-bottom: 2px solid var(--red);
+  padding-top: 0.2rem;
+}
+.site .decade-gallery .decade-year { font-size: 0.72rem; }
+.site .decade-gallery li.is-active .decade-year { font-weight: 700; }
+@media (max-width: 1100px) {
+  .site .hero { grid-template-columns: 1fr; }
+  .site .hero h1 { font-size: clamp(2.6rem, 11vw, 5.6rem); }
+}
+
+/* Активный год на шкале виден всегда (в легаси чётные годы скрывались). */
+.site .decade-gallery li.is-active .decade-year {
+  display: block !important;
+  color: var(--red);
+  font-weight: 700;
+}
+.site .decade-gallery .decade-year { font-size: 0.75rem; }
+.site .decade-gallery .decade-year-button { padding-bottom: 0.25rem; }
+
+/* Белый фон: легаси-переменные объявлены на .site, поэтому переопределяем
+   их именно там, а не только на :root. */
+.site {
+  --paper: #ffffff;
+  --sand: #f6f6f4;
+  --bg: #ffffff;
+  --benefit-hover: #f4f4f2;
+}
+.site .phero,
+.site .block.sand,
+.site section.sand {
+  background: var(--sand);
+}
+/* Переносы по слогам отключаем: заказчик просил не рвать слова
+   («ЛИ-ДЕРЫ», «деся-тый»); длинные адреса по-прежнему не выходят за край. */
+.site h1, .site h2, .site h3, .site p, .site li, .site dd, .site dt {
+  hyphens: manual;
+  overflow-wrap: break-word;
+}
+.site .hero h1 { overflow-wrap: normal; hyphens: manual; }
+
+/* Карточки партнёров: одинаковые по высоте, без белых «вкладок», ссылка снизу. */
+.site .partners-grid { align-items: stretch; }
+.site .partners-grid .bcard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  height: 100%;
+  background: transparent;
+  padding: 0;
+}
+.site .partners-grid .bcard a:last-child { margin-top: auto; }
+.site .partners-grid .partner-logo { min-height: 64px; }
+
+/* Мобильный герой: правая колонка не должна вылезать за вьюпорт (п. 14). */
+@media (max-width: 1100px) {
+  .site .hero { width: 100%; }
+  .site .hero-left,
+  .site .hero-side,
+  .site .hero-copy,
+  .site .hero-title-row { min-width: 0; width: 100%; max-width: 100%; }
+  .site .hero-side .hero-photo-band,
+  .site .hero-side .hero-photo-band .duo,
+  .site .hero-side .decade-gallery { width: 100%; max-width: 100%; }
+  .site .decade-photos { width: 100%; }
+}
+@media (max-width: 620px) {
+  .site .hero h1 { font-size: clamp(2.2rem, 9.5vw, 3.2rem); }
+  .site .hero-ten-inline { width: clamp(74px, 22vw, 108px); }
+  .site .hero-support { flex-wrap: wrap; gap: 0.35rem 0.6rem; }
+  .site .hero-support-text { flex: 1 1 220px; font-size: 0.78rem; }
+  .site .hero-support-logo { height: 26px; }
+  .site .hero-statement { font-size: 1rem; }
+  .site .hero-pmuf { font-size: 0.92rem; }
+  .site .hero-topmeta { margin-bottom: 0.6rem; }
+}
+
+/* Шкала сезонов на телефоне: 11 годов умещаются в ширину экрана. */
+.site .decade-gallery .decade-track {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+  overflow: hidden;
+}
+.site .decade-gallery .decade-track li {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+.site .decade-gallery .decade-year-button {
+  width: 100%;
+  padding: 0.4rem 0 0.2rem;
+}
+@media (max-width: 620px) {
+  .site .decade-gallery .decade-year { font-size: 0.62rem; }
+  .site .decade-gallery .decade-track { height: 46px; }
+  .site .decade-gallery .decade-tick { height: 8px; }
+  .site .decade-photos { gap: 0.35rem; }
+}
+
+/* Тёмный блок «Подать заявку» сохраняется (белый фон его не должен затирать). */
+.site section.block.apply {
+  background: var(--ink);
+  color: #ffffff;
+}
+.site .apply .apply-list a,
+.site .apply .apply-list a:hover,
+.site .apply a { color: #ffffff; }
+.site .apply .apply-list a { text-decoration-color: rgba(255, 255, 255, 0.45); }
+/* «Победители прошлых сезонов» и «История проекта» — рядом, не по краям. */
+.site .story-cta { justify-content: flex-start; }
+.site .story-cta .story-link { margin-right: 0; }
+
+/* Кнопки истории — по своим размерам, а не растянутые на половину строки. */
+.site .story-cta .story-link {
+  flex: 0 0 auto;
+  width: auto;
+  margin-right: 0;
+}
+/* Ссылки в тёмном блоке заявки — белые. */
+.site .apply .apply-list li a,
+.site .apply .apply-list li a:link,
+.site .apply .apply-list li a:visited {
+  color: #ffffff !important;
+  text-decoration-color: rgba(255, 255, 255, 0.45);
+}
+.site .story-cta { gap: 2.4rem; }

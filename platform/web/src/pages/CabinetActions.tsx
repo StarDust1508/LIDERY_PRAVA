@@ -17,6 +17,8 @@ import {
 } from '@shared/index';
 import { Alert, Button, SectionCard, SelectField, TextAreaField } from '@shared/index';
 import { saveBlob } from '@/lib/download';
+import { CabinetNotifications } from '@/components/CabinetNotifications';
+import { useCabinetMessages } from '@/lib/cabinetMessages';
 
 // Общая логика и общие блоки разделов личного кабинета команды (ТЗ 06).
 //
@@ -506,6 +508,10 @@ function CabinetNav({
   finalLockedReason: string;
   progress: { done: number; total: number };
 }) {
+  // Счётчик непрочитанных сообщений общий для кабинета: его обновляет фоновый
+  // опрос (CabinetNotifications), поэтому пункт «Сообщения» показывает число
+  // без захода в раздел.
+  const { unread } = useCabinetMessages();
   const sections: CabinetSectionLink[] = [
     { to: '/cabinet', title: 'Сводка', hint: 'Статус заявки и что делать дальше', lockedReason: null },
     { to: '/cabinet/team', title: 'Команда', hint: 'Состав, капитан команды, наставники', lockedReason: null },
@@ -516,6 +522,7 @@ function CabinetNav({
       lockedReason: null,
     },
     { to: '/cabinet/deadlines', title: 'Дедлайны', hint: 'Этапы конкурса и сроки', lockedReason: null },
+    { to: '/cabinet/messages', title: 'Сообщения', hint: 'Переписка с Оргкомитетом', lockedReason: null },
     { to: '/cabinet/help', title: 'Помощь', hint: 'Контакты Оргкомитета и обращение', lockedReason: null },
     {
       to: '/cabinet/final',
@@ -545,7 +552,18 @@ function CabinetNav({
                   }`
                 }
               >
-                <span>{section.title}</span>
+                <span className="flex items-center gap-2">
+                  {section.title}
+                  {section.to === '/cabinet/messages' && unread > 0 ? (
+                    <span
+                      className="rounded-pill bg-accent-solid px-2 text-mono-sm text-on-accent"
+                      title={`Непрочитанных сообщений: ${unread}`}
+                      aria-label={`Непрочитанных сообщений: ${unread}`}
+                    >
+                      {unread}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="hidden text-sm text-muted lg:block">{section.hint}</span>
               </NavLink>
             ) : (
@@ -641,6 +659,7 @@ export function CabinetLayout({
           finalLockedReason={finalLockedText(data)}
           progress={progress}
         />
+        <CabinetNotifications teamKey={data.team.public_number ?? String(data.team.id)} />
         <CabinetToolbar data={data} onReload={onReload} extra={toolbarExtra} />
       </div>
 

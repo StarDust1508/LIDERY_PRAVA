@@ -4,7 +4,6 @@ import {
   type PublicCriterion,
   type PublicDocument,
   api,
-  formatMoscowDate,
   formatMoscowHuman,
   pluralize,
 } from '@shared/index';
@@ -87,8 +86,7 @@ export function StageFirstPage() {
         title="Первый этап"
         lead={
           <>
-            Этап проходит дистанционно. Команды публикуют видеопрезентацию инициативы и команды во «ВКонтакте», затем
-            Конкурсная комиссия и эксперты проводят онлайн-предзащиту, затем оценивают видеоролик и конкурсные материалы.
+            Этап проходит дистанционно. Сначала — онлайн-предзащита: команды представляют инициативу Конкурсной комиссии и экспертам в формате обсуждения. Затем команды показывают видеопрезентации инициатив, после чего оцениваются видеоролик и конкурсные материалы.
           </>
         }
         actions={
@@ -117,7 +115,7 @@ export function StageFirstPage() {
                 с учётом этого мнения.
               </p>
 
-              <p className="mono-label mt-6 text-muted">Подготовка и публикация видеороликов во «ВКонтакте»</p>
+              <p className="mono-label mt-6 text-muted">Видеопрезентации инициатив от команд</p>
               <p className="mt-1">{formatPeriod(season.stage1_from, season.stage1_to)}</p>
               <p className="mt-1 text-muted">
                 {videoRequirement?.due_at
@@ -141,13 +139,6 @@ export function StageFirstPage() {
               </p>
             </li>
             <li>
-              <p className="mono-label text-muted">Публикация протокола итогов первого этапа</p>
-              <p className="mt-1 text-muted">
-                Список команд-финалистов публикуется не позднее {formatMoscowDate(season.stage1_to)}; баллы команды
-                видны в личном кабинете.
-              </p>
-            </li>
-            <li>
               <p className="mono-label text-muted">Подача апелляций</p>
               <p className="mt-1 text-muted">{appealWindow}.</p>
             </li>
@@ -165,7 +156,7 @@ export function StageFirstPage() {
       </Section>
 
       <Section
-        title="Видеоролик во «ВКонтакте»"
+        title="Видеопрезентация инициативы"
         description="Пункты 8.2–8.4 Положения и Приложение № 7."
       >
         <Prose>

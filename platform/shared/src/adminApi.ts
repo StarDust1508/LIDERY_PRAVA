@@ -12,6 +12,7 @@ import type {
   AdminSessionInfo,
   AdminStats,
   AdminTeamCard,
+  AdminTeamMessagesResponse,
   AdminUser,
   AdminUserRole,
   AuditRecord,
@@ -20,6 +21,7 @@ import type {
   EvaluationScore,
   Expert,
   Ranking,
+  TeamMessage,
 } from './types';
 
 // Клиент админ-API. Токен админ-сессии (HMAC) хранится в localStorage и
@@ -363,6 +365,21 @@ export const adminApi = {
 
   /** Карточка команды: состав, участие в этапах, результаты, история (ТЗ 07, п. 2.4). */
   teamCard: (teamId: number) => adminRequest<AdminTeamCard>(`/api/admin/teams/${teamId}`),
+
+  /**
+   * Переписка с командой (ТЗ 07, п. 2.15). Обычный запрос отмечает сообщения
+   * команды прочитанными; `peek` — только чтение без отметки.
+   */
+  teamMessages: (teamId: number, options: { peek?: boolean } = {}) =>
+    adminRequest<AdminTeamMessagesResponse>(
+      `/api/admin/teams/${teamId}/messages${options.peek ? '?peek=1' : ''}`
+    ),
+
+  sendTeamMessage: (teamId: number, body: string) =>
+    adminRequest<TeamMessage>(`/api/admin/teams/${teamId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
 
   teams: (seasonId?: number) =>
     adminRequest<

@@ -67,31 +67,15 @@ export function CalendarPage() {
           form: 'Дистанционно',
         },
         {
-          id: 'protocol-selection',
-          period: season.protocol_selection_at
-            ? `Не позднее ${formatMoscowDate(season.protocol_selection_at)}`
-            : 'Не позднее 15 января 2027 года',
-          event: 'Публикация протокола итогов отборочного этапа',
-          form: 'Дистанционно',
-        },
-        {
           id: 'video',
           period: formatPeriod(season.video_publication_from ?? null, season.video_publication_to ?? null),
-          event: 'Подготовка и публикация видеороликов в сообществе конкурса во «ВКонтакте»',
+          event: 'Онлайн-предзащита инициатив и видеопрезентации от команд',
           form: 'Дистанционно',
         },
         {
           id: 'stage1-evaluation',
           period: formatPeriod(season.stage1_evaluation_from ?? null, season.stage1_evaluation_to ?? null),
           event: 'Оценка видеороликов и материалов первого этапа, подсчёт «Приза зрительских симпатий»',
-          form: 'Дистанционно',
-        },
-        {
-          id: 'protocol-stage1',
-          period: season.protocol_stage1_at
-            ? `Не позднее ${formatMoscowDate(season.protocol_stage1_at)}`
-            : 'Не позднее 5 марта 2027 года',
-          event: 'Публикация протокола итогов первого этапа (команды-финалисты)',
           form: 'Дистанционно',
         },
         {
@@ -109,7 +93,7 @@ export function CalendarPage() {
         {
           id: 'final',
           period: formatPeriod(season.final_from, season.final_to),
-          event: 'Второй (финальный) этап: групповые выступления, дебаты, Гранд-финал, награждение',
+          event: 'Гранд-финал: ответы на вопросы членов жюри, групповые выступления, дебаты, награждение',
           form: 'Очно, Москва, ул. Садовая-Спасская, 21/1',
         },
         {
@@ -121,7 +105,7 @@ export function CalendarPage() {
         {
           id: 'post-final',
           period: formatPeriod(season.post_final_from ?? null, season.post_final_to ?? null),
-          event: 'Открытая дискуссия с депутатами Государственной Думы, стажировки',
+          event: 'Участие в панельной дискуссии ПМЮФ (май–июнь 2027 года)',
           form: 'Очно, Москва, ул. Садовая-Спасская, 21/1',
         },
       ]

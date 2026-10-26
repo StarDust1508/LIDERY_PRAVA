@@ -26,6 +26,7 @@ const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> 
   { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
   { match: /^ФЭС\b|ФЭС/i, src: '/assets/partners/fes.svg', alt: 'Логотип ФЭС' },
   { match: /ТехнологИИ Права|Технологии Права/i, src: '/assets/partners/techpravo-light.png', alt: 'Логотип «Технологии Права»' },
+  { match: /Ассоциация юристов России|АЮР/i, src: '/assets/partners/ayur-mark.png', alt: 'Логотип Ассоциации юристов России' },
 ];
 
 function partnerLogoSrc(name: string): string | null {

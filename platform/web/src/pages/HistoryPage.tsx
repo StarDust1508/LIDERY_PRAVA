@@ -124,6 +124,8 @@ export function HistoryPage() {
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <div id="history" className="scroll-mt-24">
             <Section title="История конкурса" description="Как конкурс развивался с 2017 года.">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+              <div className="min-w-0 flex-1">
               {page?.body ? (
                 <Prose>
                   <p className="whitespace-pre-line">{page.body}</p>
@@ -148,6 +150,22 @@ export function HistoryPage() {
                   </p>
                 </Prose>
               )}
+              </div>
+              <figure className="w-full shrink-0 lg:w-[340px]">
+                <img
+                  src="/assets/history/astapkin.jpg"
+                  alt="Игорь Васильевич Астапкин, первый Президент Ассоциации выпускников СЮИ–СГАП–СГЮА"
+                  className="w-full border border-border object-cover"
+                  loading="lazy"
+                  width={1200}
+                  height={800}
+                />
+                <figcaption className="mt-2 text-sm text-muted">
+                  Игорь Васильевич Астапкин — генерал-лейтенант внутренней службы, Заслуженный юрист Российской
+                  Федерации, первый Президент Ассоциации выпускников СЮИ–СГАП–СГЮА.
+                </figcaption>
+              </figure>
+              </div>
             </Section>
           </div>
 

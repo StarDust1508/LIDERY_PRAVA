@@ -4,6 +4,7 @@ import type {
   ApplicationCreated,
   ApplicationStatus,
   CabinetAccessResponse,
+  CabinetMessagesResponse,
   CabinetSessionResponse,
   CreateApplicationPayload,
   DeadlinesResponse,
@@ -26,6 +27,7 @@ import type {
   SeasonResponse,
   SubmissionResponse,
   SubmitApplicationPayload,
+  TeamMessage,
   TeamResponse,
   Winner,
   WithdrawResponse,
@@ -365,6 +367,20 @@ export const api = {
 
   cabinetAppeals: (accessToken?: string | null) =>
     request<Appeal[]>('/api/cabinet/appeals', { headers: authHeader(accessToken) }),
+
+  /**
+   * Лента переписки с Оргкомитетом. Обычный запрос отмечает сообщения
+   * прочитанными; `peek` — фоновый опрос для уведомлений: отдаёт ленту и
+   * счётчик, но не гасит непрочитанное (ТЗ 06, п. 2.4).
+   */
+  cabinetMessages: (options: { peek?: boolean } = {}) =>
+    request<CabinetMessagesResponse>(`/api/cabinet/messages${options.peek ? '?peek=1' : ''}`),
+
+  cabinetSendMessage: (body: string) =>
+    request<TeamMessage>('/api/cabinet/messages', {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
 
   /**
    * Подача апелляции. Файл передаётся формой: скан прикладывается, если он есть,

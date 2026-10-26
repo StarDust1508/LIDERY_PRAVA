@@ -9,7 +9,7 @@ import {
   formatMoscowHuman,
 } from '@shared/index';
 import { Alert } from '@shared/index';
-import { DecadeScale } from '@/components/DecadeScale';
+import { DecadeGallery } from '@/components/DecadeGallery';
 import { HistoryMedia } from '@/components/HistoryMedia';
 import { HISTORY_MEDIA } from '@/content/history-media';
 import { CountUp } from '@/components/CountUp';
@@ -33,26 +33,22 @@ import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 const STAGES = [
   {
     title: 'Отборочный этап',
-    text: 'Дистанционно: экспертиза законотворческих инициатив Конкурсной комиссией. Нужны текст законопроекта и пояснительная записка.',
+    text: 'Дистанционно: экспертиза законотворческих инициатив Конкурсной комиссией. Текст законопроекта и пояснительная записка от каждой команды.',
   },
   {
     title: 'Первый этап',
-    text: 'Дистанционно: видеопрезентация инициативы и команды во «ВКонтакте», оценка видеороликов и материалов этапа.',
+    text: 'Дистанционно: онлайн-предзащита инициатив перед Конкурсной комиссией и экспертами, видеопрезентации инициатив от команд и оценка материалов этапа.',
   },
   {
     title: 'Второй (финальный) этап',
-    text: 'Очно в Москве (ул. Садовая-Спасская, 21/1): групповые выступления, дебаты и Гранд-финал перед Жюри.',
+    text: 'Гранд-финал очно в Москве (Садовая-Спасская, 21/1): ответы на вопросы членов жюри, групповые выступления, дебаты.',
   },
 ];
 
 const BENEFITS = [
   {
     title: 'Наставничество',
-    text: 'Работа с экспертами: преподаватели, практикующие юристы, представители органов власти и бизнеса.',
-  },
-  {
-    title: 'Стажировки',
-    text: 'Ведущие юридические компании и органы власти для победителей и финалистов.',
+    text: 'Работа с экспертами: ведущие специалисты в области законотворчества, преподаватели и представители органов власти.',
   },
   {
     title: 'Публикация инициатив',
@@ -132,6 +128,7 @@ const PARTNER_LOGOS: ReadonlyArray<{ match: RegExp; src: string; alt: string }> 
   { match: /АСПБ|Агентство сопровождения процедур банкротства/i, src: '/assets/partners/aspb.png', alt: 'Логотип АСПБ' },
   { match: /^ФЭС\b|ФЭС/i, src: '/assets/partners/fes.svg', alt: 'Логотип ФЭС' },
   { match: /ТехнологИИ Права|Технологии Права/i, src: '/assets/partners/techpravo-light.png', alt: 'Логотип «Технологии Права»' },
+  { match: /Ассоциация юристов России|АЮР/i, src: '/assets/partners/ayur-mark.png', alt: 'Логотип Ассоциации юристов России' },
 ];
 
 function partnerLogoSrc(name: string): string | null {
@@ -143,11 +140,13 @@ export function HomePage() {
   const [masterclasses, setMasterclasses] = useState<PublicMasterclass[]>([]);
   const [partners, setPartners] = useState<PublicPartner[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Год на кликабельной шкале героя: по умолчанию 2024 — год кадра.
+  const [heroYear, setHeroYear] = useState('2024');
 
   useSeo({
     title: 'Конкурс для студентов и молодых юристов',
     description:
-      'Десятый ежегодный федеральный научно-образовательный конкурс «Лидеры права – 2027»: подача заявки на сайте, работа с наставниками, финал в Москве, стажировки и публикация законотворческих инициатив.',
+      'Десятый ежегодный федеральный научно-образовательный конкурс «Лидеры права – 2027»: подача заявки на сайте, работа с наставниками, финал в Москве и публикация законотворческих инициатив.',
     path: '/',
     jsonLd: ORGANIZATION_JSON_LD,
   });
@@ -204,12 +203,8 @@ export function HomePage() {
       <header className="hero" id="home">
         <div className="hero-left">
           <div className="hero-topmeta mono">
-            <span>Юридический конкурс — Россия</span>
             <span>Москва · 2027</span>
           </div>
-          {/* Заголовок по словам: каждое появляется со своей задержкой (приём
-              SplitText из reactbits.dev). Текст остаётся обычным текстом в DOM:
-              поиск и скринридеры видят «Лидеры права» целиком. */}
           <div className="hero-title-row">
             <h1 aria-label="Лидеры права">
               <span className="hero-word" style={{ '--d': '0ms' } as React.CSSProperties}>
@@ -220,22 +215,21 @@ export function HomePage() {
                 права
               </span>
             </h1>
-            {/* На телефоне правой колонки нет — юбилейный знак показываем под
-                названием, чтобы он не терялся. */}
+            {/* Юбилейная «десятка» — сразу справа от названия, как на макете. */}
             <img
-              className="hero-ten-mobile"
+              className="hero-ten-inline"
               src="/assets/logo-ten-paper-700.png"
               alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
               width={700}
               height={726}
             />
           </div>
-          <div className="hero-copy">
+
           <p className="hero-support">
             <span className="hero-support-text">при поддержке Ассоциации юристов России</span>
             <img
               className="hero-support-logo"
-              src="/assets/partners/ayur-cropped.png"
+              src="/assets/partners/ayur-mark-240.png"
               alt="Ассоциация юристов России"
               width={111}
               height={96}
@@ -246,14 +240,14 @@ export function HomePage() {
             />
           </p>
 
-          <div className="hero-bottom">
+          <div className="hero-copy">
             <p className="hero-statement">
-              Конкурс, который превращает <b>заявку студента</b> в карьеру юриста — через отбор, наставников,
-              стажировки и публикацию законотворческих инициатив.
+              Законы не высечены в камне. Привнеси свежие идеи в законодательство и покажи, как молодёжь способна
+              развивать правовую экосистему нашей страны.
             </p>
             <p className="hero-pmuf">
-              Победители и финалисты представляют инициативы на Петербургском международном юридическом форуме
-              (ПМЮФ).
+              Победители и финалисты представляют <b>свои</b> инициативы на Петербургском международном
+              юридическом форуме (ПМЮФ).
             </p>
             <div className="hero-actions">
               <Link to="/apply" className="btn btn-solid mono">
@@ -265,34 +259,34 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-          </div>
         </div>
 
-        {/* Правая колонка: юбилейный знак, шкала «2017—2027» и кадр финала. */}
+        {/* Правая колонка: кадр года поднят наверх, ниже — кликабельная шкала,
+            под красной линией — три фотографии выбранного сезона. */}
         <div className="hero-side">
-          <div className="hero-ten">
-            <img
-              className="hero-ten-logo"
-              src="/assets/logo-ten-paper-700.png"
-              alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
-              width={600}
-              height={432}
-            />
-            <span className="hero-ten-note">юбилейный сезон</span>
-          </div>
-          <DecadeScale caption="" />
-          <div className="hero-photo-band">
-            <div className="duo">
-              <img
-                src="/assets/timeline-2024.jpg"
-                alt="Участники и организаторы финала конкурса «Лидеры права» 2024 года"
-                width={1280}
-                height={854}
-                loading="eager"
-              />
-            </div>
-            <div className="tag mono">[ 10 юбилейный сезон ]</div>
-          </div>
+          {(() => {
+            const yearPhotos = HISTORY_MEDIA.find((item) => item.year === heroYear)?.photos ?? [];
+            return (
+              <div className="hero-photo-band">
+                <div className="duo">
+                  {yearPhotos[0] ? (
+                    <img
+                      key={heroYear}
+                      src={yearPhotos[0]}
+                      alt={`Конкурс «Лидеры права», ${heroYear} год`}
+                      width={1600}
+                      height={1067}
+                      loading="eager"
+                    />
+                  ) : (
+                    <div className="hero-photo-placeholder">Кадр сезона {heroYear} ещё в архиве</div>
+                  )}
+                </div>
+                <div className="tag mono">[ Лидеры права — {heroYear} ]</div>
+              </div>
+            );
+          })()}
+          <DecadeGallery items={HISTORY_MEDIA} year={heroYear} onChange={setHeroYear} />
         </div>
       </header>
 
@@ -332,14 +326,14 @@ export function HomePage() {
             <div className="stat">
               <div className="num">
                 <span className="red">
-                  <CountUp value="1000" />
+                  <CountUp value="1200" />
                   <span>+</span>
                 </span>
               </div>
               <div className="lbl mono">Участников за все годы</div>
             </div>
             <div className="stat">
-              <div className="num"><CountUp value="50" /></div>
+              <div className="num"><CountUp value="62" /></div>
               <div className="lbl mono">Регионов России</div>
             </div>
             <div className="stat">
@@ -428,7 +422,7 @@ export function HomePage() {
               {partners.map((partner) => (
                 <article key={partner.id} className="bcard">
                   {partner.logo_url || partnerLogoSrc(partner.name) ? (
-                    <div className="partner-logo">
+                    <div className={`partner-logo${/^ФЭС/i.test(partner.name) ? ' partner-logo--fes' : ''}`}>
                       <img
                         src={partner.logo_url ?? partnerLogoSrc(partner.name) ?? ''}
                         alt={`Логотип: ${partner.name}`}

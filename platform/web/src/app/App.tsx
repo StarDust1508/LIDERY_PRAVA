@@ -11,6 +11,7 @@ import { CabinetDeadlinesPage } from '../pages/CabinetDeadlinesPage';
 import { CabinetFinalPage } from '../pages/CabinetFinalPage';
 import { CabinetHelpPage } from '../pages/CabinetHelpPage';
 import { CabinetMaterialsPage } from '../pages/CabinetMaterialsPage';
+import { CabinetMessagesPage } from '../pages/CabinetMessagesPage';
 import { CabinetPage } from '../pages/CabinetPage';
 import { CabinetTeamPage } from '../pages/CabinetTeamPage';
 import { CalendarPage } from '../pages/CalendarPage';
@@ -62,6 +63,7 @@ export function App() {
           <Route path="/cabinet" element={<CabinetPage />} />
           <Route path="/cabinet/team" element={<CabinetTeamPage />} />
           <Route path="/cabinet/materials" element={<CabinetMaterialsPage />} />
+          <Route path="/cabinet/messages" element={<CabinetMessagesPage />} />
           <Route path="/cabinet/deadlines" element={<CabinetDeadlinesPage />} />
           <Route path="/cabinet/help" element={<CabinetHelpPage />} />
           <Route path="/cabinet/final" element={<CabinetFinalPage />} />

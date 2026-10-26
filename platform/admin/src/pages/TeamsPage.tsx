@@ -19,6 +19,7 @@ import {
   TextField,
 } from '@shared/index';
 import type { AdminApplicationRow } from '@shared/index';
+import { TeamMessages } from '../components/TeamMessages';
 
 // Команды сезона и доступы в личный кабинет (ТЗ 07, п. 2.4–2.5).
 //
@@ -389,6 +390,8 @@ function TeamCardBody({
                             </ul>
                           )}
                         </div>
+
+                        <TeamMessages teamId={card.team.id} teamName={card.team.name} />
                       </div>
                     
     </div>

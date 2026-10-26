@@ -78,6 +78,7 @@ const ROUTES = [
   { path: '/cabinet/access', title: 'Вход в личный кабинет', description: 'Вход в личный кабинет команды по ссылке доступа или номеру заявки.', noindex: true },
   { path: '/cabinet/team', title: 'Команда', description: 'Состав команды в личном кабинете конкурса.', noindex: true },
   { path: '/cabinet/materials', title: 'Конкурсные материалы', description: 'Конкурсные материалы команды в личном кабинете.', noindex: true },
+  { path: '/cabinet/messages', title: 'Сообщения', description: 'Переписка команды с Оргкомитетом конкурса.', noindex: true },
   { path: '/cabinet/deadlines', title: 'Дедлайны', description: 'Сроки этапов в личном кабинете команды.', noindex: true },
   { path: '/cabinet/help', title: 'Помощь', description: 'Связь с Оргкомитетом из личного кабинета.', noindex: true },
   { path: '/cabinet/final', title: 'Финал', description: 'Подтверждение участия в финальном этапе.', noindex: true },

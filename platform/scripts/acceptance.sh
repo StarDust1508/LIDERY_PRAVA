@@ -470,6 +470,24 @@ TEAM_STATUS=$(psql_db "SELECT status FROM liders.teams WHERE id=${TEAM_ID}")
 download "выгрузка CSV" /tmp/lp_acc_export.csv 200 -H "$AUTH" "${BASE}/api/admin/applications/export"
 if head -1 /tmp/lp_acc_export.csv | grep -q 'ID заявки'; then ok "CSV содержит заголовки"; else bad "CSV без заголовков"; fi
 
+# ── Переписка «Оргкомитет ↔ команда» (ТЗ 06, п. 2.4; ТЗ 07, п. 2.15) ──────
+step "Переписка «Оргкомитет ↔ команда»"
+expect "администратор отправляет сообщение команде" 201 -H "$AUTH" \
+    -X POST "${BASE}/api/admin/teams/${TEAM_ID}/messages" -H 'Content-Type: application/json' \
+    -d '{"body":"Приёмочное сообщение команде: проверьте комплект материалов первого этапа."}'
+TEAM_SEES=$(curl -s -b /tmp/lp_acc_cookies.txt "${BASE}/api/cabinet/messages" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+items = ((d.get('data') or {}) if isinstance(d, dict) else {}).get('items') or []
+print('ok' if any('Приёмочное сообщение команде' in (row.get('body') or '') and row.get('author_role') == 'admin' for row in items) else 'no')
+" 2>/dev/null || echo error)
+[ "$TEAM_SEES" = "ok" ] && ok "команда видит сообщение Оргкомитета в кабинете" || bad "команда не видит сообщение Оргкомитета: $TEAM_SEES"
+expect "команда отвечает Оргкомитету" 201 -b /tmp/lp_acc_cookies.txt \
+    -X POST "${BASE}/api/cabinet/messages" -H 'Content-Type: application/json' \
+    -d '{"body":"Ответ команды: комплект проверен, замечаний нет."}'
+expect "пустое сообщение отклоняется" 422 -b /tmp/lp_acc_cookies.txt \
+    -X POST "${BASE}/api/cabinet/messages" -H 'Content-Type: application/json' -d '{"body":"   "}'
+
 # ── С4. Оценки и рейтинг ─────────────────────────────────────────────────────
 step "С4. Оценки, расхождение и публикация рейтинга"
 for index in 1 2 3; do

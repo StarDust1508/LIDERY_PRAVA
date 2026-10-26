@@ -145,17 +145,6 @@ export function StageSelectionPage() {
               </p>
             </li>
             <li>
-              <p className="mono-label text-muted">Публикация протокола итогов отборочного этапа</p>
-              <p className="mt-1">
-                {season.protocol_selection_at
-                  ? formatMoscowHuman(season.protocol_selection_at)
-                  : 'После завершения экспертизы'}
-              </p>
-              <p className="mt-1 text-muted">
-                Протокол публикуется на сайте; баллы команды видны в личном кабинете.
-              </p>
-            </li>
-            <li>
               <p className="mono-label text-muted">Подача апелляций</p>
               <p className="mt-1 text-muted">{appealWindow}.</p>
             </li>

@@ -1092,3 +1092,33 @@ export interface AdminTeamCard {
   stage_participation: StageParticipation[];
   rankings: TeamRankingRow[];
 }
+
+/** Автор сообщения в ленте «Оргкомитет ↔ команда». */
+export type TeamMessageAuthorRole = 'admin' | 'team' | 'system';
+
+/**
+ * Сообщение переписки с командой (ТЗ 06, п. 2.4; ТЗ 07, п. 2.15).
+ * `read_by_team_at` и `read_by_admin_at` — независимые отметки прочтения:
+ * у каждой стороны свой счётчик непрочитанного.
+ */
+export interface TeamMessage {
+  id: number;
+  author_role: TeamMessageAuthorRole;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+  read_by_team_at: string | null;
+  read_by_admin_at: string | null;
+}
+
+/** Лента команды в админке: последние 100 сообщений и непрочитанные для админа. */
+export interface AdminTeamMessagesResponse {
+  items: TeamMessage[];
+  unread_for_admin: number;
+}
+
+/** Лента команды в личном кабинете и её счётчик непрочитанного. */
+export interface CabinetMessagesResponse {
+  items: TeamMessage[];
+  unread_for_team: number;
+}

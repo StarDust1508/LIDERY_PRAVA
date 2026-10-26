@@ -27,6 +27,7 @@ import cabinetRouter from './routes/cabinet.js';
 import expertRouter from './routes/expert.js';
 import leadsRouter from './routes/leads.js';
 import mediaRouter from './routes/media.js';
+import { adminMessagesRouter, cabinetMessagesRouter } from './routes/messages.js';
 import publicRouter from './routes/public.js';
 
 // Единственная точка входа API. Фоновых заданий здесь нет: всё, что должно
@@ -101,12 +102,20 @@ app.use('/api', applicationsRouter);
 // Вход в кабинет монтируется ДО cabinetRouter: сам кабинет целиком закрыт
 // requireTeam, а экран входа должен работать без сессии.
 app.use('/api/cabinet', cabinetAccessRouter);
+// Переписка команды с Оргкомитетом: отдельный роутер со своей проверкой сессии
+// (requireTeam внутри). Монтируется до cabinetRouter, чтобы лента не проходила
+// двойную аутентификацию.
+app.use('/api/cabinet', cabinetMessagesRouter);
 app.use('/api/cabinet', cabinetRouter);
 
 // Вход/выход администратора — без requireAdmin; остальные админские маршруты
 // закрыты middleware целиком. Изменяющие запросы автоматически попадают в
 // журнал действий (ТЗ 03, п. 5.6; ТЗ 07, п. 2.16–2.17).
 app.use('/api/admin', authAdminRouter);
+// Переписка с командой — в карточке команды. Читается администратором; запись
+// сообщения не требует отдельной аудит-записи (история переписки сама хранит
+// автора и время).
+app.use('/api/admin', requireAdmin, adminMessagesRouter);
 app.use('/api/admin', requireAdmin, auditAdminMutations, adminRouter);
 // Пользователи админ-панели — только роль `admin` (ТЗ 07, п. 1.3 и 2.17).
 // Монтируется после adminRouter, чтобы не перехватывать его маршруты.
