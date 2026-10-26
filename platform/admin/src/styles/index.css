@@ -51,3 +51,42 @@
     border: 0;
   }
 }
+
+/* ── Красный курсор на всём сайте (просьба заказчика от 26.10.2026) ──────────
+   Стрелка, рука-указатель и текстовый курсор — красные с тёмным контуром.
+   Предусмотрен PNG-фолбэк для браузеров без SVG-курсоров; на сенсорных
+   устройствах остаётся системное поведение. */
+html,
+body {
+  cursor: url('/assets/cursor/arrow.svg') 4 2, url('/assets/cursor/arrow.png') 4 2, auto;
+}
+a,
+button,
+[role='button'],
+summary,
+select,
+label[for],
+input[type='checkbox'],
+input[type='radio'],
+input[type='file'],
+input[type='submit'],
+input[type='button'],
+.cursor-pointer {
+  cursor: url('/assets/cursor/pointer.svg') 9 3, url('/assets/cursor/pointer.png') 9 3, pointer !important;
+}
+textarea,
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='submit']):not([type='button']) {
+  cursor: url('/assets/cursor/text.svg') 16 16, url('/assets/cursor/text.png') 16 16, text !important;
+}
+@media (pointer: coarse) {
+  html,
+  body,
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  .cursor-pointer {
+    cursor: auto !important;
+  }
+}

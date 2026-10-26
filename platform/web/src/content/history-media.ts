@@ -124,7 +124,10 @@ export const HISTORY_MEDIA: YearMedia[] = [
     "year": "2026",
     "text": "Десятый, юбилейный сезон: победитель — команда «КиберЪОко» (ДВЮИ Университета прокуратуры).",
     "photos": [
-      "/assets/history/history-2026.jpg"
+      "/assets/history/2026/history-2026-01.jpg",
+      "/assets/history/2026/history-2026-02.jpg",
+      "/assets/history/2026/history-2026-03.jpg",
+      "/assets/history/2026/history-2026-04.jpg"
     ],
     "video": null,
     "poster": null
