@@ -673,7 +673,7 @@ export function CabinetLayout({
             ) : null}
           </div>
           <img
-            src="/assets/logo-ten-paper-700.png"
+            src="/assets/logo-ten-clear-700.png"
             alt="Юбилейный знак конкурса"
             className="h-12 w-auto sm:h-16"
             width={600}

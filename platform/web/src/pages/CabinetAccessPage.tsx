@@ -99,7 +99,7 @@ export function CabinetAccessPage() {
           «Вход в личный кабинет» справа (правка заказчика от 24.10.2026). */}
       <header className="flex flex-wrap items-center gap-5 border-b border-border pb-6 sm:gap-6">
         <img
-          src="/assets/logo-ten-paper-700.png"
+          src="/assets/logo-ten-clear-700.png"
           alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
           className="h-20 w-auto sm:h-24"
           width={600}

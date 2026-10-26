@@ -218,7 +218,7 @@ export function HomePage() {
             {/* Юбилейная «десятка» — сразу справа от названия, как на макете. */}
             <img
               className="hero-ten-inline"
-              src="/assets/logo-ten-paper-700.png"
+              src="/assets/logo-ten-clear-700.png"
               alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
               width={700}
               height={726}
