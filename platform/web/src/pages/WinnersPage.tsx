@@ -19,7 +19,7 @@ function monogram(teamName: string | null): string {
 const PLACE_TITLES: Record<number, string> = { 1: 'I место', 2: 'II место', 3: 'III место' };
 
 /** Годы, для которых есть кадр в /assets/history (присланы заказчиком 23.10.2026). */
-const ALL_YEARS = [2018, 2021, 2023, 2026];
+const ALL_YEARS = [2017, 2018, 2019, 2021, 2023, 2026];
 
 const YEAR_PHOTOS: Record<number, string> = {
   2018: '/assets/history/history-2018.jpg',
