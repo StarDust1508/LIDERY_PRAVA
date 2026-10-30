@@ -869,7 +869,7 @@ export function ApplyPage() {
 
           {step === 0 ? (
             <SectionCard title="Команда и законотворческая инициатива" description="Сведения по Приложению № 1 к Положению.">
-              <form className="flex flex-col gap-6" onSubmit={createApplication} noValidate>
+              <form className="apply-form flex flex-col gap-6" onSubmit={createApplication} noValidate>
                 {team ? (
                   <Alert tone="info" title="Заявка уже создана">
                     Название команды, направление и город меняются в кабинете, раздел «Команда». Здесь можно

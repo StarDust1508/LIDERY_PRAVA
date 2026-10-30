@@ -3014,3 +3014,226 @@
   text-decoration-color: rgba(255, 255, 255, 0.45);
 }
 .site .story-cta { gap: 2.4rem; }
+
+/* ── Правки заказчика от 30.10.2026 ─────────────────────────────────────── */
+
+/* 1. Белые квадраты вокруг цифр сезона убраны — цифры стоят на фоне секции. */
+.site .stats { gap: clamp(1rem, 2.4vw, 2rem); }
+.site .stats .stat {
+  background: transparent;
+  padding: 0;
+}
+
+/* 2. «Лидеры» в герое — графитовый серо-чёрный. */
+.site .hero h1 .hero-word:first-child { color: #3b3a38; }
+
+/* 3. Рукописная подпись под юбилейным знаком. */
+.site .hero-ten-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+.site .hero-ten-caption {
+  font-family: 'Caveat', 'Snell Roundhand', cursive;
+  font-size: clamp(1.1rem, 1.6vw, 1.7rem);
+  line-height: 1;
+  color: var(--red);
+  white-space: nowrap;
+  transform: rotate(-4deg);
+}
+
+/* 4. Манифест: слоган с классическим знаком внутри строки. */
+.site .manifesto-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.12em 0.28em;
+  line-height: 1.05;
+}
+.site .manifesto-mark {
+  width: clamp(44px, 5.4vw, 96px);
+  height: auto;
+  align-self: center;
+  margin-inline: 0.1em;
+}
+
+/* 5. Плашка «Приложения» в шапке — слева от «О конкурсе». */
+.site .topbar-links a.is-plaque {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.76rem;
+}
+.site .topbar-links a.is-plaque:hover { border-color: var(--ink); }
+
+/* 6. Партнёры — одной строкой. */
+.site .partners-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1100px) {
+  .site .partners-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .site .partners-grid { grid-template-columns: 1fr; }
+}
+
+/* 7. Финальный призыв: знак справа заполняет пустое место. */
+.site .cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1.5rem, 4vw, 3rem);
+}
+.site .cta-mark {
+  width: clamp(96px, 12vw, 190px);
+  height: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .site .cta-mark { display: none; }
+}
+
+/* 8. Медиалента: фото слева (листаются), видео справа; масштаб фото меньше. */
+.site .timeline-media {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: clamp(0.9rem, 2vw, 1.6rem);
+  align-items: start;
+}
+.site .timeline-photos { display: flex; flex-direction: column; gap: 0.6rem; }
+.site .timeline-photo-frame { position: relative; background: var(--sand); }
+.site .timeline-photo-frame .timeline-photo { display: block; }
+.site .timeline-photo-frame img {
+  width: 100%;
+  height: auto;
+  max-height: min(46vh, 420px);
+  object-fit: contain;
+  background: var(--sand);
+}
+.site .timeline-photo-frame .history-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; }
+.site .timeline-photo-frame .history-arrow.is-prev { left: 0.6rem; }
+.site .timeline-photo-frame .history-arrow.is-next { right: 0.6rem; }
+.site .timeline-video { background: #14120f; }
+.site .timeline-video video {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #14120f;
+}
+.site .timeline-video-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 220px;
+  padding: 1rem;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.site .timeline-video-empty .mono { color: rgba(255, 255, 255, 0.7); font-size: 0.72rem; }
+.site .timeline-video-empty p { font-size: 0.85rem; color: rgba(255, 255, 255, 0.85); }
+@media (max-width: 900px) {
+  .site .timeline-media { grid-template-columns: 1fr; }
+  .site .timeline-photo-frame img { max-height: 320px; }
+}
+
+/* 9. Мастер подачи заявок: поля не растягиваются до края страницы. */
+.site .apply-form input:not([type='checkbox']):not([type='radio']),
+.site .apply-form select,
+.site .apply-form textarea {
+  max-width: 560px;
+}
+.site .apply-form textarea { width: 100%; }
+
+/* Герой: кадр года компактнее, чтобы блок не занимал весь экран. */
+.site .hero-photo-band .duo img {
+  width: 100%;
+  height: auto;
+  max-height: clamp(170px, 24vh, 260px);
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Цифры сезона: плюс не переносится, цифры выровнены по базовой линии. */
+.site .stats {
+  background: transparent;
+  align-items: start;
+}
+.site .stats .stat { background: transparent; padding: 0; }
+.site .stat .num {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  white-space: nowrap;
+  font-size: clamp(2.8rem, 7.2vw, 7.2rem);
+  line-height: 0.9;
+}
+.site .stat .num > span:last-child:not(:only-child) {
+  margin-left: 0.02em;
+  font-size: 0.62em;
+  align-self: flex-start;
+  line-height: 1;
+}
+.site .stat .lbl { margin-top: 0.5rem; }
+
+/* Медиалента: фото и ролик одной высоты — блок выглядит собранным. */
+.site .timeline-photo-frame {
+  height: clamp(240px, 34vh, 360px);
+}
+.site .timeline-photo-frame img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+.site .timeline-video video {
+  height: clamp(240px, 34vh, 360px);
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+.site .timeline-video-empty { min-height: clamp(240px, 34vh, 360px); }
+
+/* Мастер подачи заявок живёт вне .site: поля не растягиваются до края. */
+.apply-form { max-width: 1080px; }
+.apply-form input:not([type='checkbox']):not([type='radio']),
+.apply-form select,
+.apply-form textarea {
+  max-width: 560px;
+}
+.apply-form textarea { width: 100%; max-width: 760px; }
+
+/* Медиалента: подписи под блоком, а не поверх фотографии. */
+.site .history-meta {
+  position: static;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1.5rem;
+}
+.site .timeline-text { margin-top: 0.5rem; }
+.site .history-dots { display: none; }
+
+/* Кадр ленты: изображение строго внутри рамки, подписи ниже не перекрываются. */
+.site .timeline-photo-frame {
+  position: relative;
+  overflow: hidden;
+  height: clamp(240px, 34vh, 360px);
+}
+.site .timeline-photo-frame .timeline-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.site .timeline-photo-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}

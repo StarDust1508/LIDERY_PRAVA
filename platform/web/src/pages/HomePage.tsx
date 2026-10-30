@@ -33,30 +33,30 @@ import { ORGANIZATION_JSON_LD, useSeo } from '@/lib/seo';
 const STAGES = [
   {
     title: 'Отборочный этап',
-    text: 'Дистанционно: экспертиза законотворческих инициатив Конкурсной комиссией. Текст законопроекта и пояснительная записка от каждой команды.',
+    text: 'Дистанционно: экспертиза законотворческих инициатив Конкурсной комиссией. Текст законопроекта и пояснительная записка от каждой команды',
   },
   {
     title: 'Первый этап',
-    text: 'Дистанционно: онлайн-предзащита инициатив перед Конкурсной комиссией и экспертами, видеопрезентации инициатив от команд и оценка материалов этапа.',
+    text: 'Дистанционно: онлайн-предзащита инициатив перед Конкурсной комиссией и экспертами, видеопрезентации инициатив от команд и оценка материалов этапа',
   },
   {
     title: 'Второй (финальный) этап',
-    text: 'Гранд-финал очно в Москве (Садовая-Спасская, 21/1): ответы на вопросы членов жюри, групповые выступления, дебаты.',
+    text: 'Гранд-финал очно в Москве (Садовая-Спасская, 21/1): ответы на вопросы членов жюри, групповые выступления, дебаты',
   },
 ];
 
 const BENEFITS = [
   {
     title: 'Наставничество',
-    text: 'Работа с экспертами: ведущие специалисты в области законотворчества, преподаватели и представители органов власти.',
+    text: 'Работа с экспертами: ведущие специалисты в области законотворчества, преподаватели и представители органов власти',
   },
   {
     title: 'Публикация инициатив',
-    text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и попадают в архив.',
+    text: 'Лучшие законопроекты направляются субъектам права законодательной инициативы и попадают в архив',
   },
   {
     title: 'Публичность',
-    text: 'Защита инициативы перед экспертным сообществом и освещение в сообществе конкурса.',
+    text: 'Защита инициативы перед экспертным сообществом и освещение в сообществе конкурса',
   },
   {
     title: 'Нетворкинг',
@@ -216,13 +216,16 @@ export function HomePage() {
               </span>
             </h1>
             {/* Юбилейная «десятка» — сразу справа от названия, как на макете. */}
-            <img
-              className="hero-ten-inline"
-              src="/assets/logo-ten-clear-700.png"
-              alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
-              width={700}
-              height={726}
-            />
+            <span className="hero-ten-wrap">
+              <img
+                className="hero-ten-inline"
+                src="/assets/logo-ten-clear-700.png"
+                alt="Юбилейный знак: 10 сезонов конкурса «Лидеры права»"
+                width={700}
+                height={726}
+              />
+              <span className="hero-ten-caption">юбилейный сезон</span>
+            </span>
           </div>
 
           <p className="hero-support">
@@ -243,11 +246,11 @@ export function HomePage() {
           <div className="hero-copy">
             <p className="hero-statement">
               Законы не высечены в камне. Привнеси свежие идеи в законодательство и покажи, как молодёжь способна
-              развивать правовую экосистему нашей страны.
+              развивать правовую экосистему нашей страны
             </p>
             <p className="hero-pmuf">
               Победители и финалисты представляют <b>свои</b> инициативы на Петербургском международном
-              юридическом форуме (ПМЮФ).
+              юридическом форуме (ПМЮФ)
             </p>
             <div className="hero-actions">
               <Link to="/apply" className="btn btn-solid mono">
@@ -308,8 +311,16 @@ export function HomePage() {
         <Arc className="arc" />
         <div className="wrap">
           <div className="sec-label mono">(О конкурсе)</div>
-          <p className="reveal">
-            Право <span className="red">начинается</span> с тех, кто <span className="mute">не боится</span> взять слово.
+          <p className="reveal manifesto-line">
+            Лидеры права по праву в
+            <img
+              className="manifesto-mark"
+              src="/assets/logo-classic.png"
+              alt="Лидеры права"
+              width={512}
+              height={512}
+            />
+            праве первые
           </p>
         </div>
       </section>
@@ -325,10 +336,8 @@ export function HomePage() {
             </div>
             <div className="stat">
               <div className="num">
-                <span className="red">
-                  <CountUp value="1200" />
-                  <span>+</span>
-                </span>
+                <span className="red"><CountUp value="1200" /></span>
+                <span>+</span>
               </div>
               <div className="lbl mono">Участников за все годы</div>
             </div>
@@ -353,7 +362,7 @@ export function HomePage() {
           <div className="sec-label mono">(История проекта / по годам)</div>
           {/* Медиалента: год — кнопка, внутри года сначала видео, затем фото
               со стрелками. Пустые годы честно показывают, что кадры в архиве. */}
-          <HistoryMedia items={HISTORY_MEDIA} initialYear="2026" />
+          <HistoryMedia items={HISTORY_MEDIA} initialYear="2025" />
           <div className="story-cta reveal">
             <Link to="/winners" className="story-link mono">
               Победители прошлых сезонов
@@ -474,7 +483,7 @@ export function HomePage() {
               </h2>
               <p>
                 Заявка заполняется на сайте по шагам: команда и инициатива, участники, наставники, конкурсные
-                материалы и согласия. Черновик сохраняется — заполнение можно прервать и продолжить.
+                материалы и согласия. Черновик сохраняется — заполнение можно прервать и продолжить
               </p>
               <span className="badge mono">{deadlineLabel}</span>
             </div>
@@ -553,14 +562,24 @@ export function HomePage() {
       <section className="cta" id="cta">
         <div className="wrap">
           <div className="sec-label mono">(Подать заявку)</div>
-          <Link to="/apply" className="cta-big reveal">
-            Стать
-            <br />
-            лидером
-            <span className="cta-icon" aria-hidden="true">
-              <ArrowUpRight size={34} />
-            </span>
-          </Link>
+          <div className="cta-row">
+            <Link to="/apply" className="cta-big reveal">
+              Стать
+              <br />
+              лидером
+              <span className="cta-icon" aria-hidden="true">
+                <ArrowUpRight size={34} />
+              </span>
+            </Link>
+            <img
+              className="cta-mark"
+              src="/assets/logo-classic-white.png"
+              alt="Знак конкурса «Лидеры права»"
+              width={512}
+              height={512}
+              loading="lazy"
+            />
+          </div>
         </div>
       </section>
     </>

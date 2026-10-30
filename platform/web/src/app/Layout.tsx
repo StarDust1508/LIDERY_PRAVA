@@ -23,7 +23,8 @@ import { useSeason } from '@/lib/season';
 //   • кнопка подачи заявки отражает состояние приёма из активного сезона.
 
 /** Ключевые разделы, которые остаются в верхней полосе. */
-const TOP_LINKS: readonly { title: string; path: string }[] = [
+const TOP_LINKS: readonly { title: string; path: string; plaque?: boolean }[] = [
+  { title: 'Приложения', path: '/documents', plaque: true },
   { title: 'О конкурсе', path: '/about' },
   { title: 'Этапы', path: '/stages' },
   { title: 'Участнику', path: '/participants' },
@@ -101,7 +102,7 @@ export function Layout() {
                 <NavLink
                   key={link.path}
                   to={link.path}
-                  className={({ isActive }) => (isActive ? 'is-active' : undefined)}
+                  className={({ isActive }) => [link.plaque ? 'is-plaque' : null, isActive ? 'is-active' : null].filter(Boolean).join(' ') || undefined}
                 >
                   {link.title}
                 </NavLink>
